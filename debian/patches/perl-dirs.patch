@@ -1,0 +1,27 @@
+Author: Ervin Hegedus <airween@gmail.com>
+Description: use vendor directories in perl build system
+Origin: vendor
+Forwarded: no
+Last-Update: 2018-06-06
+
+--- a/bindings/Makefile.am
++++ b/bindings/Makefile.am
+@@ -49,7 +49,8 @@ Hamlib-pl.mk: $(srcdir)/Makefile.PL
+ 			CC="$(CC)"  \
+ 			OBJECT="hamlibperl_wrap.o" \
+ 			VERSION="$(PACKAGE_VERSION)" \
+-			LIBS="-L$(top_builddir)/src/.libs -lhamlib"
++			LIBS="-L$(top_builddir)/src/.libs -lhamlib" \
++			INSTALLDIRS="vendor"
+ 	$(AM_V_at)sed -e 's/^LD_RUN_PATH.*/LD_RUN_PATH =/' Hamlib-pl.mk > Hamlib-pl-norpath.mk
+ 	$(AM_V_at)mv Hamlib-pl-norpath.mk Hamlib-pl.mk
+ 
+@@ -70,7 +71,7 @@ distcheck-perl: Hamlib-pl.mk
+ 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -f Hamlib-pl.mk distcheck
+ 
+ install-perl: Hamlib-pl.mk
+-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -f Hamlib-pl.mk install_site
++	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -f Hamlib-pl.mk install
+ 
+ ## ExtUtils::MakeMaker says uninstall is deprecated and won't remove the files
+ ## anyway, so we'll have to figure out another way to remove the installed files.

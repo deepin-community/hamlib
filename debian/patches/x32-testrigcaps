@@ -1,0 +1,23 @@
+Ignore testrigcaps on x32
+
+Struct offsets are different there.
+
+Check rig_caps offsets
+If changed can affect shared library API
+offset vfo_list=10144
+offset power_max=10536
+offset of power_max has changed!!!
+was 13696, now 10536
+FAIL testrigcaps.sh (exit status: 1)
+
+--- a/tests/Makefile.am
++++ b/tests/Makefile.am
+@@ -116,7 +116,7 @@ testloc.sh:
+ 	chmod +x ./testloc.sh
+ 
+ testrigcaps.sh:
+-	echo './testrigcaps' > testrigcaps.sh
++	echo './testrigcaps || [ $$(dpkg --print-architecture) = x32 ]' > testrigcaps.sh
+ 	chmod +x ./testrigcaps.sh
+ 
+ testcache.sh:

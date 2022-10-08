@@ -1,0 +1,11 @@
+debian/tmp/usr/include/hamlib/amplifier.h
+debian/tmp/usr/include/hamlib/amplist.h
+debian/tmp/usr/include/hamlib/rig.h
+debian/tmp/usr/include/hamlib/rig_dll.h
+debian/tmp/usr/include/hamlib/riglist.h
+debian/tmp/usr/include/hamlib/rotator.h
+debian/tmp/usr/include/hamlib/rotlist.h
+debian/tmp/usr/lib/*/libhamlib.a
+debian/tmp/usr/lib/*/libhamlib.so
+debian/tmp/usr/lib/*/pkgconfig/hamlib.pc
+debian/tmp/usr/share/aclocal/hamlib.m4

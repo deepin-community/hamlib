@@ -1,0 +1,5 @@
+debian/tmp/usr/include/hamlib/ampclass.h
+debian/tmp/usr/include/hamlib/rigclass.h
+debian/tmp/usr/include/hamlib/rotclass.h
+debian/tmp/usr/lib/*/libhamlib++.a
+debian/tmp/usr/lib/*/libhamlib++.so

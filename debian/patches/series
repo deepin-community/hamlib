@@ -1,0 +1,8 @@
+Remove-datetime-from-footer.patch
+footer-no-external-logo
+perl-dirs.patch
+perltest-no-version
+perl-buildflags
+filepathlen
+x32-testrigcaps
+ic7610-sendmorse

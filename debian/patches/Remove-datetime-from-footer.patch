@@ -1,0 +1,15 @@
+Description: Remove $datetime to make build reproducible.
+Author: Colin Tuckley <colint@debian.org>
+Last-Update: 2017-07-02
+
+--- a/doc/footer.html
++++ b/doc/footer.html
+@@ -18,7 +18,7 @@
+ <!--END !GENERATE_TREEVIEW-->
+ <div id="hamlib" class="footer" >
+     <p class="alignleft">
+-        Hamlib documentation for version $projectnumber&mdash;$datetime<br />
++        Hamlib documentation for version $projectnumber<br />
+         Project page: <a href="http://www.hamlib.org">http://www.hamlib.org</a><br />
+     </p>
+     <p class="alignright">

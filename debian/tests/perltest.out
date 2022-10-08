@@ -1,0 +1,24 @@
+get_conf:		path = "/dev/Rig", retry = 50
+freq:			14266000
+get_mode:		FM
+width:			15000
+get_vfo:		Main
+Backend copyright:	LGPL
+Model:			Dummy
+Manufacturer:		Hamlib
+Backend version:	20210705.0
+get_info:		Nothing much (dummy)
+VOX delay:		0
+VOX delay:		5
+get_channel status:	0 = Command completed successfully
+VFO:			VFOA, 14266000
+Attenuators:		10 20 30 0 0 0 0 0
+
+Sending Morse, '73'
+
+Some static functions:
+Loc1:		IN98XC ->   -0.0417,   48.1042-> IN98XC
+Loc1:		DM33DX -> -113.7083,   33.9792-> DM33DX
+Distance:	8765.814 km, azimuth 309.00, long path: 31266.186 km
+Longitude:	  -0.0417,    0°  2' 29" W	recoded:   -0.0414
+Latitude:	  48.1042,   48°  6' 15" N	recoded:   48.1042

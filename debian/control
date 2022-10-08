@@ -1,0 +1,312 @@
+Source: hamlib
+Section: hamradio
+Priority: optional
+Maintainer: Debian Hamradio Maintainers <debian-hams@lists.debian.org>
+Uploaders:
+ Ervin Hegedus <airween@gmail.com>,
+ Christoph Berg <myon@debian.org>,
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-lua,
+ dh-python,
+ dpkg-dev (>= 1.16.0),
+ libgd-dev,
+ libltdl3-dev,
+ libperl-dev,
+ libusb-1.0-0-dev [linux-any hurd-any],
+ pkg-config,
+ python3-all-dev,
+ source-highlight,
+ swig (>= 3.0.12),
+ tcl-dev,
+ texinfo,
+ zlib1g-dev,
+Build-Depends-Indep:
+ doxygen,
+ graphviz,
+Standards-Version: 4.5.0
+Homepage: https://sourceforge.net/projects/hamlib/
+Vcs-Browser: https://salsa.debian.org/debian-hamradio-team/hamlib
+Vcs-Git: https://salsa.debian.org/debian-hamradio-team/hamlib.git
+Rules-Requires-Root: no
+
+Package: libhamlib4
+Architecture: any
+Section: libs
+Multi-Arch: same
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Breaks:
+ wsjtx (<< 2.4.0~),
+ libhamlib-utils (<< 4.1),
+Description: Run-time library to control radio transceivers and receivers
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides the C run-time form of the library. If you wish to
+ develop software using this library you need the 'libhamlib-dev' package.
+
+Package: libhamlib++4
+Architecture: any
+Section: libs
+Multi-Arch: same
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: Run-time C++ library to control radio transceivers and receivers
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides the C++ run-time form of the library. If you wish to
+ develop software using this library you need the 'libhamlib++-dev' package.
+
+Package: libhamlib-dev
+Architecture: any
+Section: libdevel
+Multi-Arch: same
+Depends:
+ libc6-dev,
+ libhamlib4 (= ${binary:Version}),
+ libusb-1.0-0-dev [linux-any hurd-any],
+ ${misc:Depends},
+Description: Development library to control radio transceivers and receivers
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides the development library with both C bindings.
+ If you wish to run applications developed using this library you'll need the
+ 'libhamlib4' package.
+
+Package: libhamlib++-dev
+Architecture: any
+Section: libdevel
+Multi-Arch: same
+Depends:
+ libc6-dev,
+ libhamlib++4 (= ${binary:Version}),
+ libhamlib-dev (= ${binary:Version}),
+ libhamlib4 (= ${binary:Version}),
+ ${misc:Depends},
+Description: Development C++ library to control radio transceivers and receivers
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides the development library with C++ bindings.
+ If you wish to run applications developed using this library you'll need the
+ 'libhamlib++4' package.
+
+Package: libhamlib-perl
+Architecture: any
+Section: perl
+Multi-Arch: same
+Depends:
+ ${misc:Depends},
+ ${perl:Depends},
+ ${shlibs:Depends},
+Provides:
+ libhamlib2-perl,
+Replaces:
+ libhamlib2-perl (<< 4.0),
+Breaks:
+ libhamlib2-perl (<< 4.0),
+Description: Run-time perl library to control radio transceivers and receivers
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides the perl bindings of the library.
+
+Package: libhamlib2-perl
+Architecture: all
+Section: oldlibs
+Depends:
+ libhamlib-perl,
+ ${misc:Depends},
+Description: Transitional package depending on libhamlib-perl
+ The libhamlib2-perl package was renamed to libhamlib-perl; this package can
+ safely be removed if nothing depends on it.
+
+Package: tcl-hamlib
+Architecture: any
+Section: interpreters
+Multi-Arch: no
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Provides:
+ libhamlib2-tcl,
+Replaces:
+ libhamlib2-tcl (<< 4.0),
+Breaks:
+ libhamlib2-tcl (<< 4.0),
+Description: Run-time Tcl library to control radio transceivers and receivers
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides the Tcl bindings of the library.
+
+Package: libhamlib2-tcl
+Architecture: all
+Section: oldlibs
+Depends:
+ tcl-hamlib,
+ ${misc:Depends},
+Description: Transitional package depending on tcl-hamlib
+ The libhamlib2-tcl package was renamed to tcl-hamlib; this package can safely
+ be removed.
+
+Package: python3-hamlib
+Architecture: any
+Section: python
+Multi-Arch: no
+Depends:
+ ${misc:Depends},
+ ${python3:Depends},
+ ${shlibs:Depends},
+Provides:
+ python3-libhamlib2,
+ ${python3:Provides},
+Replaces:
+ python3-libhamlib2 (<< 4.0),
+Breaks:
+ python3-libhamlib2 (<< 4.0),
+Description: Run-time Python3 library to control radio transceivers and receivers
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides the Python3 bindings of the library.
+
+Package: python3-libhamlib2
+Architecture: any
+Section: oldlibs
+Depends:
+ python3-hamlib,
+ ${misc:Depends},
+Description: Transitional package depending on python3-hamlib
+ The python3-libhamlib2 package was renamed to python3-hamlib; this package can
+ safely be removed.
+
+Package: libhamlib-utils
+Architecture: any
+Multi-Arch: no
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ libhamlib4 (= ${binary:Version}),
+Description: Utilities to support the hamlib radio control library
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides command-line utilities to test the hamlib library and
+ to control transceivers if you're short of anything more sophisticated:
+ ampctl ampctld rigctl rigctlcom rigctld rigmem rigsmtr rigswr rotctl rotctld
+
+Package: libhamlib-doc
+Section: doc
+Architecture: all
+Multi-Arch: foreign
+Depends:
+ ${misc:Depends},
+Suggests:
+ www-browser,
+Description: Documentation for the hamlib radio control library
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides the developers documentation for the API.
+
+Package: lua-hamlib
+Architecture: any
+Section: interpreters
+Multi-Arch: same
+Depends:
+ ${lua:Depends},
+ ${misc:Depends},
+ ${shlibs:Depends},
+Provides:
+ lua-hamlib2,
+ ${lua:Provides},
+Replaces:
+ lua-hamlib2 (<< 4.0),
+Breaks:
+ lua-hamlib2 (<< 4.0),
+XB-Lua-Version: ${lua:Versions}
+Description: Run-time Lua library to control radio transceivers and receivers
+ Most recent amateur radio transceivers allow external control of their
+ functions through a computer interface. Unfortunately, control commands are
+ not always consistent across a manufacturer's product line and each
+ manufacturer's product line differs greatly from its competitors.
+ .
+ This library addresses that issue by providing a standardised programming
+ interface that applications can talk to and translating that into the
+ appropriate commands required by the radio in use.
+ .
+ This package provides the Lua bindings of the library.
+
+Package: lua-hamlib2
+Architecture: all
+Section: oldlibs
+Depends:
+ lua-hamlib,
+ ${misc:Depends},
+Description: Transitional package depending on lua-hamlib
+ The lua-hamlib2 package was renamed to lua-hamlib; this package can safely be
+ removed.

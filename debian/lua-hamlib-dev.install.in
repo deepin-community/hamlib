@@ -1,0 +1,2 @@
+include @@TEMPLATE@@/dev.install.in
+

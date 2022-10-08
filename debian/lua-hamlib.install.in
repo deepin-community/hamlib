@@ -1,0 +1,3 @@
+include @@TEMPLATE@@/lib.install.in
+bindings/luatest.lua usr/share/doc/lua-hamlib
+

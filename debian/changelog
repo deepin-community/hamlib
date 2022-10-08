@@ -1,0 +1,860 @@
+hamlib (4.3.1-1) unstable; urgency=medium
+
+  * New upstream version 4.3.1.
+  * include/hamlib/rig.h: Restore FILPATHLEN and MAXDBLSTSIZ until all rdeps
+    needing it have been fixed.
+  * rigs/icom/ic7610.c: Restore send_morse lost upstream.
+  * doc/footer.html: Remove external logo for privacy.
+  * Add B-D source-highlight.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 12 Oct 2021 22:59:35 +0200
+
+hamlib (4.1-4) unstable; urgency=medium
+
+  * Ignore testrigcaps.sh failure on x32.
+  * perltest: Paper over precision difference on i386.
+
+ -- Christoph Berg <myon@debian.org>  Thu, 09 Sep 2021 16:09:10 +0200
+
+hamlib (4.1-3) unstable; urgency=medium
+
+  * Add Breaks to module packages renamed in 4.0-1. (Closes: #988290)
+  * Require strict version match between libhamlib-utils and libhamlib4
+    to avoid protocol error between 4.0 and 4.1.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 07 Sep 2021 21:29:46 +0200
+
+hamlib (4.1-2) experimental; urgency=medium
+
+  * debian/tcl-hamlib.install: Don't hard-code tcl version. (Closes: #984710)
+
+ -- Christoph Berg <myon@debian.org>  Sun, 07 Mar 2021 19:24:57 +0100
+
+hamlib (4.1-1) experimental; urgency=medium
+
+  * New upstream version 4.1.
+  * Add Breaks on wsjtx (<< 2.4.0~) since the API changed slightly.
+
+ -- Christoph Berg <myon@debian.org>  Wed, 03 Feb 2021 23:49:03 +0100
+
+hamlib (4.0-7) unstable; urgency=medium
+
+  * Team upload.
+  * Allow rig_load_all_backends to be called more than once.
+    (Closes: #980472)
+
+ -- tony mancill <tmancill@debian.org>  Thu, 15 Jul 2021 21:31:14 -0700
+
+hamlib (4.0-6) unstable; urgency=medium
+
+  * Paper over a minor precision difference in dec2dms on i386.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 11 May 2021 19:03:12 +0200
+
+hamlib (4.0-5) unstable; urgency=medium
+
+  * Add Breaks to module packages renamed in 4.0-1. (Closes: #988290)
+
+ -- Christoph Berg <myon@debian.org>  Sun, 09 May 2021 22:00:33 +0200
+
+hamlib (4.0-4) unstable; urgency=medium
+
+  * Pull patches from upstream to fix issues with Icom (IC706 in particular)
+    and rigctld.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 12 Jan 2021 10:52:31 +0100
+
+hamlib (4.0-3) unstable; urgency=medium
+
+  * libhamlib*-dev: Install amp* header files.
+  * DH 13; remove unneeded files from debian/tmp spotted by dh_missing.
+  * Require SWIG >= 3.0.12.
+  * Retire Colin, Enrico, and Kamal from Uploaders, thanks for your work!
+
+ -- Christoph Berg <myon@debian.org>  Mon, 04 Jan 2021 20:39:18 +0100
+
+hamlib (4.0-2) experimental; urgency=medium
+
+  * Remove debian/lua-hamlib*.install on clean so they get rebuilt properly.
+  * Drop debian/libhamlib++4.symbols, varies between architectures.
+
+ -- Christoph Berg <myon@debian.org>  Sat, 02 Jan 2021 12:48:42 +0100
+
+hamlib (4.0-1) experimental; urgency=low
+
+  [ Debian Janitor ]
+  * Fix day-of-week for changelog entries 1.1.2-3, 1.1.2-1.
+
+  [ Christoph Berg ]
+  * New upstream version 4.0.
+  * Bump SONAME to 4: libhamlib2 -> libhamlib4, libhamlib2++c2 ->
+    libhamlib++4. Since we are renaming anyway, fix module names:
+    libhamlib2-perl -> libhamlib-perl, python3-libhamlib2 -> python3-hamlib,
+    libhamlib2-tcl -> tcl-hamlib, lua-hamlib2 -> lua-hamlib.
+  * Mention utility names in libhamlib-tools description.
+
+ -- Christoph Berg <myon@debian.org>  Sat, 02 Jan 2021 01:40:32 +0100
+
+hamlib (3.3-10) unstable; urgency=medium
+
+  * Fix python3 test, file isn't compressed anymore with DH 12.
+
+ -- Christoph Berg <myon@debian.org>  Sun, 09 Feb 2020 22:26:55 +0100
+
+hamlib (3.3-9) unstable; urgency=medium
+
+  * Team upload.
+  * Add fix_unaligned_access patch (Closes: #950950)
+    Thank you to John Paul Adrian Glaubitz for the report and patch.
+  * Bump Standards-Version to 4.5.0
+  * Set "Rules-Requires-Root: no" in debian/control
+  * Specify debhelper compat 12 via debhelper-compat dependency
+
+ -- tony mancill <tmancill@debian.org>  Sat, 08 Feb 2020 10:24:46 -0800
+
+hamlib (3.3-8) unstable; urgency=medium
+
+  * rules: Override LBLT to disable silent lua builds until #889883 is fixed.
+  * Correctly import *FLAGS in perl bindings.
+
+ -- Christoph Berg <myon@debian.org>  Wed, 01 Jan 2020 15:22:09 +0100
+
+hamlib (3.3-7) unstable; urgency=medium
+
+  * debian/lua5.*.dh-lua.conf: Use `py3versions -dv` to get the python
+    version. Thanks to Gianfranco Costamagna for spotting!
+
+ -- Christoph Berg <myon@debian.org>  Thu, 24 Oct 2019 09:42:43 +0200
+
+hamlib (3.3-6) unstable; urgency=medium
+
+  * Remove python2 library. (Closes: #936692)
+  * debian/lua5.2.dh-lua.conf: Grab objects from build-3.7 instead of
+    build-2.7.
+  * Add debian/gitlab-ci.yml.
+
+ -- Christoph Berg <myon@debian.org>  Wed, 04 Sep 2019 13:48:44 +0200
+
+hamlib (3.3-5) unstable; urgency=medium
+
+  * rules: Use $(MAKE) instead of make, add set -x to loops, and tell dh-lua
+    not to hide make rules.
+  * Explicitly name tests in debian/tests/control. Thanks Paul Gevers!
+  * Test lua5.2 and 5.3 separately.
+
+ -- Christoph Berg <myon@debian.org>  Fri, 18 Jan 2019 13:34:06 +0100
+
+hamlib (3.3-4) unstable; urgency=medium
+
+  * Support XCHG on IC706 models. Patch by Michael Black, thanks!
+  * Restrict libusb-1.0-0-dev dependencies to linux-any hurd-any.
+  * Disable Multi-Arch for libhamlib2-tcl because of the arch-specific
+    /usr/share/doc/libhamlib2-tcl/examples/tcltest.tcl file.
+  * Add testsuite for the interpreter bindings.
+
+ -- Christoph Berg <myon@debian.org>  Sat, 12 Jan 2019 17:24:35 +0100
+
+hamlib (3.3-3) unstable; urgency=medium
+
+  * dh_makeshlibs: ignore disappearing symbols on non-Linux architectures.
+
+ -- Christoph Berg <myon@debian.org>  Sat, 22 Dec 2018 13:09:59 +0100
+
+hamlib (3.3-2) unstable; urgency=medium
+
+  * Remove Provides/Conflicts left over from the binary package renames in
+    2006.
+  * Add symbols files for libhamlib2 and libhamlib2++c2.
+  * Disable libusb on kfreebsd so it can be enabled again.
+  * Add myself to Uploaders.
+
+ -- Christoph Berg <myon@debian.org>  Fri, 21 Dec 2018 11:07:48 +0100
+
+hamlib (3.3-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix and refresh Debian patches.
+  * Add gpg check to debian/watch.
+  * Bump Standards Version 4.2.1
+  * Fix upstream snprintf missing format.
+  * Fix multiarch support where missing.
+  * Removed kfreebsd architecture.
+
+ -- Enrico Rossi <e.rossi@tecnobrain.com>  Fri, 14 Dec 2018 11:20:21 +0100
+
+hamlib (3.2-3) unstable; urgency=low
+
+  * Bump debian/watch file to version 4.
+  * Fix FTBFS uncatched syntax error. (Closes: #908294)
+
+ -- Enrico Rossi <e.rossi@tecnobrain.com>  Sat, 08 Sep 2018 14:35:53 +0200
+
+hamlib (3.2-2) unstable; urgency=low
+
+  * Fix Build-dep-Indep doc which cause FTBFS on 3.2-1.
+
+ -- Enrico Rossi <e.rossi@tecnobrain.com>  Tue, 28 Aug 2018 16:59:48 +0200
+
+hamlib (3.2-1) unstable; urgency=low
+
+  [ Ervin Hegedus ]
+  * New upstream release
+  * Changed perl-dirs.patch for new strucure of Makefile.in|am
+  * Aligned rules to new tcltest build
+  * Bump Standards Version 4.1.4
+  * Added missing examples from *binding packages
+  * Changed minimal Python version to 2.7
+  * Added DEB_BUILD_MAINT_OPTIONS to rules with hardening=+all
+  * Extended spelling-fixes.patch with rs/gp2000.c
+  * Bump debhelper compat to 11
+  * Changed copyright URL from http:// to https:// in d/copyright
+  * Removed trailing whitespaces from d/changelog
+
+  [ Enrico Rossi ]
+  * Added python3 bindings and example.
+  * Fix missing Vcs-* field.
+  * Add lintian override for embedded doxygen jquery.
+  * Some fix to keep the upstream source unmodified during
+    re-building and clean.
+  * Lintian fix XS-Python... control field.
+  * Lintian fix udev install files.
+  * Rewrite debian/rules to extensively use dh helper scripts.
+  * enable multiarch support.
+  * clean-up many unused debian/*.dirs and debian/*.install files.
+  * Fix FTBFS on 3.1-8. (Closes: #906775)
+
+ -- Enrico Rossi <e.rossi@tecnobrain.com>  Thu, 23 Aug 2018 15:27:16 +0200
+
+hamlib (3.1-8) unstable; urgency=medium
+
+  * Switch to the default Tcl version from 8.5 since 8.5 is to be
+    removed from Debian. Closes: #888682.
+  * Move the Tcl library from /usr/lib/tcl8.5 to /usr/lib/tcltk/hamlib3.1
+  * Bump Standards Version 4.1.3
+
+ -- Ervin Hegedus <airween@gmail.com>  Sun, 28 Jan 2018 17:05:48 +0000
+
+hamlib (3.1-7) unstable; urgency=medium
+
+  * Team upload
+  * Fix wrong install location for rigclass.h and rotclass.h in
+    package libhamlib++-dev (LP: #1216001)
+  * Bump Standards Version 4.0.0
+
+ -- Ervin Hegedus <airween@gmail.com>  Mon, 31 Jul 2017 13:22:15 +0200
+
+hamlib (3.1-6) unstable; urgency=medium
+
+  * Re-fix missing libhamlib-dev dependency on libusb-1.0-0-dev
+    (fix got lost in 3.1-4) Closes: #867142.
+
+ -- Colin Tuckley <colint@debian.org>  Sat, 22 Jul 2017 10:26:00 +0100
+
+hamlib (3.1-5) unstable; urgency=medium
+
+  * Remove lua .install files from debian/ in clean step.
+    Closes: #869120.
+
+ -- Colin Tuckley <colint@debian.org>  Fri, 21 Jul 2017 17:29:53 +0100
+
+hamlib (3.1-4) unstable; urgency=medium
+
+  * Team upload
+  * Fixed Lua related packages build error on non x86_amd ARCH
+    Closes: #869120.
+
+ -- Ervin Hegedus <airween@gmail.com>  Thu, 20 Jul 2017 21:00:27 +0200
+
+hamlib (3.1-3) unstable; urgency=medium
+
+  * Team upload
+  * Collected all copyrights from upstream
+  * Collected all copyrights from debian/changelog
+
+ -- Ervin Hegedus <airween@gmail.com>  Tue, 11 Jul 2017 14:47:10 +0200
+
+hamlib (3.1-2) unstable; urgency=medium
+
+  [ Ervin Hegedus ]
+  * Team upload
+  * Fixed broken libhamlib2-tcl package
+  * Added libhamlib-lua packages
+
+  [ Colin Tuckley ]
+  * Fix missing libhamlib-dev dependency on libusb-1.0-0-dev
+    Closes: #867142.
+  * Move pytest.py from docs to examples
+
+ -- Ervin Hegedus <airween@gmail.com>  Mon, 03 Jul 2017 12:08:39 +0200
+
+hamlib (3.1-1) unstable; urgency=medium
+
+  * New Upstream Release
+  * libusb 1.0 now supported Closes: #810423.
+  * Bump Standards-version to 3.9.8
+  * Bump debhelper compat to 9
+
+ -- Colin Tuckley <colint@debian.org>  Sun, 02 Jul 2017 16:19:00 +0100
+
+hamlib (3.0.1-1) unstable; urgency=medium
+
+  * New upstream release
+  * Ack the NMU
+  * Bump Standards-version to 3.9.7
+
+ -- Colin Tuckley <colint@debian.org>  Sat, 26 Mar 2016 14:18:50 +0000
+
+hamlib (1.2.15.3-3.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Build using dh-python. Closes: #786284.
+
+ -- Matthias Klose <doko@debian.org>  Tue, 18 Aug 2015 19:06:21 +0200
+
+hamlib (1.2.15.3-3) unstable; urgency=medium
+
+  * Fix Homepage URL
+  * Bump Standards-version to 3.9.6
+  * Don't create empty /usr/lib/perl5 directory (Closes: #757836)
+    patch from gregor herrmann <gregoa@debian.org>
+  * Make builds reproducible by removing $datetime from doc/footer.html
+    patch from Maria Valentina Marin <marivalenm@gmail.com> (Closes: #788344)
+  * Fix Hyphens in man pages
+
+ -- Colin Tuckley <colint@debian.org>  Sat, 13 Jun 2015 10:10:00 +0100
+
+hamlib (1.2.15.3-2) unstable; urgency=medium
+
+  * Fix "hardcodes /usr/lib/perl5":
+    - add a patch to make the perl build system respect vendor dirs
+    - use dynamic perl path from $Config{vendorarch} in debian/rules
+    (Closes: #752475) [ Thanks, gregor herrmann! ]
+  * Replace deprecated udev rules ACL_MANAGE method with uaccess method
+    (Closes: #747036)
+  * Fix missing libhamlib++-dev Depends: on libhamlib2++c2 (Closes: #715084)
+  * Replace deprecated dh_pysupport with dh_python2 in debian/rules
+  * Passed multiarch Tcl location to configure, fixing Ubuntu FTBFS
+    [ Thanks, Daniel T Chen! ]
+  * Use dh-autoreconf to update config.{sub,guess} [ Thanks, William Grant! ]
+  * Bump Standards-version to 3.9.5
+
+ -- Kamal Mostafa <kamal@whence.com>  Tue, 08 Jul 2014 10:43:00 -0700
+
+hamlib (1.2.15.3-1) unstable; urgency=low
+
+  * New upstream release:
+    - Fix configure.ac so that rigctld/rotcld work on Win32 platform
+    - Add NSIS script to build executable installer on Win32 platform
+    - Remove unsupported commands on IC-756 (non-Pro model) from AK6I
+    - Fix set_split in netrigctl.c to properly accept the split value.
+      TNX, N2ADR.
+    - IC-R8500: Add RIG_LEVEL_AF to has_set_level. TNX John, EI7IG
+    - ADAT updates from Frank, DG1SBG, needed for stable operation.
+
+ -- Kamal Mostafa <kamal@whence.com>  Fri, 02 Nov 2012 12:14:43 -0700
+
+hamlib (1.2.15.2-2) unstable; urgency=low
+
+  * Debian:
+    - rules: fix build for older dpkg-buildflags versions
+
+ -- Kamal Mostafa <kamal@whence.com>  Tue, 21 Aug 2012 15:15:14 -0700
+
+hamlib (1.2.15.2-1) unstable; urgency=low
+
+  * New upstream release:
+    - Read eeprom value for digital mode from FT-857
+    - Clean up TS-950 series commands and read mode using IF command
+    - Fix GS-232A/B rotor command terminations
+    - Fix warnings and other issues found by mingw-w64
+    - Allow seamless access to ports higher than COM9 on Windows
+    - Fix ineffective packed attribute on WinRadio
+    - Correct low signal strength S-meter error on AR7030+
+    - Updates to HiQSDR by Jim, N2ADR
+  * Debian:
+    - add debian/patches/fix-ac-python-devel-trashes-CPPFLAGS.patch
+    - enable build hardening flags (but still a few W-dpkg-buildflags-missing)
+
+ -- Kamal Mostafa <kamal@whence.com>  Tue, 21 Aug 2012 13:42:59 -0700
+
+hamlib (1.2.15.1-1) unstable; urgency=low
+
+  * New upstream release:
+    - HD-1780 rotor endpoint limit fix
+    - Quell adat compile warnings
+    - Sort rig/rot list output from rig/rotctl (-l) by model #
+    - TenTec Jupiter (TT538) fixes
+    - Include various backend notes files
+    - Document sorted -l output for <rig|rot>ctl[d]
+    - Updates README.betatester and README.developer
+  * Debian packaging:
+    - bump Standards-Version to 3.9.3
+    - convert debian/copyright to copyright-format 1.0
+  * Note: The previous rev (1.2.15) upstream tarball was accidentally
+      constructed on Debian unstable, but this rev on Debian stable,
+      resulting in many reverts in auto-generated files.
+
+ -- Kamal Mostafa <kamal@whence.com>  Sun, 11 Mar 2012 17:36:03 -0700
+
+hamlib (1.2.15-1) unstable; urgency=low
+
+  * New upstream release:
+    - New models: TT-599 Eagle, IC-RX7, IC-1275, HiQSDR, ADAT ADT-200A,
+      DttSP UDP, TM-D710
+    - New rotator backends: Celestron (telescope mount)
+    - Fixes and features: K3, various other rigs
+    - Update LGPL/GPL header boilerplate
+    - Quell various compiler errors
+    - Add CM108 PTT capability
+  * debian/rules:
+    - binary-arch targets do not build libhamlib-doc package
+    - add targets build-arch, build-indep
+
+ -- Kamal Mostafa <kamal@whence.com>  Fri, 03 Feb 2012 14:07:54 -0800
+
+hamlib (1.2.14-1) unstable; urgency=low
+
+  * New upstream release:
+    - new models: SigFox Transfox, TH-D72A, IC-7410, IC-9100, IC-R9500,
+      KX3, V4L2 API support (untested)
+    - new rotator backends: IF-100 (amsat), TS-7400 (ts7400)
+  * debian/libhamlib2++c2.install: use wildcard for .so version.
+  * debian/copyright: state explicit GPL/LGPL versions.
+
+ -- Kamal Mostafa <kamal@whence.com>  Sun, 31 Jul 2011 10:02:32 -0700
+
+hamlib (1.2.13.1-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Don't ship .la files (Closes: #621247).
+
+ -- Luk Claes <luk@debian.org>  Mon, 13 Jun 2011 14:49:26 +0200
+
+hamlib (1.2.13.1-1) unstable; urgency=low
+
+  * New upstream release
+    - fix K3 antenna selection function
+
+ -- Kamal Mostafa <kamal@whence.com>  Sun, 29 May 2011 09:00:10 -0700
+
+hamlib (1.2.13-1) unstable; urgency=low
+
+  * New upstream release
+    - new backend: prm80
+    - hamlib-* backend libraries moved into /usr/lib/hamlib/
+    - removed bundled libltdl
+  * Clean up libusb config
+  * Add Build-depends: libltdl3-dev pkg-config
+
+ -- Kamal Mostafa <kamal@whence.com>  Sat, 12 Mar 2011 10:55:53 -0800
+
+hamlib (1.2.12-1) unstable; urgency=low
+
+  * New upstream release.
+  * Do not use bundled libltdl (CVE-2009-3736).
+  * Install udev 59-hamlib.rules for embedded USB converters (closes: #595525)
+  * Debian Standards-Version bump to 3.9.1.
+
+ -- Kamal Mostafa <kamal@whence.com>  Sat, 04 Sep 2010 14:39:38 -0700
+
+hamlib (1.2.11-1) unstable; urgency=low
+
+  * New upstream release.
+  * Enable Perl and Python bindings (now off by default upstream).
+  * Do not use bundled libltdl (CVE-2009-3736).
+  * Fix invalid reference to LOCALMODLIBS in macros/ac_python_devel.m4.
+  * Fix python-hamlib2 package install paths.
+  * DM-Upload-Allowed set to grant upload rights to listed Debian Maintainers.
+  * Switch to dpkg-source 3.0 (quilt) format.
+  * Update config.guess, config.sub (Closes: #543465)
+
+ -- Kamal Mostafa <kamal@whence.com>  Wed, 09 Jun 2010 13:54:08 -0700
+
+hamlib (1.2.10-3) unstable; urgency=low
+
+  * Cherry-pick fixes from upstream svn:
+    - Icom PCR100, PCR1000, PCR1500 module [Alessandro Zummo] (LP: #483925)
+    - prevent spurious "consider relinking" warnings [Kamal Mostafa]
+  * Fix some lintian warnings.
+
+ -- Kamal Mostafa <kamal@whence.com>  Wed, 10 Mar 2010 12:13:07 -0800
+
+hamlib (1.2.10-2) unstable; urgency=low
+
+  * Install omitted modules: rs, spid (Closes: #571180, LP: #526813).
+  * Cherry-pick Yaesu FT-767GX frequency fix (Closes: #571175, LP: #526749)
+    - upstream trunk svn revision 2766 [Steve Conklin].
+  * Add package Homepage: http://www.hamlib.org/.
+  * Fix some lintian warnings.
+
+ -- Kamal Mostafa <kamal@whence.com>  Tue, 23 Feb 2010 19:04:51 -0800
+
+hamlib (1.2.10-1) unstable; urgency=low
+
+  * New upstream release.
+  * New maintainer: Kamal Mostafa <kamal@whence.com> (Closes: #556098).
+  * Use system libltdl not old internal copy (Closes: #559814):
+    - Build-depend on libltdl3-dev
+    - configure, Makefile.am, Makefile.in: skip internal libltdl build
+  * Enable hamlib USB support: configure with LIBUSB_LIBS predefined.
+  * Enable hamlib Tcl bindings: configure with --enable-tcl-binding.
+  * Debian Standards-Version bump to 3.8.4.
+  * Python 2.6 transition [Michael Bienia <geser@ubuntu.com>].
+
+ -- Kamal Mostafa <kamal@whence.com>  Tue, 16 Feb 2010 18:56:10 -0800
+
+hamlib (1.2.9-2) unstable; urgency=low
+
+  * Retiring - set the package maintainer to Debian QA Group.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun, 01 Nov 2009 19:30:20 +0000
+
+hamlib (1.2.9-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fix some lintian warnings.
+  * Correct the installation path for libhamlib2-tcl.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Wed, 25 Mar 2009 19:00:54 +0100
+
+hamlib (1.2.8-1) unstable; urgency=low
+
+  * New upstream release. Closes: #263478, #258692.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Mon, 17 Nov 2008 11:21:21 +0100
+
+hamlib (1.2.7.1-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Thu, 08 May 2008 21:34:49 +0200
+
+hamlib (1.2.7-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun, 17 Feb 2008 17:06:36 +0100
+
+hamlib (1.2.6.2-6) unstable; urgency=low
+
+  * Add a ${perl:Depends} to the perl binary module. Closes: #463095.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sat, 09 Feb 2008 21:29:28 +0100
+
+hamlib (1.2.6.2-5) unstable; urgency=low
+
+  * Thanks to Josselin Mouette for sending me the required python
+    fixes patch. Closes: #460111.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun, 20 Jan 2008 19:35:28 +0100
+
+hamlib (1.2.6.2-4.1) UNRELEASED; urgency=low
+
+  * Build the package for all python versions.
+
+ -- Josselin Mouette <joss@debian.org>  Sun, 20 Jan 2008 12:15:59 +0100
+
+hamlib (1.2.6.2-4) unstable; urgency=low
+
+  * Build against tcl8.5-dev. Hopefully this will fix building on hppa.
+  * libhamlib-doc should be arch: all. Thanks Hamish. Closes: #458793.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun, 06 Jan 2008 21:25:53 +0100
+
+hamlib (1.2.6.2-3) unstable; urgency=low
+
+  * Run 'make distclean' instead of 'make clean'.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Thu, 29 Nov 2007 19:46:28 +0100
+
+hamlib (1.2.6.2-2) unstable; urgency=low
+
+  * From Ubuntu hardy: Remove bytecompiled modules from the python-libhamlib2
+    package, in debian/rules: change rm to remove Hamlib.py? instead of
+    only Hamlib.pyc.
+  * Add -ppython-libhamlib2 to dh_pysupport call.
+  * Thanks Cesare Tirabassi <norsetto@ubuntu.com>.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Tue, 27 Nov 2007 20:12:51 +0100
+
+hamlib (1.2.6.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * Make python 2.4 only the minimum version.
+  * Remove "@PYTHON_LDFLAGS@" from bindings/Makefile.am, so we
+    don't link with python. Closes: #445382.
+  * Some lintian fixes.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Mon, 26 Nov 2007 20:58:35 +0100
+
+hamlib (1.2.6.1-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun,  4 Feb 2007 19:44:37 +0100
+
+hamlib (1.2.6-1) unstable; urgency=low
+
+  * New upstream.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Wed, 31 Jan 2007 19:55:12 +0100
+
+hamlib (1.2.5-8) unstable; urgency=high
+
+  * Change pyversions to 2.4.
+  * Install python modules in /usr/share/python-support/python-libhamlib2,
+    so python can find them.
+  * This fixes an RC bug, so set urgency high.
+  * Closes: #406991.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun, 21 Jan 2007 19:22:23 +0100
+
+hamlib (1.2.5-7.1) unstable; urgency=low
+
+  * NMU.
+  * Drop explicit dependency on python2.3.
+
+ -- Matthias Klose <doko@debian.org>  Fri, 27 Oct 2006 02:20:23 +0200
+
+hamlib (1.2.5-7) unstable; urgency=low
+
+  * Update to new python policy
+  * Update standards version 3.7.2
+  * This work by Barry deFreese of Ubuntu, thanks! Closes: #379191.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Tue, 25 Jul 2006 10:16:19 +0200
+
+hamlib (1.2.5-6) unstable; urgency=low
+
+  * Make sure the tcltest.tcl script works.
+  * Remove config.status, libltdl/config.status when cleaning.
+  * Fix a spelling error in the control file. Closes: #363632.
+  * Make sure we don't have -Xtcl when running dpkg-shlibdeps, so the
+    depends line for the tcl package gets created correctly.
+  * TODO.Debian added for future work.
+  * Do not use hamlib4, use libhamlib2. Closes: #364222.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun, 23 Apr 2006 10:10:07 +0200
+
+hamlib (1.2.5-5) unstable; urgency=low
+
+  * Okay, we should be using python instead of python2.3 for build
+    depends.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Fri, 14 Apr 2006 00:46:31 +0200
+
+hamlib (1.2.5-4) unstable; urgency=low
+
+  * Build depend on python2.3 and python2.3-dev.
+  * Use 'python -V 2.3' in debian/rules.
+  * Build-Conflicts python2.4.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Thu, 13 Apr 2006 22:40:06 +0200
+
+hamlib (1.2.5-3) unstable; urgency=low
+
+  * Remove rpath trapdoor from the perl package. Closes: #358166.
+  * libhamlib-dev should depend on libusb-dev. Closes: #358129.
+  * Adjust copyright file so it points both to the GPL and LGPL, copyright
+    the debian work, include a copyright header from the source code and
+    mention both debian developers.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Fri, 31 Mar 2006 20:04:53 +0200
+
+hamlib (1.2.5-2) unstable; urgency=low
+
+  * Co-maintainer added: Terry Dawson.
+  * Provide new packages, which follow the so name.
+  * Correct some of the descriptions, so they point to the correct packages.
+  * Build python package against python2.3 for now, since building against
+    2.4 doesn't seem to work.
+  * Use dh_perl and dh_python when building, so we byte compile at install time.
+  * Install the rigswr binary into the libhamlib-utils package.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun, 19 Mar 2006 09:34:06 +0100
+
+hamlib (1.2.5-1) unstable; urgency=low
+
+  * New upstream release.
+  * Add libusb-dev to the build dependencies.
+  * This package differs from the upstream package, it creates libhamlib.so.2
+    to avoid the need for recompilation for applications that depend on hamlib,
+    should a new hamlib be released. Upstream knows about this and will
+    apply it to future packages.
+  * Python model now compiled for python2.4.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sat,  4 Mar 2006 13:55:30 +0100
+
+hamlib (1.2.4-3) unstable; urgency=low
+
+  * Patch by Petr Salinger to fix FTBFS on GNU/kFreeBSD. Closes: #336029.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Thu, 27 Oct 2005 17:46:51 +0200
+
+hamlib (1.2.4-2) unstable; urgency=low
+
+  * C++ ABI transition. Closes: #335632.
+    - rename hamlib3++ to hammlib3++c2 and conflict/replace hamlib3++.
+    - change debian/rules accordingly.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Wed, 26 Oct 2005 10:29:27 +0200
+
+hamlib (1.2.4-1) unstable; urgency=low
+
+  * New upstream release.
+  * Watch file added.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Mon,  4 Apr 2005 16:46:27 +0200
+
+hamlib (1.2.3-2) unstable; urgency=low
+
+  * Do a correct rebuild, so hamlib3-tcl does not get linked with hamlib2.
+    Closes: #291663. Thanks to Steve Langasek for reporting.
+  * Add a build-conflicts line to the control file, so this does not happen
+    again.
+  * Prevent duplicate entries on the shlibs control file for hamlib.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sat, 22 Jan 2005 11:33:04 +0100
+
+hamlib (1.2.3-1) unstable; urgency=low
+
+  * New upstream.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Thu, 18 Nov 2004 16:55:55 +0100
+
+hamlib (1.2.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * Upstream has added links to the website in the documentation.
+    Closes: #263287.
+  * Add hints to tcltest.tcl for the correct path to the tcl library.
+    Closes: #258693.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sat,  2 Oct 2004 12:53:53 +0200
+
+hamlib (1.2.0-4) unstable; urgency=low
+
+  * Rebuild with correct gcc version. Closes: #254226.
+  * Dan reports an almost empty hamlib.html file in the hamlib-doc package.
+    This is normal behaviour, instead you should be clicking on one of the
+    links at the top of the page, or use index.html. Closes: #254739.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun, 27 Jun 2004 11:06:32 +0200
+
+hamlib (1.2.0-3) unstable; urgency=low
+
+  * Try to accomodate for different perl versions, so 'make install' in the
+    perl package does not fail.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Fri, 28 May 2004 21:52:41 +0200
+
+hamlib (1.2.0-2) unstable; urgency=low
+
+  * Correct references to the hamlib1 package in the control file.
+  * Removed *.files in the debian directory.
+  * Build hamlib++-dev and hamlib2++ packages for C++.
+  * Added swig, libperl-dev, python-dev, tcl8.4-dev to build-depends.
+  * Added perl, python and tcl bindings.
+  * Update standards version to 3.6.1.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Wed, 24 Mar 2004 18:19:26 +0100
+
+hamlib (1.2.0-1) unstable; urgency=low
+
+  * New upstream.
+  * New package: hamlib2 because of API changes.
+  * 1 new program in hamlib-utils called rigmem.
+  * Upstream changelog is old, so not included anymore.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sat, 28 Feb 2004 08:23:34 +0100
+
+hamlib (1.1.4-6) unstable; urgency=low
+
+  * This time fix it correctly. Call dh_makeshlibs with -V option.
+    Closes: #194607.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Mon, 26 May 2003 17:43:29 +0200
+
+hamlib (1.1.4-5) unstable; urgency=low
+
+  * Modify shlibs.local, so we have the correct build dependencies.
+    Thanks Hamish. Closes: #194607.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Sun, 25 May 2003 19:02:37 +0200
+
+hamlib (1.1.4-4) unstable; urgency=low
+
+  * Don't check on libieee in the configure script, as this messes up
+    builds on arm and it is an empty library anyway.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Tue,  6 May 2003 21:10:57 +0200
+
+hamlib (1.1.4-3) unstable; urgency=low
+
+  * Include rig_dll.h in the hamlib-dev package, it is needed by rig.h.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Fri,  2 May 2003 19:06:19 +0200
+
+hamlib (1.1.4-2) unstable; urgency=low
+
+  * This time really change the Maintainer field in the control file.
+  * Update standards version.
+  * Don't build C++ libraries.
+  * Fix override disparity for hamlib-dev.
+  * Clean up libltdl directory before building.
+  * Don't include C++ and cygwin headers.
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Thu,  1 May 2003 20:38:30 +0200
+
+hamlib (1.1.4-1) unstable; urgency=low
+
+  * New upstream.
+  * New maintainer, see:
+    http://lists.debian.org/debian-hams/2003/debian-hams-200304/msg00018.html
+
+ -- Joop Stakenborg <pa3aba@debian.org>  Fri,  8 Nov 2002 17:28:44 +0100
+
+hamlib (1.1.2-5) unstable; urgency=low
+
+  * Updated section details to prevents overrides message.
+
+ -- Terry Dawson <terry@animats.net>  Sat, 29 Dec 2001 18:53:26 +1000
+
+hamlib (1.1.2-4) unstable; urgency=low
+
+  * Corrected spelling mistake in package description.
+  * (Closes: #124717)
+  * (Closes: #124718)
+  * (Closes: #124719)
+
+ -- Terry Dawson <terry@animats.net>  Fri, 28 Dec 2001 20:12:50 +1000
+
+hamlib (1.1.2-3) unstable; urgency=low
+
+  * Ensured that shared library .la files are installed correctly, thanks Joop.
+  * (Closes: #123009)
+  * (Closes: #123010)
+
+ -- Terry Dawson <terry@animats.net>  Wed, 12 Dec 2001 20:35:02 +1000
+
+hamlib (1.1.2-2) unstable; urgency=low
+
+  * Removed spurious include of eti.h, thanks James. (Closes: #114128)
+
+ -- Terry Dawson <terry@animats.net>  Tue, 02 Oct 2001 18:58:43 +1000
+
+hamlib (1.1.2-1) unstable; urgency=low
+
+  * New upstream release. (Closes: #104602)
+
+ -- Terry Dawson <terry@animats.net>  Mon, 24 Sep 2001 21:44:56 +1000
+
+hamlib (1.1.1-1) unstable; urgency=low
+
+  * Initial Release. (Closes: #102342)
+
+ -- Terry Dawson <terry@animats.net>  Sun, 24 Jun 2001 22:02:12 +1000
+
+Local variables:
+mode: debian-changelog
+End:

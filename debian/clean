@@ -1,0 +1,3 @@
+debian/trash
+debian/lua-hamlib.install
+debian/lua-hamlib-dev.install

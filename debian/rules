@@ -1,0 +1,137 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+include /usr/share/dpkg/default.mk
+
+PYTHON3 := $(shell py3versions --requested --version debian/control)
+FLAVOURS := $(PYTHON3)
+
+ifeq ($(DEB_HOST_ARCH_OS),kfreebsd)
+LIBUSB = --without-libusb
+endif
+
+%:
+	dh $@ --with python3,lua --buildsystem=autoconf
+
+override_dh_auto_configure-arch:
+	set -ex; for x in $(FLAVOURS); do \
+		dh_auto_configure \
+			--builddirectory=build-$$x \
+			-- \
+			PYTHON_VERSION=$$x \
+			--with-perl-binding \
+			--with-python-binding \
+			--with-tcl-binding \
+			--with-tcl=/usr/lib/$(DEB_HOST_MULTIARCH) \
+			--with-lua-binding \
+			$(LIBUSB) \
+			; \
+	done
+	$(MAKE) -f /usr/share/dh-lua/make/dh-lua.Makefile.multiple configure H=
+
+override_dh_auto_build-arch:
+	set -ex; for x in $(FLAVOURS); do \
+		dh_auto_build \
+			--arch \
+			--builddirectory=build-$$x \
+			; \
+	done
+	$(MAKE) -f /usr/share/dh-lua/make/dh-lua.Makefile.multiple build H= LBTL="libtool --tag=CC"
+
+# Build the docs
+override_dh_auto_configure-indep:
+	dh_auto_configure --builddirectory=build-indep
+
+override_dh_auto_build-indep:
+	dh_auto_build --indep --builddirectory=build-indep/doc -- doc
+	find build-indep/doc -type f -name "*.md5" -delete
+
+override_dh_auto_test-arch:
+	set -ex; for x in $(FLAVOURS); do \
+		LC_ALL=C.UTF-8 \
+		PYTHON=/usr/bin/python$$x \
+		VERBOSE=1 \
+		dh_auto_test --arch --builddirectory=build-$$x; \
+	done
+
+# skip
+override_dh_auto_test-indep:
+
+override_dh_auto_install-arch:
+	set -ex; for x in $(PYTHON3); do \
+		PYTHON=/usr/bin/python$$x \
+		dh_auto_install \
+		--arch \
+		--builddirectory=build-$$x \
+		--destdir=debian/tmp \
+		-- \
+		pyexecdir='$${pythondir}' \
+		pythondir=/usr/lib/python$$x/site-packages \
+		; \
+		so=`/usr/bin/python$$x -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX') or sysconfig.get_config_var('SO'))"`; \
+		mkdir -p $(CURDIR)/debian/tmp/usr/lib/python3/dist-packages; \
+		mv debian/tmp/usr/lib/python$$x/site-packages/_Hamlib.so \
+		debian/tmp/usr/lib/python3/dist-packages/_Hamlib$$so; \
+		mv debian/tmp/usr/lib/python$$x/site-packages/Hamlib.py \
+		debian/tmp/usr/lib/python3/dist-packages; \
+		done
+	# Remove python unused files.
+	find debian/tmp -name '*.py[co]' -print0 | xargs -0 rm -fv
+	find debian/tmp -name '*.la' -print0 | xargs -0 rm -fv
+	# Install lua files
+	$(MAKE) -f /usr/share/dh-lua/make/dh-lua.Makefile.multiple install H= LBTL="libtool --tag=CC"
+
+override_dh_auto_install-indep:
+	mkdir -p $(CURDIR)/debian/tmp/usr/share/doc/hamlib
+	cp -r $(CURDIR)/build-indep/doc/html \
+		$(CURDIR)/debian/tmp/usr/share/doc/hamlib/
+
+override_dh_install:
+	# Remove unneeded files
+	rm -fv debian/tmp/usr/share/doc/hamlib/ChangeLog
+	rm -fv debian/tmp/usr/share/doc/hamlib/COPYING*
+	rm -fv debian/tmp/usr/share/doc/hamlib/LICENSE
+	rm -fv debian/tmp/usr/share/doc/hamlib/README*
+	rm -fv debian/tmp/usr/include/lua*/lua-hamlib.h
+	rm -fv debian/tmp/usr/lib/lua/*/Hamliblua.a
+	rm -fv debian/tmp/usr/lib/lua/*/Hamliblua.so
+	rm -fv debian/tmp/usr/lib/python*/site-packages/_Hamlib.a
+	rm -fv debian/tmp/usr/lib/*/liblua*-hamlib.a
+	rm -fv debian/tmp/usr/lib/*/liblua*-hamlib.la
+	rm -fv debian/tmp/usr/lib/*/liblua*-hamlib.so
+	rm -fv debian/tmp/usr/lib/*/pkgconfig/lua*-hamlib.pc
+	rm -fv debian/tmp/usr/lib/*/tcl*/Hamlib/hamlibtcl.a
+	dh_install
+	# Remove duplicated lua test file.
+	rm -f $(CURDIR)/debian/lua-hamlib/usr/share/doc/lua-hamlib/luatest.lua
+
+override_dh_installchangelogs:
+	dh_installchangelogs NEWS
+
+ifneq ($(DEB_HOST_ARCH_OS), linux)
+override_dh_makeshlibs:
+	# ignore disappearing symbols on non-Linux architectures
+	dh_makeshlibs -- -c0
+endif
+
+override_dh_auto_clean:
+	dh_auto_clean
+	# Remove python build dirs
+	set -ex; for x in $(FLAVOURS); do \
+		if [ -d "build-$$x" ]; then \
+			rm -rf build-$$x; \
+		fi; \
+		done
+	# Remove indep build
+	if [ -d "build-indep" ]; then \
+		rm -rf build-indep; \
+	fi;
+	# Remove changed upstream files which create problems
+	# with dpkg-source.
+	rm -f $(CURDIR)/doc/hamlib.info \
+		$(CURDIR)/doc/stamp-vti \
+		$(CURDIR)/doc/version.texi
+	# Remove LUA dirs
+	rm -rf $(CURDIR)/5.[2,3]-hamlib
+	# find . -name '*.py[co]' -print0 | xargs -0 rm -f

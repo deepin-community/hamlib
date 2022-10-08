@@ -1,0 +1,26 @@
+Depends:
+ libhamlib-perl,
+Tests: perltest
+
+Depends:
+ python3-hamlib,
+Test-Command: python3 /usr/share/doc/python3-hamlib/examples/py3test.py
+Features: test-name=python3
+
+Depends:
+ tcl,
+ tcl-hamlib,
+Test-Command: tclsh /usr/share/doc/tcl-hamlib/examples/tcltest.tcl
+Features: test-name=tcl
+
+Depends:
+ lua-hamlib2,
+ lua5.2,
+Test-Command: lua5.2 /usr/share/doc/lua-hamlib/examples/luatest.lua
+Features: test-name=lua5.2
+
+Depends:
+ lua-hamlib2,
+ lua5.3,
+Test-Command: lua5.3 /usr/share/doc/lua-hamlib/examples/luatest.lua
+Features: test-name=lua5.3

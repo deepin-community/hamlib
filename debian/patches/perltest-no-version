@@ -1,0 +1,27 @@
+Remove version number from perltest output so we can diff the output against a
+static expected output file.
+
+--- a/bindings/perltest.pl
++++ b/bindings/perltest.pl
+@@ -2,7 +2,8 @@
+ 
+ use Hamlib;
+ 
+-print "Perl $] test, version: $Hamlib::hamlib_version\n\n";
++# Debian: removed so the output doesn't depend on version numbers
++#print "Perl $] test, version: $Hamlib::hamlib_version\n\n";
+ 
+ #Hamlib::rig_set_debug($Hamlib::RIG_DEBUG_TRACE);
+ Hamlib::rig_set_debug($Hamlib::RIG_DEBUG_NONE);
+@@ -50,8 +51,9 @@ $rig->set_level($Hamlib::RIG_LEVEL_VOXDE
+ $lvl = $rig->get_level_i($Hamlib::RIG_LEVEL_VOXDELAY);
+ print "VOX delay:\t\t$lvl\n";
+ 
+-$lvl = $rig->get_level_i($Hamlib::RIG_LEVEL_STRENGTH);
+-print "strength:\t\t$lvl\n";
++# Debian: removed because output is unstable
++#$lvl = $rig->get_level_i($Hamlib::RIG_LEVEL_STRENGTH);
++#print "strength:\t\t$lvl\n";
+ 
+ 
+ $chan = new Hamlib::channel($Hamlib::RIG_VFO_A);

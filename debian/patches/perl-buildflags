@@ -1,0 +1,10 @@
+--- a/bindings/Makefile.PL
++++ b/bindings/Makefile.PL
+@@ -14,4 +14,7 @@ WriteMakefile(
+ 	#'DEFINE'	=> '',
+ 	#'INC'		=> '',
+ 	#'OBJECT'	=> 'hamlibperl_wrap.o', # link all the C files too
++
++	CCCDLFLAGS	=> "-fPIC $ENV{CFLAGS} $ENV{CPPFLAGS}",
++	LDDLFLAGS	=> "-shared -pthread $ENV{LDFLAGS}",
+ );

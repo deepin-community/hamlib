@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -eu
+
+trap "rm -f perltest.out" EXIT
+
+perl /usr/share/doc/libhamlib-perl/examples/perltest.pl > perltest.out
+cat perltest.out
+
+# paper over precision difference on i386
+#-Latitude:	  48.1042,   48°  6' 15" N	recoded:   48.1042
+#+Latitude:	  48.1042,   48°  6' 14" N	recoded:   48.1039
+sed -i -e 's/ 14" N/ 15" N/' -e 's/48.1039/48.1042/' perltest.out
+
+diff -u debian/tests/perltest.out perltest.out

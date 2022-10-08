@@ -1,0 +1,11 @@
+--- a/doc/footer.html
++++ b/doc/footer.html
+@@ -22,7 +22,7 @@
+         Project page: <a href="http://www.hamlib.org">http://www.hamlib.org</a><br />
+     </p>
+     <p class="alignright">
+-        <a href="https://sourceforge.net/p/hamlib/"><img alt="Download Ham Radio Control Libraries" src="https://sourceforge.net/sflogo.php?type=13&group_id=8305" ></a>
++        <a href="https://sourceforge.net/p/hamlib/">Hamlib on Sourceforge</a>
+     </p>
+ </div>
+ <div style="clear: both;"></div>
