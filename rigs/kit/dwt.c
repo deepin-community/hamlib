@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <stdio.h>
 #include "hamlib/rig.h"
 
@@ -222,6 +219,7 @@ const struct rig_caps dwt_caps =
     .set_level =        dwtdll_set_level,
     .get_level =        dwtdll_get_level,
     .get_info =     dwtdll_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -230,7 +228,7 @@ int dwtdll_init(RIG *rig)
 {
     struct dwtdll_priv_data *priv;
 
-    rig->state.priv = (struct dwtdll_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct dwtdll_priv_data *)calloc(1, sizeof(
                           struct dwtdll_priv_data));
 
     if (!rig->state.priv)
@@ -553,7 +551,7 @@ const struct rig_caps dwt_caps =
     .mfg_name =     "Coding Technologies",
     .version =      BACKEND_VER ".0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_UNTESTED,
+    .status =       RIG_STATUS_ALPHA,
     .rig_type =     RIG_TYPE_TUNER,
     .ptt_type =     RIG_PTT_NONE,
     .dcd_type =     RIG_DCD_NONE,
@@ -678,7 +676,7 @@ const char *dwt_get_info(RIG *rig)
     /* always succeeds since libusb-1.0.16 */
     libusb_get_device_descriptor(libusb_get_device(udh), &desc);
 
-    sprintf(buf, "Dev %04d", desc.bcdDevice);
+    SNPRINTF(buf, sizeof(buf), "Dev %04d", desc.bcdDevice);
 
     return buf;
 }

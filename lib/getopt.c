@@ -22,9 +22,7 @@
 */
 /* NOTE!!!  AIX requires this to be the first thing in the file.
    Do not put ANYTHING before it!  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #if !__STDC__ && !defined(const) && IN_GCC
 #define const
@@ -225,7 +223,7 @@ exchange(argv)
 char **argv;
 {
     int nonopts_size = (last_nonopt - first_nonopt) * sizeof(char *);
-    char **temp = (char **) malloc(nonopts_size);
+    char **temp = (char **) calloc(1, nonopts_size);
 
     /* Interchange the two blocks of data in ARGV.  */
 

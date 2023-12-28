@@ -26,6 +26,7 @@
 #ifndef _YAESU_H
 #define _YAESU_H 1
 
+#include "idx_builtin.h"
 
 /*
  * Length (in bytes) of yaesu command sequences
@@ -46,6 +47,7 @@ typedef struct yaesu_cmd_set yaesu_cmd_set_t;
 
 extern const struct rig_caps ft100_caps;
 extern const struct rig_caps ft450_caps;
+extern struct rig_caps ft450d_caps;
 extern const struct rig_caps ft736_caps;
 extern const struct rig_caps ft747_caps;
 extern const struct rig_caps ft757gx_caps;
@@ -65,6 +67,7 @@ extern const struct rig_caps ft920_caps;
 extern const struct rig_caps ft950_caps;
 extern const struct rig_caps ft980_caps;
 extern const struct rig_caps ft990_caps;
+extern const struct rig_caps ft990uni_caps;
 extern const struct rig_caps ft991_caps;
 extern const struct rig_caps ft1000mp_caps;
 extern const struct rig_caps ft1000mpmkv_caps;
@@ -85,5 +88,8 @@ extern const struct rig_caps ftdx101d_caps;
 extern const struct rig_caps ft818_caps;
 extern const struct rig_caps ftdx10_caps;
 extern const struct rig_caps ftdx101mp_caps;
+extern const struct rig_caps mchfqrp_caps;
+extern const struct rig_caps ft650_caps;
+extern const struct rig_caps ft710_caps;
 
 #endif /* _YAESU_H */

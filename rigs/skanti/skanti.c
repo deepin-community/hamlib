@@ -19,15 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include <hamlib/rig.h>
 #include <serial.h>
@@ -73,7 +68,7 @@ static int skanti_transaction(RIG *rig, const char *cmd, int cmd_len,
 
     rig_flush(&rs->rigport);
 
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(&rs->rigport, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -88,7 +83,8 @@ static int skanti_transaction(RIG *rig, const char *cmd, int cmd_len,
         * Transceiver sends back ">"
         */
         char retbuf[BUFSZ + 1];
-        retval = read_string(&rs->rigport, retbuf, BUFSZ, PROMPT, strlen(PROMPT));
+        retval = read_string(&rs->rigport, (unsigned char *) retbuf, BUFSZ, PROMPT,
+                             strlen(PROMPT), 0, 1);
 
         if (retval < 0)
         {
@@ -107,7 +103,8 @@ static int skanti_transaction(RIG *rig, const char *cmd, int cmd_len,
         }
     }
 
-    retval = read_string(&rs->rigport, data, BUFSZ, LF, strlen(LF));
+    retval = read_string(&rs->rigport, (unsigned char *) data, BUFSZ, LF,
+                         strlen(LF), 0, 1);
 
     if (retval == -RIG_ETIMEOUT)
     {
@@ -163,12 +160,11 @@ int skanti_reset(RIG *rig, reset_t reset)
 int skanti_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[BUFSZ];
-    int freq_len;
 
     /* 6 digits */
-    freq_len = sprintf(freqbuf, "Z%06ld" EOM, (long)(freq / 100));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "Z%06ld" EOM, (long)(freq / 100));
 
-    return skanti_transaction(rig, freqbuf, freq_len, NULL, NULL);
+    return skanti_transaction(rig, freqbuf, strlen(freqbuf), NULL, NULL);
 }
 
 /*
@@ -242,12 +238,11 @@ int skanti_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 int skanti_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
 {
     char freqbuf[BUFSZ];
-    int freq_len;
 
     /* 6 digits */
-    freq_len = sprintf(freqbuf, "T%06ld" EOM, (long)(tx_freq / 100));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "T%06ld" EOM, (long)(tx_freq / 100));
 
-    return skanti_transaction(rig, freqbuf, freq_len, NULL, NULL);
+    return skanti_transaction(rig, freqbuf, strlen(freqbuf), NULL, NULL);
 }
 
 
@@ -259,7 +254,6 @@ int skanti_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
  */
 int skanti_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
-    int cmd_len;
     char cmdbuf[BUFSZ], *agc;
 
     /* Optimize:
@@ -268,20 +262,20 @@ int skanti_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     switch (level)
     {
     case RIG_LEVEL_PREAMP:
-        cmd_len = sprintf(cmdbuf, "R%c" EOM, val.i ? 'F' : 'O');
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "R%c" EOM, val.i ? 'F' : 'O');
 
-        return skanti_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return skanti_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_LEVEL_ATT:
-        cmd_len = sprintf(cmdbuf, "A%c" EOM, val.i ? 'T' : 'O');
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "A%c" EOM, val.i ? 'T' : 'O');
 
-        return skanti_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return skanti_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_LEVEL_RFPOWER:
-        cmd_len = sprintf(cmdbuf, "M%cO" EOM,
-                          val.f < 0.33 ? 'L' : (val.f < 0.66 ? 'M' : 'F'));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "M%cO" EOM,
+                 val.f < 0.33 ? 'L' : (val.f < 0.66 ? 'M' : 'F'));
 
-        return skanti_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return skanti_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_LEVEL_AGC:
         switch (val.i)
@@ -315,11 +309,10 @@ int skanti_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 int skanti_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 {
     char cmdbuf[BUFSZ];
-    int cmd_len;
 
-    cmd_len = sprintf(cmdbuf, "X%c" EOM, ptt == RIG_PTT_ON ? 'N' : 'F');
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "X%c" EOM, ptt == RIG_PTT_ON ? 'N' : 'F');
 
-    return skanti_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+    return skanti_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 }
 
 

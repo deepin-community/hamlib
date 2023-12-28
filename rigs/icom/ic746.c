@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
@@ -174,9 +172,10 @@ static const struct icom_priv_caps ic746_priv_caps =
     .agc_levels_present = 1,
     .agc_levels = {
         { .level = RIG_AGC_OFF, .icom_level = 0 },
-        { .level = RIG_AGC_FAST, .icom_level = 1 },
-        { .level = RIG_AGC_SLOW, .icom_level = 2 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_SLOW, .icom_level = 1 },
+        { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
+        { .level = RIG_AGC_FAST, .icom_level = 3 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
 };
 
@@ -185,7 +184,7 @@ const struct rig_caps ic746_caps =
     RIG_MODEL(RIG_MODEL_IC746),
     .model_name = "IC-746",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".3",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -208,7 +207,9 @@ const struct rig_caps ic746_caps =
     .has_set_level =  RIG_LEVEL_SET(IC746_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_ANN,
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
@@ -303,6 +304,7 @@ const struct rig_caps ic746_caps =
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
@@ -331,6 +333,7 @@ const struct rig_caps ic746_caps =
     .set_ptt =  icom_set_ptt,
     .get_ptt =  icom_get_ptt,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -413,7 +416,7 @@ const struct rig_caps ic746pro_caps =
     RIG_MODEL(RIG_MODEL_IC746PRO),
     .model_name = "IC-746PRO",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".2",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -436,7 +439,9 @@ const struct rig_caps ic746pro_caps =
     .has_set_level =  RIG_LEVEL_SET(IC746_LEVEL_ALL),
     .has_get_parm =  IC746_GET_PARM,
     .has_set_parm =  IC746_SET_PARM,
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  {},
@@ -545,6 +550,7 @@ const struct rig_caps ic746pro_caps =
     .set_mode =  icom_set_mode_with_data,
     .get_mode =  icom_get_mode_with_data,
     .set_vfo =  icom_set_vfo,
+    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
@@ -581,6 +587,7 @@ const struct rig_caps ic746pro_caps =
     .get_ext_parm =  ic746pro_get_ext_parm,
     .get_channel = ic746pro_get_channel,
     .set_channel = ic746pro_set_channel,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

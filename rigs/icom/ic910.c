@@ -20,9 +20,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -227,7 +225,9 @@ const struct rig_caps ic910_caps =
     .has_set_level =  IC910_LEVEL_ALL,
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
@@ -256,28 +256,28 @@ const struct rig_caps ic910_caps =
     },
 
     .rx_range_list1 = { /* USA */
-        {MHz(144), MHz(148), IC910_MODES, -1, -1, IC910_VFO_ALL},
-        {MHz(430), MHz(450), IC910_MODES, -1, -1, IC910_VFO_ALL},
-        {MHz(1240), MHz(1300), IC910_MODES, -1, -1, IC910_VFO_ALL},
+        {MHz(144), MHz(148), IC910_MODES, 0, 0, IC910_VFO_ALL},
+        {MHz(430), MHz(450), IC910_MODES, 0, 0, IC910_VFO_ALL},
+        {MHz(1240), MHz(1300), IC910_MODES, 0, 0, IC910_VFO_ALL},
         RIG_FRNG_END,
     },
     .tx_range_list1 = {
         {MHz(144), MHz(148), IC910_MODES, W(5), W(100), IC910_VFO_ALL},
         {MHz(430), MHz(450), IC910_MODES, W(5), W(75), IC910_VFO_ALL},
-        {MHz(1240), MHz(1300), IC910_MODES, -1, -1, IC910_VFO_ALL},
+        {MHz(1240), MHz(1300), IC910_MODES, 0, 0, IC910_VFO_ALL},
         RIG_FRNG_END,
     },
 
     .rx_range_list2 = { /* Europe */
-        {MHz(144), MHz(146), IC910_MODES, -1, -1, IC910_VFO_ALL},
-        {MHz(430), MHz(440), IC910_MODES, -1, -1, IC910_VFO_ALL},
-        {MHz(1240), MHz(1300), IC910_MODES, -1, -1, IC910_VFO_ALL},
+        {MHz(144), MHz(146), IC910_MODES, 0, 0, IC910_VFO_ALL},
+        {MHz(430), MHz(440), IC910_MODES, 0, 0, IC910_VFO_ALL},
+        {MHz(1240), MHz(1300), IC910_MODES, 0, 0, IC910_VFO_ALL},
         RIG_FRNG_END,
     },
     .tx_range_list2 = {
         {MHz(144), MHz(146), IC910_MODES, W(5), W(100), IC910_VFO_ALL},
         {MHz(430), MHz(440), IC910_MODES, W(5), W(75), IC910_VFO_ALL},
-        {MHz(1240), MHz(1300), IC910_MODES, -1, -1, IC910_VFO_ALL},
+        {MHz(1240), MHz(1300), IC910_MODES, 0, 0, IC910_VFO_ALL},
         RIG_FRNG_END,
     },
 
@@ -328,6 +328,7 @@ const struct rig_caps ic910_caps =
     .set_ptt = icom_set_ptt,
     .get_ptt = icom_get_ptt,
     .set_vfo = icom_set_vfo,
+    .get_vfo = icom_get_vfo,
     .get_ts =  icom_get_ts,
     .set_ts =  icom_set_ts,
     .get_func =  ic910_get_func,
@@ -357,4 +358,5 @@ const struct rig_caps ic910_caps =
     .set_rptr_offs =  icom_set_rptr_offs,
     .get_rptr_offs =  icom_get_rptr_offs,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

@@ -79,6 +79,8 @@ typedef channel_t * const_channel_t_p;
  */
 #define METHOD1GET(f, t1) t1 f (void) \
 				{ t1 _##t1; self->error_status = rig_##f(self->rig, &_##t1); return _##t1; }
+#define METHOD1SET(f, t1) t1 f (void) \
+				{ t1 _##t1; self->error_status = rig_##f(self->rig, _##t1); return _##t1; }
 
 /*
  * declare wrapper method with one output argument besides RIG* and vfo
@@ -396,6 +398,7 @@ typedef channel_t * const_channel_t_p;
 	METHOD1(passband_normal, rmode_t)
 	METHOD1(passband_narrow, rmode_t)
 	METHOD1(passband_wide, rmode_t)
+	METHOD1(set_vfo_opt, int)
 
 	METHOD1(ext_token_lookup, const_char_string)	/* level & parm */
 	METHOD1(token_lookup, const_char_string)	/* conf */

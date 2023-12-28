@@ -20,9 +20,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <string.h>  /* String function definitions */
 
@@ -186,7 +184,7 @@ static const struct icom_priv_caps IC7000_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .extcmds = ic7000_extcmds,
     .r2i_mode = ic7000_r2i_mode
@@ -197,7 +195,7 @@ const struct rig_caps ic7000_caps =
     RIG_MODEL(RIG_MODEL_IC7000),
     .model_name = "IC-7000",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".1",
+    .version =  BACKEND_VER ".3",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -220,7 +218,9 @@ const struct rig_caps ic7000_caps =
     .has_set_level =  RIG_LEVEL_SET(IC7000_LEVELS),
     .has_get_parm =  IC7000_PARMS,
     .has_set_parm =  RIG_PARM_SET(IC7000_PARMS),
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
@@ -336,6 +336,7 @@ const struct rig_caps ic7000_caps =
     .get_freq =  icom_get_freq,
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
+    .get_vfo =  icom_get_vfo,
     .set_vfo =  icom_set_vfo,
     .set_ant =  NULL,  /*automatically set by rig depending band */
     .get_ant =  NULL,
@@ -373,4 +374,5 @@ const struct rig_caps ic7000_caps =
     .set_split_vfo =  icom_set_split_vfo,
     .get_split_vfo =  NULL,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

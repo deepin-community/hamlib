@@ -21,15 +21,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rotator.h"
 #include "serial.h"
@@ -67,7 +62,7 @@ easycomm_transaction(ROT *rot, const char *cmdstr, char *data, size_t data_len)
 
     rs = &rot->state;
     rig_flush(&rs->rotport);
-    retval = write_block(&rs->rotport, cmdstr, strlen(cmdstr));
+    retval = write_block(&rs->rotport, (unsigned char *) cmdstr, strlen(cmdstr));
 
     if (retval != RIG_OK)
     {
@@ -79,7 +74,8 @@ easycomm_transaction(ROT *rot, const char *cmdstr, char *data, size_t data_len)
         return RIG_OK;    /* don't want a reply */
     }
 
-    retval = read_string(&rs->rotport, data, data_len, "\n", 1);
+    retval = read_string(&rs->rotport, (unsigned char *) data, data_len,
+                         "\n", 1, 0, 1);
 
     if (retval < 0)
     {
@@ -108,11 +104,11 @@ easycomm_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
 
     if (rot->caps->rot_model == ROT_MODEL_EASYCOMM1)
     {
-        sprintf(cmdstr, "AZ%.1f EL%.1f UP000 XXX DN000 XXX\n", az, el);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "AZ%.1f EL%.1f UP000 XXX DN000 XXX\n", az, el);
     }
     else   // for easycomm 2 & 3 and upwards
     {
-        sprintf(cmdstr, "AZ%.1f EL%.1f\n", az, el);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "AZ%.1f EL%.1f\n", az, el);
     }
 
     retval = easycomm_transaction(rot, cmdstr, NULL, 0);
@@ -134,7 +130,7 @@ easycomm_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
-    sprintf(cmdstr, "AZ EL \n");
+    SNPRINTF(cmdstr, sizeof(cmdstr), "AZ EL \n");
 
     retval = easycomm_transaction(rot, cmdstr, ackbuf, sizeof(ackbuf));
 
@@ -219,19 +215,19 @@ easycomm_rot_move(ROT *rot, int direction, int speed)
     switch (direction)
     {
     case ROT_MOVE_UP:       /* Elevation increase */
-        sprintf(cmdstr, "MU\n");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "MU\n");
         break;
 
     case ROT_MOVE_DOWN:     /* Elevation decrease */
-        sprintf(cmdstr, "MD\n");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "MD\n");
         break;
 
     case ROT_MOVE_LEFT:     /* Azimuth decrease */
-        sprintf(cmdstr, "ML\n");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "ML\n");
         break;
 
     case ROT_MOVE_RIGHT:    /* Azimuth increase */
-        sprintf(cmdstr, "MR\n");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "MR\n");
         break;
 
     default:
@@ -280,19 +276,19 @@ static int easycomm_rot_move_velocity(ROT *rot, int direction, int speed)
     switch (direction)
     {
     case ROT_MOVE_UP:       /* Elevation increase */
-        sprintf(cmdstr, "VU%04d\n", easycomm_speed);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "VU%04d\n", easycomm_speed);
         break;
 
     case ROT_MOVE_DOWN:     /* Elevation decrease */
-        sprintf(cmdstr, "VD%04d\n", easycomm_speed);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "VD%04d\n", easycomm_speed);
         break;
 
     case ROT_MOVE_LEFT:     /* Azimuth decrease */
-        sprintf(cmdstr, "VL%04d\n", easycomm_speed);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "VL%04d\n", easycomm_speed);
         break;
 
     case ROT_MOVE_RIGHT:    /* Azimuth increase */
-        sprintf(cmdstr, "VR%04d\n", easycomm_speed);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "VR%04d\n", easycomm_speed);
         break;
 
     default:
@@ -405,27 +401,27 @@ static int easycomm_rot_get_conf(ROT *rot, token_t token, char *val)
     switch (token)
     {
     case TOK_GET_STATUS:
-        sprintf(cmdstr, "GS\n;");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "GS\n;");
         break;
 
     case TOK_GET_ERRORS:
-        sprintf(cmdstr, "GE\n;");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "GE\n;");
         break;
 
     case TOK_GET_INPUT:
-        sprintf(cmdstr, "IP\n;");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "IP\n;");
         break;
 
     case TOK_GET_ANALOG_INPUT:
-        sprintf(cmdstr, "AN\n;");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "AN\n;");
         break;
 
     case TOK_GET_VERSION:
-        sprintf(cmdstr, "VE\n;");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "VE\n;");
         break;
 
     case TOK_GET_CONFIG:
-        sprintf(cmdstr, "CR %c\n;", *val);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "CR %c\n;", *val);
         break;
 
     default:
@@ -477,7 +473,7 @@ static int easycomm_rot_set_conf(ROT *rot, token_t token, const char *val)
     switch (token)
     {
     case TOK_SET_CONFIG:
-        sprintf(cmdstr, "CW%s\n;", val);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "CW%s\n;", val);
         break;
 
     default:
@@ -525,9 +521,9 @@ const struct rot_caps easycomm1_rot_caps =
     ROT_MODEL(ROT_MODEL_EASYCOMM1),
     .model_name =     "EasycommI",
     .mfg_name =       "Hamlib",
-    .version =        "20191206.0",
+    .version =        "20220109.0",
     .copyright =   "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_OTHER,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =  9600,
@@ -563,7 +559,7 @@ const struct rot_caps easycomm2_rot_caps =
     .mfg_name =       "Hamlib",
     .version =        "20191206.0",
     .copyright =   "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_OTHER,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =  9600,
@@ -609,7 +605,7 @@ const struct rot_caps easycomm3_rot_caps =
     .mfg_name =       "Hamlib",
     .version =        "20201203.0",
     .copyright =   "LGPL",
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_OTHER,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =  9600,

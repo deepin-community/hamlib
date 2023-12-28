@@ -18,15 +18,11 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -74,7 +70,7 @@ int optoscan_open(RIG *rig)
     rs = &rig->state;
     priv = (struct icom_priv_data *)rs->priv;
 
-    pltstate = malloc(sizeof(pltstate_t));
+    pltstate = calloc(1, sizeof(pltstate_t));
 
     if (!pltstate)
     {
@@ -166,11 +162,11 @@ const char *optoscan_get_info(RIG *rig)
         return NULL;
     }
 
-    sprintf(info, "OptoScan%c%c%c, software version %d.%d, "
-            "interface version %d.%d\n",
-            ackbuf[2], ackbuf[3], ackbuf[4],
-            ackbuf[5] >> 4, ackbuf[5] & 0xf,
-            ackbuf[6] >> 4, ackbuf[6] & 0xf);
+    SNPRINTF(info, sizeof(info), "OptoScan%c%c%c, software version %d.%d, "
+             "interface version %d.%d\n",
+             ackbuf[2], ackbuf[3], ackbuf[4],
+             ackbuf[5] >> 4, ackbuf[5] & 0xf,
+             ackbuf[6] >> 4, ackbuf[6] & 0xf);
 
     return info;
 }
@@ -244,10 +240,10 @@ int optoscan_recv_dtmf(RIG *rig, vfo_t vfo, char *digits, int *length)
 {
     unsigned char dtmfbuf[MAXFRAMELEN], digit;
     int len, digitpos;
-    unsigned char xlate[] = {'0', '1', '2', '3', '4', '5', '6',
-                             '7', '8', '9', 'A', 'B', 'C', 'D',
-                             '*', '#'
-                            };
+    const unsigned char xlate[] = {'0', '1', '2', '3', '4', '5', '6',
+                                   '7', '8', '9', 'A', 'B', 'C', 'D',
+                                   '*', '#'
+                                  };
     digitpos = 0;
 
     do

@@ -24,13 +24,9 @@
 // Version 2004.11.29 F.Melchert (DC9RP)
 //
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <string.h>
-#include <math.h>
 
 #include <hamlib/rig.h>
 #include "aor.h"
@@ -73,7 +69,7 @@
 
 static int rxr_writeByte(RIG *rig, unsigned char c)
 {
-    return write_block(&rig->state.rigport, (char *) &c, 1);
+    return write_block(&rig->state.rigport, &c, 1);
 }
 
 
@@ -82,14 +78,14 @@ static int rxr_readByte(RIG *rig)
     unsigned char response[1];
     unsigned char buf[] = {0x71}; // Read command
     int retval;
-    retval = write_block(&rig->state.rigport, (char *) buf, 1);
+    retval = write_block(&rig->state.rigport, buf, 1);
 
     if (retval != RIG_OK)
     {
         return retval;
     }
 
-    retval = read_block(&rig->state.rigport, (char *) response, 1);
+    retval = read_block(&rig->state.rigport, response, 1);
 
     if (retval != RIG_OK)
     {
@@ -278,14 +274,14 @@ static int Execute_Routine_14(RIG *rig)
     unsigned char response[1];
     unsigned char buf[] = {0x2e}; // Read command
     int retval;
-    retval = write_block(&rig->state.rigport, (char *) buf, 1);
+    retval = write_block(&rig->state.rigport, buf, 1);
 
     if (retval != RIG_OK)
     {
         return retval;
     }
 
-    retval = read_block(&rig->state.rigport, (char *) response, 1);
+    retval = read_block(&rig->state.rigport, response, 1);
 
     if (retval != RIG_OK)
     {
@@ -786,7 +782,7 @@ const struct rig_caps ar7030_caps =
     .mfg_name =  "AOR",
     .version =  "20200324.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -944,6 +940,7 @@ const struct rig_caps ar7030_caps =
 //  .get_channel =  ar7030_get_channel,
 //  .set_trn =  ar7030_set_trn,
 //  .get_trn =  ar7030_get_trn,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

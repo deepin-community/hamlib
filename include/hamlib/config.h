@@ -1,11 +1,11 @@
-/* include/config.h.  Generated from config.h.in by configure.  */
-/* include/config.h.in.  Generated from configure.ac by autoheader.  */
+/* include/hamlib/config.h.  Generated from config.h.in by configure.  */
+/* include/hamlib/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Frontend ABI age */
 #define ABI_AGE 0
 
 /* Frontend ABI revision */
-#define ABI_REVISION 3
+#define ABI_REVISION 6
 
 /* Frontend ABI version */
 #define ABI_VERSION 4
@@ -165,6 +165,9 @@
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #define HAVE_NETINET_IN_H 1
 
+/* Define if parallel devices are to be built */
+#define HAVE_PARALLEL 1
+
 /* Define to 1 if you have the `pow' function. */
 /* #undef HAVE_POW */
 
@@ -321,6 +324,9 @@
 /* Define to 1 if you have the `usleep' function. */
 #define HAVE_USLEEP 1
 
+/* Define if usrp is available */
+/* #undef HAVE_USRP */
+
 /* Define to 1 if you have the <values.h> header file. */
 #define HAVE_VALUES_H 1
 
@@ -342,6 +348,9 @@
 /* Define to 1 if you have the <wspiapi.h> header file. */
 /* #undef HAVE_WSPIAPI_H */
 
+/* Define if libxml2 is available */
+/* #undef HAVE_XML2 */
+
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #define LT_OBJDIR ".libs/"
 
@@ -358,7 +367,7 @@
 #define PACKAGE_NAME "Hamlib"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "Hamlib 4.3.1"
+#define PACKAGE_STRING "Hamlib 4.5.5"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "hamlib"
@@ -367,7 +376,7 @@
 #define PACKAGE_URL "http://www.hamlib.org"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.3.1"
+#define PACKAGE_VERSION "4.5.5"
 
 /* Define to necessary symbol if this constant uses a non-standard name on
    your system. */
@@ -407,7 +416,7 @@
 
 
 /* Version number of package */
-#define VERSION "4.3.1"
+#define VERSION "4.5.5"
 
 /* Define to 1 if on MINIX. */
 /* #undef _MINIX */

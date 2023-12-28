@@ -23,12 +23,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
-#include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
@@ -57,6 +53,7 @@ static const struct yaesu_id yaesu_id_list[] =
 {
     { RIG_MODEL_FT1000D, 0x10, 0x21 }, /* or 0x10, 0x00 ? */
     { RIG_MODEL_FT990, 0x09, 0x90 },
+    { RIG_MODEL_FT990UNI, 0x09, 0x90 },
     { RIG_MODEL_FT890, 0x08, 0x41 },
     { RIG_MODEL_FRG100, 0x03, 0x92 }, /* TBC, inconsistency in manual */
     { RIG_MODEL_FT1000MP, 0x03, 0x93 },
@@ -75,8 +72,12 @@ DECLARE_INITRIG_BACKEND(yaesu)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "yaesu: %s called\n", __func__);
 
+    ft450d_caps = ft450_caps;
+    ft450d_caps.rig_model = RIG_MODEL_FT450D;
+    ft450d_caps.model_name = "FT-450D";
     rig_register(&ft100_caps);
     rig_register(&ft450_caps);
+    rig_register(&ft450d_caps);
     rig_register(&ft736_caps);
     rig_register(&ft747_caps);
     rig_register(&ft757gx_caps);
@@ -94,6 +95,7 @@ DECLARE_INITRIG_BACKEND(yaesu)
     rig_register(&ft950_caps);
     rig_register(&ft980_caps);
     rig_register(&ft990_caps);
+    rig_register(&ft990uni_caps);
     rig_register(&ft1000d_caps);
     rig_register(&ft1000mp_caps);
     rig_register(&ft1000mpmkv_caps);
@@ -116,6 +118,9 @@ DECLARE_INITRIG_BACKEND(yaesu)
     rig_register(&ftdx10_caps);
     rig_register(&ft897d_caps);
     rig_register(&ftdx101mp_caps);
+    rig_register(&mchfqrp_caps);
+    rig_register(&ft650_caps);
+    rig_register(&ft710_caps);
 
     return RIG_OK;
 }
@@ -134,7 +139,7 @@ DECLARE_PROBERIG_BACKEND(yaesu)
     static const unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0xfa};
     int id_len = -1, i, id1, id2;
     int retval = -1;
-    int rates[] = { 4800, 57600, 9600, 38400, 0 };  /* possible baud rates */
+    static const int rates[] = { 4800, 57600, 9600, 38400, 0 };  /* possible baud rates */
     int rates_idx;
 
     if (!port)
@@ -167,14 +172,14 @@ DECLARE_PROBERIG_BACKEND(yaesu)
         }
 
         /* send READ STATUS cmd to rig  */
-        retval = write_block(port, (char *) cmd, YAESU_CMD_LENGTH);
-        id_len = read_block(port, (char *) idbuf, YAESU_CMD_LENGTH);
+        retval = write_block(port, cmd, YAESU_CMD_LENGTH);
+        id_len = read_block(port, idbuf, YAESU_CMD_LENGTH);
 
         close(port->fd);
 
-        if (retval != RIG_OK || id_len < 0)
+        if (retval == RIG_OK && id_len > 0)
         {
-            continue;
+            break;
         }
     }
 

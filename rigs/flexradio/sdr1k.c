@@ -19,13 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rig.h"
@@ -86,7 +82,7 @@ struct sdr1k_priv_data
 #define SDR1K_LEVEL RIG_LEVEL_PREAMP
 #define SDR1K_PARM  RIG_PARM_NONE
 
-#define SDR1K_MODES (RIG_MODE_NONE)
+#define SDR1K_MODES (RIG_MODE_USB|RIG_MODE_CW)
 
 #define SDR1K_VFO RIG_VFO_A
 
@@ -125,7 +121,7 @@ const struct rig_caps sdr1k_rig_caps =
     .mfg_name =       "Flex-radio",
     .version =        "20200323.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_UNTESTED,
+    .status =         RIG_STATUS_ALPHA,
     .rig_type =       RIG_TYPE_TUNER,
     .targetable_vfo =      0,
     .ptt_type =       RIG_PTT_RIG,
@@ -176,6 +172,10 @@ const struct rig_caps sdr1k_rig_caps =
     .tuning_steps =  { {SDR1K_MODES, 1},
         RIG_TS_END,
     },
+    .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
+        RIG_FLT_END
+    },
     .priv =  NULL,    /* priv */
 
     .rig_init =     sdr1k_init,
@@ -189,7 +189,7 @@ const struct rig_caps sdr1k_rig_caps =
     .reset    =     sdr1k_reset,
     .set_level =     sdr1k_set_level,
 //  .set_func =     sdr1k_set_func,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -199,7 +199,7 @@ int sdr1k_init(RIG *rig)
 {
     struct sdr1k_priv_data *priv;
 
-    rig->state.priv = (struct sdr1k_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct sdr1k_priv_data *)calloc(1, sizeof(
                           struct sdr1k_priv_data));
 
     if (!rig->state.priv)

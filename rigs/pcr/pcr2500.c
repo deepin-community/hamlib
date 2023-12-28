@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -69,7 +67,7 @@ const struct rig_caps pcr2500_caps =
     .mfg_name       = "Icom",
     .version        = BACKEND_VER ".0",
     .copyright      = "LGPL",
-    .status         = RIG_STATUS_BETA,
+    .status         = RIG_STATUS_STABLE,
 
     .rig_type       = RIG_TYPE_PCRECEIVER,
     .ptt_type       = RIG_PTT_NONE,
@@ -195,5 +193,6 @@ const struct rig_caps pcr2500_caps =
 
     .set_powerstat  = pcr_set_powerstat,
     .get_powerstat  = pcr_get_powerstat,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

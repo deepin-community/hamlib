@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -178,7 +176,7 @@ const struct rig_caps icm802_caps =
     .get_level =  icmarine_get_level,
     .set_func =  icmarine_set_func,
     .get_func =  icmarine_get_func,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

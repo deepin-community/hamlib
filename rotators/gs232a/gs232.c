@@ -19,14 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rotator.h"
@@ -73,7 +69,7 @@ transaction_write:
 
     if (cmdstr)
     {
-        retval = write_block(&rs->rotport, cmdstr, strlen(cmdstr));
+        retval = write_block(&rs->rotport, (unsigned char *) cmdstr, strlen(cmdstr));
 
         if (retval != RIG_OK)
         {
@@ -93,8 +89,8 @@ transaction_write:
     }
 
     memset(data, 0, data_len);
-    retval = read_string(&rs->rotport, data, data_len, REPLY_EOM,
-                         strlen(REPLY_EOM));
+    retval = read_string(&rs->rotport, (unsigned char *) data, data_len,
+                         REPLY_EOM, strlen(REPLY_EOM), 0, 1);
 
     if (retval < 0)
     {
@@ -148,7 +144,8 @@ static int
 gs232_wo_transaction(ROT *rot, const char *cmdstr,
                      char *data, size_t data_len)
 {
-    return write_block(&rot->state.rotport, cmdstr, strlen(cmdstr));
+    return write_block(&rot->state.rotport, (unsigned char *) cmdstr,
+                       strlen(cmdstr));
 }
 
 
@@ -169,7 +166,7 @@ gs232_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
     u_az = (unsigned)rint(az);
     u_el = (unsigned)rint(el);
 
-    sprintf(cmdstr, "W%03u %03u" EOM, u_az, u_el);
+    SNPRINTF(cmdstr, sizeof(cmdstr), "W%03u %03u" EOM, u_az, u_el);
     retval = gs232_wo_transaction(rot, cmdstr, NULL, 0);
 
     if (retval != RIG_OK)
@@ -243,9 +240,9 @@ const struct rot_caps gs232_generic_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232_GENERIC),
     .model_name =     "GS-232 Generic",
     .mfg_name =       "Various",
-    .version =        "20200424.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,
@@ -279,9 +276,9 @@ const struct rot_caps amsat_lvb_rot_caps =
     ROT_MODEL(ROT_MODEL_LVB),
     .model_name =     "LVB Tracker",
     .mfg_name =       "AMSAT",
-    .version =        "20200424.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,
@@ -316,9 +313,9 @@ const struct rot_caps st2_rot_caps =
     ROT_MODEL(ROT_MODEL_ST2),
     .model_name =     "GS232/ST2",
     .mfg_name =       "FoxDelta",
-    .version =        "20200424.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,
@@ -354,9 +351,9 @@ const struct rot_caps f1tetracker_rot_caps =
     ROT_MODEL(ROT_MODEL_F1TETRACKER),
     .model_name =     "GS232/F1TE Tracker",
     .mfg_name =       "F1TE",
-    .version =        "20200424.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,

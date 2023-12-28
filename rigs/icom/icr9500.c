@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "serial.h"
@@ -93,7 +90,7 @@ const struct rig_caps icr9500_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -115,7 +112,9 @@ const struct rig_caps icr9500_caps =
     .has_set_level =  RIG_LEVEL_SET(ICR9500_LEVELS),
     .has_get_parm =  ICR9500_PARMS,
     .has_set_parm =  RIG_PARM_SET(ICR9500_PARMS),
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
@@ -225,6 +224,7 @@ const struct rig_caps icr9500_caps =
     .vfo_op =  icom_vfo_op,
     .scan =  icom_scan,
     .get_dcd =  icom_get_dcd,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

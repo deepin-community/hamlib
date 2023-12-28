@@ -23,19 +23,24 @@
 #define _MISC_H 1
 
 #include <hamlib/rig.h>
+#include <hamlib/config.h>
 
 
 /*
- * Careful!! These macros are NOT reentrant!
- * ie. they may not be executed atomically,
- * thus not ensure mutual exclusion.
- * Fix it when making Hamlib reentrant!  --SF
  */
-#define Hold_Decode(rig) {(rig)->state.hold_decode = 1;}
-#define Unhold_Decode(rig) {(rig)->state.hold_decode = 0;}
+#ifdef HAVE_PTHREAD
+#include <pthread.h>
+#define set_transaction_active(rig) {pthread_mutex_lock(&rig->state.mutex_set_transaction);(rig)->state.transaction_active = 1;}
+#define set_transaction_inactive(rig) {(rig)->state.transaction_active = 0;pthread_mutex_unlock(&rig->state.mutex_set_transaction);}
+#else
+#define set_transaction_active(rig) {(rig)->state.transaction_active = 1;}
+#define set_transaction_inactive(rig) {(rig)->state.transaction_active = 0;}
+#endif
 
 __BEGIN_DECLS
 
+// a function to return just a string of spaces for indenting rig debug lines
+HAMLIB_EXPORT (const char *) spaces();
 /*
  * Do a hex dump of the unsigned char array.
  */
@@ -72,11 +77,16 @@ extern HAMLIB_EXPORT(unsigned long long) from_bcd_be(const unsigned char
                                                      bcd_data[],
                                                      unsigned bcd_len);
 
+extern HAMLIB_EXPORT(size_t) to_hex(size_t source_length,
+                                    const unsigned char *source_data,
+                                    size_t dest_length,
+                                    char *dest_data);
+
 extern HAMLIB_EXPORT(double) morse_code_dot_to_millis(int wpm);
 extern HAMLIB_EXPORT(int) dot10ths_to_millis(int dot10ths, int wpm);
 extern HAMLIB_EXPORT(int) millis_to_dot10ths(int millis, int wpm);
 
-extern HAMLIB_EXPORT(int) sprintf_freq(char *str, int len, freq_t);
+extern HAMLIB_EXPORT(int) sprintf_freq(char *str, int str_len, freq_t);
 
 /* flag that determines if AI mode should be restored on exit on
    applicable rigs - See rig_no_restore_ai() */
@@ -107,12 +117,14 @@ extern HAMLIB_EXPORT(int) hl_usleep(rig_useconds_t usec);
 extern HAMLIB_EXPORT(double) elapsed_ms(struct timespec *start, int start_flag);
 
 extern HAMLIB_EXPORT(vfo_t) vfo_fixup(RIG *rig, vfo_t vfo, split_t split);
+extern HAMLIB_EXPORT(vfo_t) vfo_fixup2a(RIG *rig, vfo_t vfo, split_t split, const char *func, const int line);
+#define vfo_fixup(r,v,s) vfo_fixup2a(r,v,s,__func__,__LINE__)
 
-extern HAMLIB_EXPORT(int) parse_hoststr(char *host, char hoststr[256], char port[6]);
+extern HAMLIB_EXPORT(int) parse_hoststr(char *hoststr, int hoststr_len, char host[256], char port[6]);
 
 extern HAMLIB_EXPORT(uint32_t) CRC32_function(uint8_t *buf, uint32_t len);
 
-extern char *date_strget(char *buf, int buflen);
+extern HAMLIB_EXPORT(char *)date_strget(char *buf, int buflen, int localtime);
 
 #ifdef PRId64
 /** \brief printf(3) format to be used for long long (64bits) type */
@@ -145,14 +157,24 @@ extern char *date_strget(char *buf, int buflen);
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 void errmsg(int err, char *s, const char *func, const char *file, int line);
 #define ERRMSG(err, s) errmsg(err,  s, __func__, __FILENAME__, __LINE__)
-#define ENTERFUNC rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s entered\n", __FILENAME__, __LINE__, __func__)
+#define ENTERFUNC {     ++rig->state.depth; \
+                        rig_debug(RIG_DEBUG_VERBOSE, "%.*s%d:%s(%d):%s entered\n", rig->state.depth, spaces(), rig->state.depth, __FILENAME__, __LINE__, __func__); \
+                  }
+#define ENTERFUNC2 {    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s entered\n", __FILENAME__, __LINE__, __func__); \
+                   }
 // we need to refer to rc just once as it 
 // could be a function call 
-#define RETURNFUNC(rc) do { \
+#define RETURNFUNC(rc) {do { \
 			            int rctmp = rc; \
-                        rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s return(%ld)\n", __FILENAME__, __LINE__, __func__, (long int) (rctmp)); \
+                        rig_debug(RIG_DEBUG_VERBOSE, "%.*s%d:%s(%d):%s returning(%ld) %s\n", rig->state.depth, spaces(), rig->state.depth, __FILENAME__, __LINE__, __func__, (long int) (rctmp), rctmp<0?rigerror2(rctmp):""); \
+                        --rig->state.depth; \
                         return (rctmp); \
-                       } while(0)
+                       } while(0);}
+#define RETURNFUNC2(rc) {do { \
+			            int rctmp = rc; \
+                        rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s returning2(%ld) %s\n",  __FILENAME__, __LINE__, __func__, (long int) (rctmp), rctmp<0?rigerror2(rctmp):""); \
+                        return (rctmp); \
+                       } while(0);}
 
 #define CACHE_RESET {\
     elapsed_ms(&rig->state.cache.time_freqMainA, HAMLIB_ELAPSED_INVALIDATE);\
@@ -175,6 +197,17 @@ void errmsg(int err, char *s, const char *func, const char *file, int line);
     elapsed_ms(&rig->state.cache.time_ptt, HAMLIB_ELAPSED_INVALIDATE);\
     elapsed_ms(&rig->state.cache.time_split, HAMLIB_ELAPSED_INVALIDATE);\
      }
+
+
+typedef enum settings_value_e
+{
+    e_CHAR, e_INT, e_LONG, e_FLOAT, e_DOUBLE
+} settings_value_t;
+
+
+extern HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value, settings_value_t valuet);
+extern HAMLIB_EXPORT(int) rig_settings_load(char *setting, void *value, settings_value_t valuet);
+extern HAMLIB_EXPORT(int) rig_settings_load_all(char *settings_file);
 
 __END_DECLS
 

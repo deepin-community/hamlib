@@ -19,7 +19,6 @@
  *
  */
 
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "winradio.h"
@@ -128,7 +127,7 @@ const struct rig_caps g305_caps =
     .mfg_name =       "Winradio",
     .version =        "0.2.1",
     .copyright =      "LGPL", /* This wrapper, not the G3 DLL */
-    .status =         RIG_STATUS_UNTESTED,
+    .status =         RIG_STATUS_ALPHA,
     .rig_type =       RIG_TYPE_PCRECEIVER,
     .port_type =      RIG_PORT_NONE,
     .targetable_vfo =      0,
@@ -183,6 +182,7 @@ const struct rig_caps g305_caps =
     .get_level =     g3_get_level,
 
     .get_info =      g3_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -191,7 +191,7 @@ int g3_init(RIG *rig)
 {
     struct g3_priv_data *priv;
 
-    rig->state.priv = (struct g3_priv_data *)malloc(sizeof(struct g3_priv_data));
+    rig->state.priv = (struct g3_priv_data *)calloc(1, sizeof(struct g3_priv_data));
 
     if (!rig->state.priv)
     {

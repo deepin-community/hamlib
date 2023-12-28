@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -98,7 +96,7 @@ const struct rig_caps nrd545_caps =
     .mfg_name =  "JRC",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -212,7 +210,7 @@ const struct rig_caps nrd545_caps =
     .set_powerstat =  jrc_set_powerstat,
     .get_powerstat =  jrc_get_powerstat,
     .decode_event =  jrc_decode_event,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

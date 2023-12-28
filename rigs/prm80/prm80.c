@@ -19,16 +19,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <ctype.h>
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -83,7 +79,7 @@ MessageAide:  DB   "H",0Dh,0Ah
               DB   " [I] = Erase and init RAM and EEPROM.",0Dh,0Ah
               DB   " [K] = Set lock byte.",0Dh,0Ah
               DB   " [L] = Print latch state.",0Dh,0Ah
-              DB   " [M] = Edit external RAM manualy.",0Dh,0Ah
+              DB   " [M] = Edit external RAM manually.",0Dh,0Ah
               DB   " [N] = Set current channel.",0Dh,0Ah
               DB   " [O] = Set volume.",0Dh,0Ah
               DB   " [P] = Edit/Add channel.",0Dh,0Ah
@@ -125,7 +121,7 @@ MessageAide:  DB   "H",0Dh,0Ah
     b4: PLL locked (Read only)
     b5: Long key push (Internal)
     b6: Key bounce (Internal)
-    b7: Force LCD refresh when set. Automaticaly cleared.
+    b7: Force LCD refresh when set. Automatically cleared.
 
    Channel state byte:
     b0: Shift enable when true
@@ -170,7 +166,8 @@ static int read_prompt_and_send(hamlib_port_t *rigport,
 
     buflen = (data_len == NULL) ? sizeof(buf) : *data_len;
 
-    retval = read_string(rigport, data, buflen, delimiter, 1);
+    retval = read_string(rigport, (unsigned char *) data, buflen, delimiter, 1, 0,
+                         1);
 
     if (retval < 0)
     {
@@ -188,7 +185,7 @@ static int read_prompt_and_send(hamlib_port_t *rigport,
     // Read one (dummy) space character after the colon
     if (space_after_delim)
     {
-        retval = read_block(rigport, spacebuf, 1);
+        retval = read_block(rigport, (unsigned char *) spacebuf, 1);
 
         if (retval < 0 && retval != -RIG_ETIMEOUT)
         {
@@ -197,7 +194,7 @@ static int read_prompt_and_send(hamlib_port_t *rigport,
     }
 
     // Here is the answer to the prompt
-    retval = write_block(rigport, s, strlen(s));
+    retval = write_block(rigport, (unsigned char *) s, strlen(s));
 
     return retval;
 }
@@ -230,7 +227,7 @@ static int prm80_wait_for_prompt(hamlib_port_t *rigport)
     int retval;
 
     // Read up to the '>' prompt and discard content.
-    retval = read_string(rigport, buf, sizeof(buf), ">", 1);
+    retval = read_string(rigport, (unsigned char *) buf, sizeof(buf), ">", 1, 0, 1);
 
     if (retval < 0)
     {
@@ -256,7 +253,7 @@ static int prm80_transaction(RIG *rig, const char *cmd,
     rig_flush(&rs->rigport);
 
     // Start with the command
-    retval = write_block(&rs->rigport, cmd, strlen(cmd));
+    retval = write_block(&rs->rigport, (unsigned char *) cmd, strlen(cmd));
 
     if (retval != RIG_OK)
     {
@@ -385,10 +382,10 @@ int prm80_set_rx_tx_freq(RIG *rig, freq_t rx_freq, freq_t tx_freq)
     int rc;
 
     // for RX, compute the PLL word without the IF
-    sprintf(rx_freq_buf, "%04X",
-            rx_freq_to_pll_value(rx_freq));
-    sprintf(tx_freq_buf, "%04X",
-            (unsigned)(tx_freq / FREQ_DIV));
+    SNPRINTF(rx_freq_buf, sizeof(rx_freq_buf), "%04X",
+             rx_freq_to_pll_value(rx_freq));
+    SNPRINTF(tx_freq_buf, sizeof(tx_freq_buf), "%04X",
+             (unsigned)(tx_freq / FREQ_DIV));
 
     // The protocol is like this :
     // "RX frequency : " XXXX
@@ -576,7 +573,7 @@ int prm80_set_mem(RIG *rig, vfo_t vfo, int ch)
         return -RIG_EINVAL;
     }
 
-    sprintf(chbuf, "%02u", (unsigned)ch);
+    SNPRINTF(chbuf, sizeof(chbuf), "%02u", (unsigned)ch);
 
     prm80_force_cache_timeout(rig);
 
@@ -642,15 +639,15 @@ static int prm80_do_read_system_state(hamlib_port_t *rigport, char *statebuf)
     rig_flush(rigport);
 
     /* [E] = Show system state */
-    ret = write_block(rigport, "E", 1);
+    ret = write_block(rigport, (unsigned char *) "E", 1);
 
     if (ret < 0)
     {
-        RETURNFUNC(ret);
+        return (ret);
     }
 
     // The response length is fixed
-    ret = read_block(rigport, statebuf, CMD_E_RSP_LEN);
+    ret = read_block(rigport, (unsigned char *) statebuf, CMD_E_RSP_LEN);
 
     if (ret < 0)
     {
@@ -666,7 +663,7 @@ static int prm80_do_read_system_state(hamlib_port_t *rigport, char *statebuf)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: len=%d < %d, statebuf='%s'\n", __func__,
                   ret, CMD_E_RSP_LEN, statebuf);
-        RETURNFUNC(-RIG_EPROTO);
+        return (-RIG_EPROTO);
     }
 
     p = strchr(statebuf, '>');
@@ -675,7 +672,8 @@ static int prm80_do_read_system_state(hamlib_port_t *rigport, char *statebuf)
     {
         int left_to_read = (p - statebuf) + 1;
         memmove(statebuf, p + 1, CMD_E_RSP_LEN - left_to_read);
-        ret = read_block(rigport, statebuf + CMD_E_RSP_LEN - left_to_read,
+        ret = read_block(rigport,
+                         (unsigned char *) statebuf + CMD_E_RSP_LEN - left_to_read,
                          left_to_read);
 
         if (ret < 0)
@@ -853,7 +851,7 @@ int prm80_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
             "This channel number doesn't exist. Add new channel (Y/N) ? "
            */
 
-        sprintf(buf, "%02u", (unsigned)chan->channel_num);
+        SNPRINTF(buf, sizeof(buf), "%02u", (unsigned)chan->channel_num);
 
         ret = prm80_transaction(rig, "P", buf, 0);
 
@@ -863,7 +861,7 @@ int prm80_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
         }
 
         // Set the RX frequency as PLL word.
-        sprintf(buf, "%04X", rx_freq_to_pll_value(chan->freq));
+        SNPRINTF(buf, sizeof(buf), "%04X", rx_freq_to_pll_value(chan->freq));
 
         // "PLL value to load : $"
         ret = read_dollar_prompt_and_send(&rs->rigport, NULL, NULL, buf);
@@ -887,7 +885,7 @@ int prm80_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 
         chanstate |= (chan->flags & RIG_CHFLAG_SKIP) ? 0x08 : 0;
 
-        sprintf(buf, "%02X", chanstate);
+        SNPRINTF(buf, sizeof(buf), "%02X", chanstate);
 
         // "Channel state : $"
         ret = read_dollar_prompt_and_send(&rs->rigport, NULL, NULL, buf);
@@ -900,7 +898,7 @@ int prm80_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
         // Determine if prompt came back (CRLF'>') or have to
         // handle the possible query from the rig:
         // "This channel number doesn't exist. Add new channel (Y/N) ? "
-        ret = read_block(&rs->rigport, buf, 3);
+        ret = read_block(&rs->rigport, (unsigned char *) buf, 3);
 
         if (ret < 0)
         {
@@ -910,7 +908,8 @@ int prm80_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
         if (ret == 3 && buf[2] == 'T')
         {
             // Read the question
-            ret = read_string(&rs->rigport, buf, sizeof(buf), "?", 1);
+            ret = read_string(&rs->rigport, (unsigned char *) buf, sizeof(buf), "?", 1, 0,
+                              1);
 
             if (ret < 0)
             {
@@ -918,7 +917,7 @@ int prm80_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
             }
 
             // Read extra space
-            ret = read_block(&rs->rigport, buf, 1);
+            ret = read_block(&rs->rigport, (unsigned char *) buf, 1);
 
             if (ret < 0)
             {
@@ -926,7 +925,7 @@ int prm80_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
             }
 
             // Send confirmation
-            ret = write_block(&rs->rigport, "Y", 1);
+            ret = write_block(&rs->rigport, (unsigned char *) "Y", 1);
 
             if (ret < 0)
             {
@@ -1063,12 +1062,12 @@ int prm80_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     {
     case RIG_LEVEL_AF:
         // Unlike system state, volume decimal
-        sprintf(buf, "%02u", (unsigned)(val.f * 16));
+        SNPRINTF(buf, sizeof(buf), "%02u", (unsigned)(val.f * 16));
 
         return prm80_transaction(rig, "O", buf, 1);
 
     case RIG_LEVEL_SQL:
-        sprintf(buf, "%02u", (unsigned)(val.f * 15));
+        SNPRINTF(buf, sizeof(buf), "%02u", (unsigned)(val.f * 15));
 
         return prm80_transaction(rig, "F", buf, 1);
 
@@ -1090,7 +1089,7 @@ int prm80_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         mode_byte  = hhtoi(buf);
         mode_byte &= ~0x02;
         mode_byte |= (val.f == 0.) ? 0 : 0x02;
-        sprintf(buf, "%02X", (unsigned)mode_byte);
+        SNPRINTF(buf, sizeof(buf), "%02X", (unsigned)mode_byte);
 
         return prm80_transaction(rig, "D", buf, 1);
 
@@ -1126,7 +1125,7 @@ static int prm80_get_rawstr_RAM(RIG *rig, value_t *val)
     }
 
     // Read CRLF
-    ret = read_string(&rs->rigport, buf, BUFSZ, "\n", 1);
+    ret = read_string(&rs->rigport, buf, BUFSZ, "\n", 1, 0, 1);
 
     if (ret < 0)
     {
@@ -1142,7 +1141,7 @@ static int prm80_get_rawstr_RAM(RIG *rig, value_t *val)
 
     for (i = 0; i < (RSSI_HOLD_ADDR / 16) + 1; i++)
     {
-        ret = read_string(&rs->rigport, buf, BUFSZ, "\n", 1);
+        ret = read_string(&rs->rigport, buf, BUFSZ, "\n", 1, 0, 1);
 
         if (ret < 0)
         {
@@ -1158,7 +1157,7 @@ static int prm80_get_rawstr_RAM(RIG *rig, value_t *val)
     // discard the remaining content of RAM print
     for (i = 0; i < (16 - RSSI_HOLD_ADDR / 16) - 1; i++)
     {
-        read_string(&rs->rigport, buf, BUFSZ, "\n", 1);
+        read_string(&rs->rigport, buf, BUFSZ, "\n", 1, 0, 1);
     }
 
     prm80_wait_for_prompt(&rs->rigport);
@@ -1274,14 +1273,14 @@ const char *prm80_get_info(RIG *rig)
     rig_flush(&rs->rigport);
 
     /* [V] = Print firmware version. */
-    ret = write_block(&rs->rigport, "V", 1);
+    ret = write_block(&rs->rigport, (unsigned char *) "V", 1);
 
     if (ret < 0)
     {
         return NULL;
     }
 
-    ret = read_string(&rs->rigport, s_buf, BUFSZ, ">", 1);
+    ret = read_string(&rs->rigport, (unsigned char *) s_buf, BUFSZ, ">", 1, 0, 1);
 
     if (ret < 0)
     {

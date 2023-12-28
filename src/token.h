@@ -91,6 +91,9 @@
 #define TOK_PTT_SHARE        TOKEN_FRONTEND(35)
 /** \brief  PTT share with other applications */
 #define TOK_FLUSHX        TOKEN_FRONTEND(36)
+/** \brief  Asynchronous data transfer support */
+#define TOK_ASYNC        TOKEN_FRONTEND(37)
+
 /*
  * rig specific tokens
  */
@@ -98,7 +101,7 @@
 
 /** \brief rig: ?? */
 #define TOK_VFO_COMP    TOKEN_FRONTEND(110)
-/** \brief rig: polling interval (units?) */
+/** \brief rig: Rig state poll interval in milliseconds */
 #define TOK_POLL_INTERVAL   TOKEN_FRONTEND(111)
 /** \brief rig: lo frequency of any transverters */
 #define TOK_LO_FREQ         TOKEN_FRONTEND(112)
@@ -106,7 +109,7 @@
 #define TOK_RANGE_SELECTED  TOKEN_FRONTEND(121)
 /** \brief rig: Range Name */
 #define TOK_RANGE_NAME  TOKEN_FRONTEND(122)
-/** \brief rig: Cache timeout */
+/** \brief rig: Cache timeout in milliseconds */
 #define TOK_CACHE_TIMEOUT  TOKEN_FRONTEND(123)
 /** \brief rig: Auto power on rig_open when supported */
 #define TOK_AUTO_POWER_ON  TOKEN_FRONTEND(124)

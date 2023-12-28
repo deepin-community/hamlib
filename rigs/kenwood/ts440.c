@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -62,7 +60,7 @@ const struct rig_caps ts440_caps =
     RIG_MODEL(RIG_MODEL_TS440),
     .model_name = "TS-440S",
     .mfg_name =  "Kenwood",
-    .version =  IC10_VER ".0",
+    .version =  IC10_VER ".3",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -76,8 +74,8 @@ const struct rig_caps ts440_caps =
     .serial_parity =  RIG_PARITY_NONE,
     .serial_handshake =  RIG_HANDSHAKE_NONE,
     .write_delay =  0,
-    .post_write_delay =  0,
-    .timeout =  200,
+    .post_write_delay =  20,
+    .timeout =  500,
     .retry =  10,
 
     .has_get_func =  RIG_FUNC_NONE,
@@ -151,8 +149,8 @@ const struct rig_caps ts440_caps =
     .rig_open = kenwood_open,
     .rig_close = kenwood_close,
     .rig_cleanup = kenwood_cleanup,
-    .set_freq =  ic10_set_freq,
-    .get_freq =  ic10_get_freq,
+    .set_freq =  kenwood_set_freq,
+    .get_freq =  kenwood_get_freq,
     .set_rit =  kenwood_set_rit,
     .get_rit =  kenwood_get_rit,
     .set_xit =  kenwood_set_xit,
@@ -176,7 +174,7 @@ const struct rig_caps ts440_caps =
     .set_channel = ic10_set_channel,
     .get_channel = ic10_get_channel,
     .decode_event = ic10_decode_event,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

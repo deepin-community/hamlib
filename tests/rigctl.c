@@ -23,16 +23,11 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-#include <hamlibdatetime.h>
-
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
@@ -118,6 +113,8 @@ static struct option long_options[] =
 
 };
 
+extern char rig_resp_sep;
+
 #define MAXCONFLEN 1024
 
 int main(int argc, char *argv[])
@@ -152,9 +149,13 @@ int main(int argc, char *argv[])
     int vfo_opt = 0;       /* vfo_opt = 0 means target VFO is 'currVFO' */
     char send_cmd_term = '\r';  /* send_cmd termination char */
     int ext_resp = 0;
-    char resp_sep = '\n';
     int i;
     char rigstartup[1024];
+    char vbuf[1024];
+
+    int err = setvbuf(stderr, vbuf, _IOFBF, sizeof(vbuf));
+
+    if (err) { rig_debug(RIG_DEBUG_ERR, "%s: setvbuf err=%s\n", __func__, strerror(err)); }
 
     while (1)
     {
@@ -441,7 +442,7 @@ int main(int argc, char *argv[])
 
     rig_set_debug(verbose);
 
-    snprintf(rigstartup, sizeof(rigstartup), "%s(%d) Startup:", __FILE__, __LINE__);
+    SNPRINTF(rigstartup, sizeof(rigstartup), "%s(%d) Startup:", __FILE__, __LINE__);
 
     for (i = 0; i < argc; ++i) { strcat(rigstartup, " "); strcat(rigstartup, argv[i]); }
 
@@ -516,6 +517,7 @@ int main(int argc, char *argv[])
     if (serial_rate != 0)
     {
         my_rig->state.rigport.parm.serial.rate = serial_rate;
+        my_rig->state.rigport_deprecated.parm.serial.rate = serial_rate;
     }
 
     if (civaddr)
@@ -563,7 +565,7 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "rig_open: error = %s %s %s \n", rigerror(retcode), rig_file,
+        fprintf(stderr, "rig_open: error = %s %s \n", rig_file,
                 strerror(errno));
 
         if (!ignore_rig_open_error) { exit(2); }
@@ -619,7 +621,7 @@ int main(int argc, char *argv[])
             hist_path_size = sizeof(char) * (strlen(hist_dir) + strlen(hist_file) + 1);
             hist_path = (char *)calloc(hist_path_size, sizeof(char));
 
-            snprintf(hist_path, hist_path_size, "%s%s", hist_dir, hist_file);
+            SNPRINTF(hist_path, hist_path_size, "%s%s", hist_dir, hist_file);
         }
 
         if (rd_hist && hist_path)
@@ -649,14 +651,14 @@ int main(int argc, char *argv[])
 
         retcode = rigctl_parse(my_rig, stdin, stdout, argv, argc, NULL,
                                interactive, prompt, &vfo_opt, send_cmd_term,
-                               &ext_resp, &resp_sep);
+                               &ext_resp, &rig_resp_sep, 0);
 
         // if we get a hard error we try to reopen the rig again
         // this should cover short dropouts that can occur
         if (retcode < 0 && !RIG_IS_SOFT_ERRCODE(-retcode))
         {
             int retry = 3;
-            rig_debug(RIG_DEBUG_ERR, "%s: i/o error\n", __func__)
+            rig_debug(RIG_DEBUG_ERR, "%s: i/o error\n", __func__);
 
             do
             {
@@ -737,6 +739,13 @@ void usage(void)
     );
 
     usage_rig(stdout);
+
+    printf("\nError codes and messages\n");
+
+    for (enum rig_errcode_e e = 0; e < RIG_EEND; ++e)
+    {
+        printf("-%d - %s", e, rigerror2(e));
+    }
 
     printf("\nReport bugs to <hamlib-developer@lists.sourceforge.net>.\n");
 

@@ -26,14 +26,11 @@
  * doc todo: Let's explain what's going on here!
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <sys/types.h>
 
@@ -90,6 +87,8 @@ DEFINE_INITRIG_BACKEND(adat);
 DEFINE_INITRIG_BACKEND(dorji);
 DEFINE_INITRIG_BACKEND(barrett);
 DEFINE_INITRIG_BACKEND(elad);
+DEFINE_INITRIG_BACKEND(codan);
+DEFINE_INITRIG_BACKEND(gomspace);
 //! @endcond
 
 #ifdef HAVE_WINRADIO
@@ -146,6 +145,8 @@ static struct
     { RIG_DORJI, RIG_BACKEND_DORJI, RIG_FUNCNAMA(dorji) },
     { RIG_BARRETT, RIG_BACKEND_BARRETT, RIG_FUNCNAMA(barrett) },
     { RIG_ELAD, RIG_BACKEND_ELAD, RIG_FUNCNAMA(elad) },
+    { RIG_CODAN, RIG_BACKEND_CODAN, RIG_FUNCNAMA(codan) },
+    { RIG_GOMSPACE, RIG_BACKEND_GOMSPACE, RIG_FUNCNAM(gomspace) },
     { 0, NULL }, /* end */
 };
 
@@ -190,19 +191,21 @@ int HAMLIB_API rig_register(const struct rig_caps *caps)
     int hval;
     struct rig_list *p;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    //rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (!caps)
     {
         return -RIG_EINVAL;
     }
 
+#if 0
     rig_debug(RIG_DEBUG_VERBOSE,
               "%s: rig_register (%u)\n",
               __func__,
               caps->rig_model);
+#endif
 
-    p = (struct rig_list *)malloc(sizeof(struct rig_list));
+    p = (struct rig_list *)calloc(1, sizeof(struct rig_list));
 
     if (!p)
     {
@@ -222,7 +225,8 @@ int HAMLIB_API rig_register(const struct rig_caps *caps)
     p->next = rig_hash_table[hval];
     rig_hash_table[hval] = p;
 
-    RETURNFUNC(RIG_OK);
+    //RETURNFUNC(RIG_OK);
+    return RIG_OK;
 }
 //! @endcond
 
@@ -300,12 +304,16 @@ int HAMLIB_API rig_check_backend(rig_model_t rig_model)
         if (rig_hash_table[i]) { ++n; }
     }
 
+#if 0 // this stopped a 2nd rig_init call with a valid model to fail -- reversing
+
     if (n > 1)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: rig model %d not found and rig count=%d\n",
+        rig_debug(RIG_DEBUG_ERR, "%s: rig model %u not found and rig count=%d\n",
                   __func__, rig_model, n);
         return -RIG_ENAVAIL;
     }
+
+#endif
 
     be_idx = rig_lookup_backend(rig_model);
 

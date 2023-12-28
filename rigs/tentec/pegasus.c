@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -216,6 +214,7 @@ const struct rig_caps tt550_caps =
     .get_rit =  tt550_get_rit,
     .set_xit =  tt550_set_xit,
     .get_xit =  tt550_get_xit,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

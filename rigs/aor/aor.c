@@ -19,15 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 #include <ctype.h>
 
 #include "hamlib/rig.h"
@@ -82,7 +76,7 @@ static int aor_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rig_flush(&rs->rigport);
 
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(&rs->rigport, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -102,7 +96,8 @@ static int aor_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
     /*
      * Do wait for a reply
      */
-    retval = read_string(&rs->rigport, data, BUFSZ, EOM, strlen(EOM));
+    retval = read_string(&rs->rigport, (unsigned char *) data, BUFSZ, EOM,
+                         strlen(EOM), 0, 1);
 
     if (retval < 0)
     {
@@ -130,7 +125,7 @@ static int aor_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
     if (retval >= 1 && data[0] == '?')
     {
         /* command failed? resync with radio */
-        write_block(&rs->rigport, EOM, 1);
+        write_block(&rs->rigport, (unsigned char *) EOM, 1);
 
         return -RIG_EPROTO;
     }
@@ -150,10 +145,10 @@ int aor_close(RIG *rig)
      * since no reply is to be expected.
      */
 
-    return write_block(&rig->state.rigport, "EX" EOM, 3);
+    return write_block(&rig->state.rigport, (unsigned char *) "EX" EOM, 3);
 }
 
-static int format_freq(char *buf, freq_t freq)
+static int format_freq(char *buf, int buf_len, freq_t freq)
 {
     int lowhz;
     int64_t f = (int64_t)freq;
@@ -181,7 +176,8 @@ static int format_freq(char *buf, freq_t freq)
     f = f * 100 + lowhz;
 
     // cppcheck-suppress *
-    return sprintf(buf, "RF%010"PRIll, f);
+    SNPRINTF(buf, buf_len, "RF%010"PRIll, f);
+    return strlen(buf);
 }
 
 /*
@@ -193,7 +189,7 @@ int aor_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     char freqbuf[BUFSZ];
     int freq_len;
 
-    freq_len = format_freq(freqbuf, freq);
+    freq_len = format_freq(freqbuf, sizeof(freqbuf), freq);
     strcpy(freqbuf + freq_len, EOM);
     freq_len += strlen(EOM);
 
@@ -353,7 +349,8 @@ int aor_get_vfo(RIG *rig, vfo_t *vfo)
     return RIG_OK;
 }
 
-int format8k_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width)
+int format8k_mode(RIG *rig, char *buf, int buf_len,  rmode_t mode,
+                  pbwidth_t width)
 {
     int aormode;
 
@@ -429,7 +426,8 @@ int format8k_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    return sprintf(buf, "MD%c", aormode);
+    SNPRINTF(buf, buf_len, "MD%c", aormode);
+    return strlen(buf);
 }
 
 /*
@@ -443,7 +441,7 @@ int aor_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     char mdbuf2[16] = "";
     int mdbuf2_len, retval;
 
-    if (priv->format_mode(rig, mdbuf, mode, width) <= 0)
+    if (priv->format_mode(rig, mdbuf, sizeof(mdbuf), mode, width) <= 0)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: format_mode=%s failed?\n", __func__,
                   rig_strrmode(mode));
@@ -456,7 +454,7 @@ int aor_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     {
     case RIG_MODEL_AR5000:
     case RIG_MODEL_AR5000A:
-        snprintf(mdbuf2, sizeof(mdbuf2), "%.3s",
+        SNPRINTF(mdbuf2, sizeof(mdbuf2), "%.3s",
                  mdbuf);      /* Extract first 'MD' part */
         mdbuf2_len = strlen(mdbuf2);
         strcpy(mdbuf2 + mdbuf2_len, EOM); /* Add delimiter */
@@ -543,8 +541,8 @@ int parse8k_aor_mode(RIG *rig, char aormode, char aorwidth, rmode_t *mode,
 int aor_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
     struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
-    char ackbuf[BUFSZ], *mdp;
-    char *mdp2;
+    char ackbuf[BUFSZ], ackbuf2[BUFSZ];
+    char *mdp, *mdp2;
     int ack_len, ack2_len, retval;
 
 
@@ -571,7 +569,6 @@ int aor_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     if (rig->caps->rig_model == RIG_MODEL_AR5000 ||
             rig->caps->rig_model == RIG_MODEL_AR5000A)
     {
-        char ackbuf2[BUFSZ];
         retval = aor_transaction(rig, "BW" EOM, 3, ackbuf2, &ack2_len);
 
         if (retval != RIG_OK)
@@ -598,15 +595,14 @@ int aor_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 int aor_set_ts(RIG *rig, vfo_t vfo, shortfreq_t ts)
 {
     char tsbuf[BUFSZ];
-    int ts_len;
 
     /*
      * actually, tuning step must be like nnnnm0,
      * where m must be 0 or 5 (for 50Hz).
      */
-    ts_len = sprintf(tsbuf, "ST%06ld" EOM, ts);
+    SNPRINTF(tsbuf, sizeof(tsbuf), "ST%06ld" EOM, ts);
 
-    return aor_transaction(rig, tsbuf, ts_len, NULL, NULL);
+    return aor_transaction(rig, tsbuf, strlen(tsbuf), NULL, NULL);
 }
 
 
@@ -618,7 +614,6 @@ int aor_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
     struct rig_state *rs;
     char lvlbuf[BUFSZ];
-    int lvl_len;
     int agc;
 
     rs = &rig->state;
@@ -648,7 +643,7 @@ int aor_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        lvl_len = sprintf(lvlbuf, "AT%u" EOM, att);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AT%u" EOM, att);
         break;
     }
 
@@ -665,7 +660,7 @@ int aor_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         default: agc = 'F';
         }
 
-        lvl_len = sprintf(lvlbuf, "AC%c" EOM, agc);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AC%c" EOM, agc);
         break;
 
     default:
@@ -673,7 +668,7 @@ int aor_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         return -RIG_EINVAL;
     }
 
-    return aor_transaction(rig, lvlbuf, lvl_len, NULL, NULL);
+    return aor_transaction(rig, lvlbuf, strlen(lvlbuf), NULL, NULL);
 }
 
 /*
@@ -684,22 +679,22 @@ int aor_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     struct rig_state *rs;
     char lvlbuf[BUFSZ], ackbuf[BUFSZ];
-    int lvl_len, ack_len, retval;
+    int ack_len, retval;
 
     rs = &rig->state;
 
     switch (level)
     {
     case RIG_LEVEL_RAWSTR:
-        lvl_len = sprintf(lvlbuf, "LM" EOM);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "LM" EOM);
         break;
 
     case RIG_LEVEL_ATT:
-        lvl_len = sprintf(lvlbuf, "AT" EOM);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AT" EOM);
         break;
 
     case RIG_LEVEL_AGC: /* AR5000 & AR5000A */
-        lvl_len = sprintf(lvlbuf, "AC" EOM);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AC" EOM);
         break;
 
     default:
@@ -707,7 +702,7 @@ int aor_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         return -RIG_EINVAL;
     }
 
-    retval = aor_transaction(rig, lvlbuf, lvl_len, ackbuf, &ack_len);
+    retval = aor_transaction(rig, lvlbuf, strlen(lvlbuf), ackbuf, &ack_len);
 
     if (retval != RIG_OK)
     {
@@ -945,7 +940,6 @@ int aor_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
     struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     char membuf[BUFSZ];
-    int mem_len;
     int mem_num;
     char bank_base;
 
@@ -966,10 +960,10 @@ int aor_set_mem(RIG *rig, vfo_t vfo, int ch)
         bank_base = priv->bank_base1;
     }
 
-    mem_len = sprintf(membuf, "MR%c%02d" EOM,
-                      bank_base + ch / 100, mem_num);
+    SNPRINTF(membuf, sizeof(membuf), "MR%c%02d" EOM,
+             bank_base + ch / 100, mem_num);
 
-    return aor_transaction(rig, membuf, mem_len, NULL, NULL);
+    return aor_transaction(rig, membuf, strlen(membuf), NULL, NULL);
 }
 
 /*
@@ -1021,12 +1015,11 @@ int aor_set_bank(RIG *rig, vfo_t vfo, int bank)
 {
     struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     char membuf[BUFSZ];
-    int mem_len;
 
-    mem_len = sprintf(membuf, "MR%c" EOM, (bank % 10) + (bank < 10 ?
-                      priv->bank_base1 : priv->bank_base2));
+    SNPRINTF(membuf, sizeof(membuf), "MR%c" EOM, (bank % 10) + (bank < 10 ?
+             priv->bank_base1 : priv->bank_base2));
 
-    return aor_transaction(rig, membuf, mem_len, NULL, NULL);
+    return aor_transaction(rig, membuf, strlen(membuf), NULL, NULL);
 }
 
 
@@ -1036,21 +1029,24 @@ int aor_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     char aorcmd[BUFSZ];
     int cmd_len;
 
-    cmd_len = sprintf(aorcmd, "MX%c%02d ",
-                      chan->bank_num, chan->channel_num % 100);
+    SNPRINTF(aorcmd, sizeof(aorcmd), "MX%c%02d ",
+             chan->bank_num, chan->channel_num % 100);
+    cmd_len = strlen(aorcmd);
 
-    cmd_len += format_freq(aorcmd + cmd_len, chan->freq);
+    cmd_len += format_freq(aorcmd + cmd_len, sizeof(aorcmd) - cmd_len, chan->freq);
 
     /*
      * FIXME: automode
      */
-    cmd_len += sprintf(aorcmd + cmd_len, " AU%d ST%06d ",
-                       0, (int)chan->tuning_step);
+    cmd_len += snprintf(aorcmd + cmd_len, sizeof(aorcmd) - cmd_len, " AU%d ST%06d ",
+                        0, (int)chan->tuning_step);
 
-    cmd_len += priv->format_mode(rig, aorcmd + cmd_len, chan->mode, chan->width);
+    cmd_len += priv->format_mode(rig, aorcmd + cmd_len, sizeof(aorcmd) - cmd_len,
+                                 chan->mode, chan->width);
 
-    cmd_len += sprintf(aorcmd + cmd_len, " AT%d TM%12s%s",
-                       chan->levels[LVL_ATT].i ? 1 : 0, chan->channel_desc, EOM);
+    cmd_len += snprintf(aorcmd + cmd_len, sizeof(aorcmd) - cmd_len,
+                        " AT%d TM%12s%s",
+                        chan->levels[LVL_ATT].i ? 1 : 0, chan->channel_desc, EOM);
 
     return aor_transaction(rig, aorcmd, cmd_len, NULL, NULL);
 }
@@ -1245,7 +1241,7 @@ int aor_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     char aorcmd[BUFSZ];
-    int cmd_len, chan_len;
+    int chan_len;
     char chanbuf[BUFSZ];
     int retval;
     channel_cap_t *mem_caps = NULL;
@@ -1304,9 +1300,9 @@ int aor_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
             bank_base = priv->bank_base1;
         }
 
-        cmd_len = sprintf(aorcmd, "MR%c%02d" EOM,
-                          bank_base + channel_num / 100, mem_num);
-        retval = aor_transaction(rig, aorcmd, cmd_len, chanbuf, &chan_len);
+        SNPRINTF(aorcmd, sizeof(aorcmd), "MR%c%02d" EOM,
+                 bank_base + channel_num / 100, mem_num);
+        retval = aor_transaction(rig, aorcmd, strlen(aorcmd), chanbuf, &chan_len);
 
         /* is the channel empty? */
         if (retval == -RIG_EPROTO && chanbuf[0] == '?')
@@ -1321,8 +1317,8 @@ int aor_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
         }
     }
 
-    cmd_len = sprintf(aorcmd, "RX" EOM);
-    retval = aor_transaction(rig, aorcmd, cmd_len, chanbuf, &chan_len);
+    SNPRINTF(aorcmd, sizeof(aorcmd), "RX" EOM);
+    retval = aor_transaction(rig, aorcmd, strlen(aorcmd), chanbuf, &chan_len);
 
     if (retval != RIG_OK)
     {
@@ -1355,7 +1351,7 @@ int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
     channel_t *chan;
     int chan_count;
     char aorcmd[BUFSZ];
-    int cmd_len, chan_len;
+    int chan_len;
     char chanbuf[BUFSZ];
     int chan_next = chan_list[0].startc;
 
@@ -1368,7 +1364,7 @@ int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
      * future data for channel channel_num
      */
     chan = NULL;
-    retval = chan_cb(rig, &chan, chan_next, chan_list, arg);
+    retval = chan_cb(rig, vfo, &chan, chan_next, chan_list, arg);
 
     if (retval != RIG_OK)
     {
@@ -1380,13 +1376,13 @@ int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
         return -RIG_ENOMEM;
     }
 
-    cmd_len = sprintf(aorcmd, "MA%c" EOM,
-                      priv->bank_base1);
+    SNPRINTF(aorcmd, sizeof(aorcmd), "MA%c" EOM,
+             priv->bank_base1);
 
     for (i = 0; i < chan_count / LINES_PER_MA; i++)
     {
 
-        retval = aor_transaction(rig, aorcmd, cmd_len, chanbuf, &chan_len);
+        retval = aor_transaction(rig, aorcmd, strlen(aorcmd), chanbuf, &chan_len);
 
         if (retval != RIG_OK)
         {
@@ -1418,7 +1414,7 @@ int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
              * provide application with channel data,
              * and ask for a new channel structure
              */
-            chan_cb(rig, &chan, chan_next, chan_list, arg);
+            chan_cb(rig, vfo, &chan, chan_next, chan_list, arg);
 
             if (j >= LINES_PER_MA - 1)
             {
@@ -1428,7 +1424,8 @@ int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
             /*
              * get next line
              */
-            retval = read_string(&rig->state.rigport, chanbuf, BUFSZ, EOM, strlen(EOM));
+            retval = read_string(&rig->state.rigport, (unsigned char *) chanbuf, BUFSZ,
+                                 EOM, strlen(EOM), 0, 1);
 
             if (retval < 0)
             {
@@ -1436,7 +1433,7 @@ int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
             }
         }
 
-        cmd_len = sprintf(aorcmd, "MA" EOM);
+        SNPRINTF(aorcmd, sizeof(aorcmd), "MA" EOM);
     }
 
     return RIG_OK;
@@ -1470,7 +1467,7 @@ const char *aor_get_info(RIG *rig)
     }
 
     frmbuf[frm_len] = '\0';
-    snprintf(infobuf, sizeof(infobuf), "Remote ID %c%c, Firmware version %s",
+    SNPRINTF(infobuf, sizeof(infobuf), "Remote ID %c%c, Firmware version %s",
              idbuf[0], idbuf[1], frmbuf);
 
     return infobuf;

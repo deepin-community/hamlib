@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -114,7 +112,7 @@ const struct rig_caps icr75_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -135,7 +133,9 @@ const struct rig_caps icr75_caps =
     .has_set_level =  RIG_LEVEL_SET(ICR75_LEVEL_ALL),
     .has_get_parm =  ICR75_PARM_ALL,
     .has_set_parm =  RIG_PARM_SET(ICR75_PARM_ALL),
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_PBT_IN] = { .min = { .f = -1280 }, .max = { .f = +1280 }, .step = { .f = 15 } },
@@ -244,6 +244,7 @@ const struct rig_caps icr75_caps =
     .set_channel = icr75_set_channel,
     .get_channel = icr75_get_channel,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -295,7 +296,7 @@ int icr75_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 
     to_bcd_be(chanbuf + chan_len++, chan->ant, 2);
     memset(chanbuf + chan_len, 0, 8);
-    snprintf((char *)(chanbuf + chan_len), 9, "%.8s", chan->channel_desc);
+    SNPRINTF((char *)(chanbuf + chan_len), 9, "%.8s", chan->channel_desc);
     chan_len += 8;
 
     retval = icom_transaction(rig, C_CTL_MEM, S_MEM_CNTNT,

@@ -1,5 +1,6 @@
 debian/tmp/usr/include/hamlib/amplifier.h
 debian/tmp/usr/include/hamlib/amplist.h
+debian/tmp/usr/include/hamlib/config.h
 debian/tmp/usr/include/hamlib/rig.h
 debian/tmp/usr/include/hamlib/rig_dll.h
 debian/tmp/usr/include/hamlib/riglist.h

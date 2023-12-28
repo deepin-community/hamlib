@@ -1,5 +1,6 @@
 /*
  *  Hamlib Interface - network communication low-level support
+ *  Copyright (c) 2021 by Mikael Nousiainen
  *  Copyright (c) 2000-2012 by Stephane Fillod
  *
  *   This library is free software; you can redistribute it and/or
@@ -31,9 +32,7 @@
 /* Forcing WINVER in MinGW yanks in getaddrinfo(), but locks out Win95/Win98 */
 /* #define WINVER 0x0501 */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdio.h>   /* Standard input/output definitions */
@@ -41,7 +40,6 @@
 #include <unistd.h>  /* UNIX standard function definitions */
 #include <fcntl.h>   /* File control definitions */
 #include <errno.h>   /* Error number definitions */
-#include <sys/time.h>
 #include <sys/types.h>
 #include <signal.h>
 #include <pthread.h>
@@ -78,7 +76,12 @@
 #include <hamlib/rig.h>
 #include "network.h"
 #include "misc.h"
+#include "asyncpipe.h"
+#include "snapshot_data.h"
 
+#ifdef HAVE_WINDOWS_H
+#include "io.h"
+#endif
 
 #ifdef __MINGW32__
 static int wsstarted;
@@ -87,6 +90,40 @@ static int wsstarted;
 //! @cond Doxygen_Suppress
 #define NET_BUFFER_SIZE 8192
 //! @endcond
+
+#define MULTICAST_PUBLISHER_DATA_PACKET_TYPE_POLL       0x01
+#define MULTICAST_PUBLISHER_DATA_PACKET_TYPE_TRANSCEIVE 0x02
+#define MULTICAST_PUBLISHER_DATA_PACKET_TYPE_SPECTRUM   0x03
+
+#pragma pack(push,1)
+typedef struct multicast_publisher_data_packet_s
+{
+    uint8_t type;
+    uint8_t padding;
+    uint16_t data_length;
+} __attribute__((packed)) multicast_publisher_data_packet;
+#pragma pack(pop)
+
+typedef struct multicast_publisher_args_s
+{
+    RIG *rig;
+    int socket_fd;
+    const char *multicast_addr;
+    int multicast_port;
+
+#if defined(WIN32) && defined(HAVE_WINDOWS_H)
+    hamlib_async_pipe_t *data_pipe;
+#else
+    int data_write_fd;
+    int data_read_fd;
+#endif
+} multicast_publisher_args;
+
+typedef struct multicast_publisher_priv_data_s
+{
+    pthread_t thread_id;
+    multicast_publisher_args args;
+} multicast_publisher_priv_data;
 
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
@@ -126,10 +163,10 @@ int network_init()
 {
 #ifdef __MINGW32__
     WSADATA wsadata;
-    int ret;
 
     if (wsstarted == 0)
     {
+        int ret;
         ret = WSAStartup(MAKEWORD(1, 1), &wsadata);
 
         if (ret == 0)
@@ -141,7 +178,7 @@ int network_init()
         {
             rig_debug(RIG_DEBUG_ERR, "%s: error creating socket, WSAStartup ret=%d\n",
                       __func__, ret);
-            RETURNFUNC(-RIG_EIO);
+            return (-RIG_EIO);
         }
     }
 
@@ -168,15 +205,16 @@ int network_open(hamlib_port_t *rp, int default_port)
     struct sockaddr_in client;
     char hoststr[256], portstr[6] = "";
 
-    ENTERFUNC;
-
+#ifdef __MINGW32__
     status = network_init();
 
-    if (status != RIG_OK) { RETURNFUNC(status); }
+    if (status != RIG_OK) { return (status); }
+
+#endif
 
     if (!rp)
     {
-        RETURNFUNC(-RIG_EINVAL);
+        return (-RIG_EINVAL);
     }
 
     memset(&hints, 0, sizeof(hints));
@@ -194,15 +232,15 @@ int network_open(hamlib_port_t *rp, int default_port)
 
     if (rp->pathname[0] == ':' && rp->pathname[1] != ':')
     {
-        snprintf(portstr, sizeof(portstr) - 1, "%s", rp->pathname + 1);
+        SNPRINTF(portstr, sizeof(portstr) - 1, "%s", rp->pathname + 1);
     }
     else
     {
         if (strlen(rp->pathname))
         {
-            status = parse_hoststr(rp->pathname, hoststr, portstr);
+            status = parse_hoststr(rp->pathname, sizeof(rp->pathname), hoststr, portstr);
 
-            if (status != RIG_OK) { RETURNFUNC(status); }
+            if (status != RIG_OK) { return (status); }
 
             rig_debug(RIG_DEBUG_TRACE, "%s: hoststr=%s, portstr=%s\n", __func__, hoststr,
                       portstr);
@@ -211,7 +249,7 @@ int network_open(hamlib_port_t *rp, int default_port)
 
         if (strlen(portstr) == 0)
         {
-            sprintf(portstr, "%d", default_port);
+            SNPRINTF(portstr, sizeof(portstr), "%d", default_port);
         }
     }
 
@@ -248,7 +286,7 @@ int network_open(hamlib_port_t *rp, int default_port)
                   __func__,
                   rp->pathname,
                   gai_strerror(status));
-        RETURNFUNC(-RIG_ECONF);
+        return (-RIG_ECONF);
     }
 
     saved_res = res;
@@ -267,7 +305,7 @@ int network_open(hamlib_port_t *rp, int default_port)
         {
             handle_error(RIG_DEBUG_ERR, "socket");
             freeaddrinfo(saved_res);
-            RETURNFUNC(-RIG_EIO);
+            return (-RIG_EIO);
         }
 
         if (connect(fd, res->ai_addr, res->ai_addrlen) == 0)
@@ -275,7 +313,7 @@ int network_open(hamlib_port_t *rp, int default_port)
             break;
         }
 
-        snprintf(msg, sizeof(msg), "connect to %s failed, (trying next interface)",
+        SNPRINTF(msg, sizeof(msg), "connect to %s failed, (trying next interface)",
                  rp->pathname);
         handle_error(RIG_DEBUG_WARN, msg);
 
@@ -295,17 +333,17 @@ int network_open(hamlib_port_t *rp, int default_port)
                   "%s: failed to connect to %s\n",
                   __func__,
                   rp->pathname);
-        RETURNFUNC(-RIG_EIO);
+        return (-RIG_EIO);
     }
 
     rp->fd = fd;
 
     socklen_t clientLen = sizeof(client);
     getsockname(rp->fd, (struct sockaddr *)&client, &clientLen);
-    rig_debug(RIG_DEBUG_ERR, "%s: client port=%d\n", __func__, client.sin_port);
+    rig_debug(RIG_DEBUG_TRACE, "%s: client port=%d\n", __func__, client.sin_port);
     rp->client_port = client.sin_port;
 
-    RETURNFUNC(RIG_OK);
+    return (RIG_OK);
 }
 
 
@@ -359,9 +397,10 @@ void network_flush(hamlib_port_t *rp)
             }
 
             rig_debug(RIG_DEBUG_WARN,
-                      "%s: network data cleared: ret=%d, len_read=%d/0x%x, '%s'\n",
+                      "%s: network data cleared: ret=%d, len_read=%d/0x%x\n",
                       __func__,
-                      ret, len_read, len_read, buffer);
+                      ret, len_read, len_read);
+            dump_hex((unsigned char *)buffer, len_read);
         }
         else
         {
@@ -375,8 +414,6 @@ void network_flush(hamlib_port_t *rp)
 int network_close(hamlib_port_t *rp)
 {
     int ret = 0;
-
-    ENTERFUNC;
 
     if (rp->fd > 0)
     {
@@ -399,179 +436,580 @@ int network_close(hamlib_port_t *rp)
     }
 
 #endif
-    RETURNFUNC(ret);
+    return (ret);
 }
 //! @endcond
 
-volatile int multicast_server_run = 1;
-pthread_t multicast_server_threadId;
 extern void sync_callback(int lock);
 
-struct multicast_server_args_s
-{
-    RIG *rig;
-} multicast_server_args;
-
+#ifdef HAVE_PTHREAD
 //! @cond Doxygen_Suppress
-// our multicast server loop
-void *multicast_server(void *arg)
-{
-    struct multicast_server_args_s *args = (struct multicast_server_args_s *)arg;
-    RIG *rig = args->rig;
-    rig_debug(RIG_DEBUG_TRACE, "%s(%d): Starting multicast server\n", __FILE__,
-              __LINE__);
-    // we can and should use a really small cache time while we are polling
-    // rig_set_cache_timeout_ms(rig, HAMLIB_CACHE_ALL, 100);
 
-    // this is really verbose since it runs very quickly
-    // so we only spit out WARN unless CACHE has been selected
-    //if (!rig_need_debug(RIG_DEBUG_CACHE)) { rig_set_debug(RIG_DEBUG_WARN); }
+#define MULTICAST_DATA_PIPE_TIMEOUT_MILLIS 1000
 
+#if defined(WIN32) && defined(HAVE_WINDOWS_H)
 
-    freq_t freqMain = 0, freqSub = 0, freqMainLast = 0, freqSubLast = 0;
-    rmode_t modeMain = RIG_MODE_NONE, modeSub = RIG_MODE_NONE,
-            modeMainLast = RIG_MODE_NONE, modeSubLast = RIG_MODE_NONE;
-    pbwidth_t widthMain = 0, widthSub = 0, widthMainLast = 0, widthSubLast = 0;
-    split_t split, splitLast = -1;
-
-    do
-    {
-        int retval;
-        int updateOccurred;
-
-        updateOccurred = 0;
-
-        if (rig->caps->get_freq)
-        {
-            sync_callback(1);
-            retval = rig_get_freq(rig, RIG_VFO_A, &freqMain);
-            sync_callback(0);
-
-            if (retval != RIG_OK) { rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_freqA error %s\n", __FILE__, __LINE__, rigerror(retval)); }
-
-            sync_callback(1);
-            retval = rig_get_freq(rig, RIG_VFO_B, &freqSub);
-            sync_callback(0);
-
-            if (retval != RIG_OK) { rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_freqB error %s\n", __FILE__, __LINE__, rigerror(retval)); }
-
-            if (freqMain != freqMainLast || freqSub != freqSubLast)
-            {
-                rig_debug(RIG_DEBUG_WARN,
-                          "%s(%d) freqMain=%.0f was %.0f, freqSub=%.0f was %.0f\n", __FILE__, __LINE__,
-                          freqMain, freqMainLast, freqSub, freqSubLast);
-                updateOccurred = 1;
-                freqMainLast = freqMain;
-                freqSubLast = freqSub;
-            }
-        }
-
-        if (rig->caps->get_mode)
-        {
-            sync_callback(1);
-            retval = rig_get_mode(rig, RIG_VFO_A, &modeMain, &widthMain);
-            sync_callback(0);
-
-            if (retval != RIG_OK) { rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_modeA error %s\n", __FILE__, __LINE__, rigerror(retval)); }
-
-            sync_callback(1);
-            retval = rig_get_mode(rig, RIG_VFO_B, &modeSub, &widthSub);
-            sync_callback(0);
-
-            if (retval != RIG_OK) { rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_modeB error %s\n", __FILE__, __LINE__, rigerror(retval)); }
-
-            if (modeMain != modeMainLast || modeSub != modeSubLast)
-            {
-                rig_debug(RIG_DEBUG_TRACE, "%s(%d) modeMain=%s was %s, modeSub=%s was %s\n",
-                          __FILE__, __LINE__, rig_strrmode(modeMain), rig_strrmode(modeMainLast),
-                          rig_strrmode(modeSub), rig_strrmode(modeSubLast));
-                updateOccurred = 1;
-                modeMainLast = modeMain;
-                modeSubLast = modeSub;
-            }
-
-            if (widthMain != widthMainLast || widthSub != widthSubLast)
-            {
-                rig_debug(RIG_DEBUG_WARN,
-                          "%s(%d) widthMain=%ld was %ld, widthSub=%ld was %ld\n", __FILE__, __LINE__,
-                          widthMain, widthMainLast, widthSub, widthSubLast);
-                updateOccurred = 1;
-                widthMainLast = widthMain;
-                widthSubLast = widthSub;
-            }
-        }
-
-        if (rig->caps->get_split_vfo)
-        {
-            vfo_t tx_vfo;
-            sync_callback(1);
-            retval = rig_get_split_vfo(rig, RIG_VFO_A, &split, &tx_vfo);
-            sync_callback(0);
-
-            if (retval != RIG_OK) { rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_modeA error %s\n", __FILE__, __LINE__, rigerror(retval)); }
-
-            if (split != splitLast)
-            {
-                rig_debug(RIG_DEBUG_WARN, "%s(%d) split=%d was %d\n", __FILE__, __LINE__, split,
-                          splitLast);
-                updateOccurred = 1;
-                splitLast = split;
-            }
-        }
-
-        if (updateOccurred)
-        {
-            rig_debug(RIG_DEBUG_WARN, "%s(%d): update occurred...time to send multicast\n",
-                      __FILE__, __LINE__);
-        }
-
-        hl_usleep(100 * 1000);
-    }
-    while (multicast_server_run);
-
-    rig_debug(RIG_DEBUG_TRACE, "%s(%d): Stopping multicast server\n", __FILE__,
-              __LINE__);
-    return NULL;
-}
-//! @endcond
-
-/**
- * \brief Open multicast server using rig.state data
- *
- * Open Open multicast server using rig.state data.
- * NB: The signal PIPE will be ignored for the whole application.
- *
- * \param rp Port data structure (must spec port id eg hostname:port -- hostname defaults to 224.0.1.1)
- * \param default_port Default network socket port
- * \return RIG_OK or < 0 if error
- */
-int network_multicast_server(RIG *rig, const char *multicast_addr,
-                             int default_port, enum multicast_item_e items)
+static int multicast_publisher_create_data_pipe(multicast_publisher_priv_data
+        *mcast_publisher_priv)
 {
     int status;
 
-    //ENTERFUNC;
-    rig_debug(RIG_DEBUG_VERBOSE,
-              "%s(%d):network_multicast_server under development\n", __FILE__, __LINE__);
-    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):ADDR=%s, port=%d\n", __FILE__, __LINE__,
-              multicast_addr, default_port);
+    status = async_pipe_create(&mcast_publisher_priv->args.data_pipe,
+                               PIPE_BUFFER_SIZE_DEFAULT, MULTICAST_DATA_PIPE_TIMEOUT_MILLIS);
+
+    if (status != 0)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: multicast publisher data pipe creation failed with status=%d, err=%s\n",
+                  __func__,
+                  status, strerror(errno));
+        return (-RIG_EINTERNAL);
+    }
+
+    return (RIG_OK);
+}
+
+static void multicast_publisher_close_data_pipe(multicast_publisher_priv_data
+        *mcast_publisher_priv)
+{
+    if (mcast_publisher_priv->args.data_pipe != NULL)
+    {
+        async_pipe_close(mcast_publisher_priv->args.data_pipe);
+        mcast_publisher_priv->args.data_pipe = NULL;
+    }
+}
+
+static int multicast_publisher_write_data(multicast_publisher_args
+        *mcast_publisher_args, size_t length, const unsigned char *data)
+{
+    ssize_t result;
+
+    result = async_pipe_write(mcast_publisher_args->data_pipe, data, length,
+                              MULTICAST_DATA_PIPE_TIMEOUT_MILLIS);
+
+    if (result < 0)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: error writing to multicast publisher data pipe, result=%d\n", __func__,
+                  (int)result);
+        return (-RIG_EIO);
+    }
+
+    if (result != length)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: could not write to multicast publisher data pipe, expected %d bytes, wrote %d bytes\n",
+                  __func__, (int)length, (int)result);
+        return (-RIG_EIO);
+    }
+
+    return (RIG_OK);
+}
+
+static int multicast_publisher_read_data(multicast_publisher_args
+        *mcast_publisher_args, size_t length, unsigned char *data)
+{
+    ssize_t result;
+
+    result = async_pipe_wait_for_data(mcast_publisher_args->data_pipe,
+                                      MULTICAST_DATA_PIPE_TIMEOUT_MILLIS);
+
+    if (result < 0)
+    {
+        // Timeout is expected when there is no data
+        if (result != -RIG_ETIMEOUT)
+        {
+            rig_debug(RIG_DEBUG_ERR,
+                      "%s: error waiting for multicast publisher data, result=%ld\n", __func__,
+                      (long) result);
+        }
+
+        return (result);
+    }
+
+    result = async_pipe_read(mcast_publisher_args->data_pipe, data, length,
+                             MULTICAST_DATA_PIPE_TIMEOUT_MILLIS);
+
+    if (result < 0)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: error reading multicast publisher data, result=%ld\n", __func__,
+                  (long) result);
+        return (-RIG_EIO);
+    }
+
+    if (result != length)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: could not read from multicast publisher data pipe, expected %ld bytes, read %ld bytes\n",
+                  __func__, (long) length, (long) result);
+        return (-RIG_EIO);
+    }
+
+    return (RIG_OK);
+}
+
+#else
+
+static int multicast_publisher_create_data_pipe(multicast_publisher_priv_data
+        *mcast_publisher_priv)
+{
+    int data_pipe_fds[2];
+    int status;
+
+    status = pipe(data_pipe_fds);
+
+    if (status != 0)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: multicast publisher data pipe creation failed with status=%d, err=%s\n",
+                  __func__,
+                  status, strerror(errno));
+        return (-RIG_EINTERNAL);
+    }
+
+    int flags = fcntl(data_pipe_fds[0], F_GETFD);
+    flags |= O_NONBLOCK;
+
+    if (fcntl(data_pipe_fds[0], F_SETFD, flags))
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: error setting O_NONBLOCK on pipe=%s\n", __func__,
+                  strerror(errno));
+    }
+
+    mcast_publisher_priv->args.data_read_fd = data_pipe_fds[0];
+    mcast_publisher_priv->args.data_write_fd = data_pipe_fds[1];
+
+    return (RIG_OK);
+}
+
+static void multicast_publisher_close_data_pipe(multicast_publisher_priv_data
+        *mcast_publisher_priv)
+{
+    if (mcast_publisher_priv->args.data_read_fd != -1)
+    {
+        close(mcast_publisher_priv->args.data_read_fd);
+        mcast_publisher_priv->args.data_read_fd = -1;
+    }
+
+    if (mcast_publisher_priv->args.data_write_fd != -1)
+    {
+        close(mcast_publisher_priv->args.data_write_fd);
+        mcast_publisher_priv->args.data_write_fd = -1;
+    }
+}
+
+static int multicast_publisher_write_data(multicast_publisher_args
+        *mcast_publisher_args, size_t length, const unsigned char *data)
+{
+    int fd = mcast_publisher_args->data_write_fd;
+    ssize_t result;
+
+    result = write(fd, data, length);
+
+    if (result < 0)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: error writing to multicast publisher data pipe, result=%d, err=%s\n",
+                  __func__,
+                  (int)result, strerror(errno));
+        return (-RIG_EIO);
+    }
+
+    if (result != length)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: could not write to multicast publisher data pipe, expected %ld bytes, wrote %ld bytes\n",
+                  __func__, (long) length, (long) result);
+        return (-RIG_EIO);
+    }
+
+    return (RIG_OK);
+}
+
+static int multicast_publisher_read_data(multicast_publisher_args
+        *mcast_publisher_args, size_t length, unsigned char *data)
+{
+    int fd = mcast_publisher_args->data_read_fd;
+    fd_set rfds, efds;
+    struct timeval timeout;
+    ssize_t result;
+    int retval;
+
+    timeout.tv_sec = MULTICAST_DATA_PIPE_TIMEOUT_MILLIS / 1000;
+    timeout.tv_usec = 0;
+
+    FD_ZERO(&rfds);
+    FD_SET(fd, &rfds);
+    efds = rfds;
+
+    retval = select(fd + 1, &rfds, NULL, &efds, &timeout);
+
+    if (retval == 0)
+    {
+        return (-RIG_ETIMEOUT);
+    }
+
+    if (retval < 0)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s(): select() failed when reading multicast publisher data: %s\n",
+                  __func__,
+                  strerror(errno));
+
+        return -RIG_EIO;
+    }
+
+    if (FD_ISSET(fd, &efds))
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s(): fd error when reading multicast publisher data\n", __func__);
+        return -RIG_EIO;
+    }
+
+    result = read(fd, data, length);
+
+    if (result < 0)
+    {
+        if (errno == EAGAIN)
+        {
+            return (-RIG_ETIMEOUT);
+        }
+
+        rig_debug(RIG_DEBUG_ERR, "%s: error reading multicast publisher data: %s\n",
+                  __func__, strerror(errno));
+        return (-RIG_EIO);
+    }
+
+    if (result != length)
+    {
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: could not read from multicast publisher data pipe, expected %ld bytes, read %ld bytes\n",
+                  __func__, (long) length, (long) result);
+        return (-RIG_EIO);
+    }
+
+    return (RIG_OK);
+}
+
+#endif
+
+static int multicast_publisher_write_packet_header(RIG *rig,
+        multicast_publisher_data_packet *packet)
+{
+    struct rig_state *rs = &rig->state;
+    multicast_publisher_priv_data *mcast_publisher_priv;
+    multicast_publisher_args *mcast_publisher_args;
+    ssize_t result;
+
+    if (rs->multicast_publisher_priv_data == NULL)
+    {
+        // Silently ignore if multicast publisher is not enabled
+        RETURNFUNC2(RIG_OK);
+    }
+
+    mcast_publisher_priv = (multicast_publisher_priv_data *)
+                           rs->multicast_publisher_priv_data;
+    mcast_publisher_args = &mcast_publisher_priv->args;
+
+    result = multicast_publisher_write_data(
+                 mcast_publisher_args, sizeof(multicast_publisher_data_packet),
+                 (unsigned char *) packet);
+
+    if (result != RIG_OK)
+    {
+        RETURNFUNC2(result);
+    }
+
+    RETURNFUNC2(RIG_OK);
+}
+
+int network_publish_rig_poll_data(RIG *rig)
+{
+    struct rig_state *rs = &rig->state;
+    multicast_publisher_data_packet packet =
+    {
+        .type = MULTICAST_PUBLISHER_DATA_PACKET_TYPE_POLL,
+        .padding = 0,
+        .data_length = 0,
+    };
+
+    if (rs->multicast_publisher_priv_data == NULL)
+    {
+        // Silently ignore call if multicast publisher is not enabled
+        return RIG_OK;
+    }
+
+    return multicast_publisher_write_packet_header(rig, &packet);
+}
+
+int network_publish_rig_transceive_data(RIG *rig)
+{
+    struct rig_state *rs = &rig->state;
+    multicast_publisher_data_packet packet =
+    {
+        .type = MULTICAST_PUBLISHER_DATA_PACKET_TYPE_TRANSCEIVE,
+        .padding = 0,
+        .data_length = 0,
+    };
+
+    if (rs->multicast_publisher_priv_data == NULL)
+    {
+        // Silently ignore call if multicast publisher is not enabled
+        return RIG_OK;
+    }
+
+    return multicast_publisher_write_packet_header(rig, &packet);
+}
+
+int network_publish_rig_spectrum_data(RIG *rig, struct rig_spectrum_line *line)
+{
+    int result;
+    struct rig_state *rs = &rig->state;
+    multicast_publisher_priv_data *mcast_publisher_priv;
+    multicast_publisher_args *mcast_publisher_args;
+    multicast_publisher_data_packet packet =
+    {
+        .type = MULTICAST_PUBLISHER_DATA_PACKET_TYPE_SPECTRUM,
+        .padding = 0,
+        .data_length = sizeof(struct rig_spectrum_line) + line->spectrum_data_length,
+    };
+
+    if (rs->multicast_publisher_priv_data == NULL)
+    {
+        // Silently ignore call if multicast publisher is not enabled
+        return RIG_OK;
+    }
+
+    result = multicast_publisher_write_packet_header(rig, &packet);
+
+    if (result != RIG_OK)
+    {
+        RETURNFUNC2(result);
+    }
+
+    mcast_publisher_priv = (multicast_publisher_priv_data *)
+                           rs->multicast_publisher_priv_data;
+    mcast_publisher_args = &mcast_publisher_priv->args;
+
+    result = multicast_publisher_write_data(
+                 mcast_publisher_args, sizeof(struct rig_spectrum_line), (unsigned char *) line);
+
+    if (result != RIG_OK)
+    {
+        RETURNFUNC2(result);
+    }
+
+    result = multicast_publisher_write_data(
+                 mcast_publisher_args, line->spectrum_data_length, line->spectrum_data);
+
+    if (result != RIG_OK)
+    {
+        RETURNFUNC2(result);
+    }
+
+    RETURNFUNC2(RIG_OK);
+}
+
+static int multicast_publisher_read_packet(multicast_publisher_args
+        *mcast_publisher_args,
+        uint8_t *type, struct rig_spectrum_line *spectrum_line,
+        unsigned char *spectrum_data)
+{
+    int result;
+    multicast_publisher_data_packet packet;
+
+    result = multicast_publisher_read_data(mcast_publisher_args, sizeof(packet),
+                                           (unsigned char *) &packet);
+
+    if (result < 0)
+    {
+        return (result);
+    }
+
+    switch (packet.type)
+    {
+    case MULTICAST_PUBLISHER_DATA_PACKET_TYPE_POLL:
+    case MULTICAST_PUBLISHER_DATA_PACKET_TYPE_TRANSCEIVE:
+        break;
+
+    case MULTICAST_PUBLISHER_DATA_PACKET_TYPE_SPECTRUM:
+        result = multicast_publisher_read_data(
+                     mcast_publisher_args, sizeof(struct rig_spectrum_line),
+                     (unsigned char *) spectrum_line);
+
+        if (result < 0)
+        {
+            return (result);
+        }
+
+        if (packet.data_length - sizeof(struct rig_spectrum_line) !=
+                spectrum_line->spectrum_data_length)
+        {
+            rig_debug(RIG_DEBUG_ERR,
+                      "%s: multicast publisher data error, expected %d bytes of spectrum data, got %d bytes\n",
+                      __func__, (int)spectrum_line->spectrum_data_length,
+                      (int)(packet.data_length - sizeof(struct rig_spectrum_line)));
+            return (-RIG_EPROTO);
+        }
+
+        spectrum_line->spectrum_data = spectrum_data;
+
+        result = multicast_publisher_read_data(mcast_publisher_args,
+                                               spectrum_line->spectrum_data_length, spectrum_data);
+
+        if (result < 0)
+        {
+            return (result);
+        }
+
+        break;
+
+    default:
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: unexpected multicast publisher data packet type: %d\n", __func__,
+                  packet.type);
+        return (-RIG_EPROTO);
+    }
+
+    *type = packet.type;
+
+    return (RIG_OK);
+}
+
+void *multicast_publisher(void *arg)
+{
+    unsigned char spectrum_data[HAMLIB_MAX_SPECTRUM_DATA];
+    char snapshot_buffer[HAMLIB_MAX_SNAPSHOT_PACKET_SIZE];
+
+    struct multicast_publisher_args_s *args = (struct multicast_publisher_args_s *)
+            arg;
+    RIG *rig = args->rig;
+    struct rig_state *rs = &rig->state;
+    struct rig_spectrum_line spectrum_line;
+    uint8_t packet_type;
+
+    struct sockaddr_in dest_addr;
+    int socket_fd = args->socket_fd;
+    int result;
+    ssize_t send_result;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Starting multicast publisher\n", __FILE__,
+              __LINE__);
+
+    memset(&dest_addr, 0, sizeof(dest_addr));
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_addr.s_addr = inet_addr(args->multicast_addr);
+    dest_addr.sin_port = htons(args->multicast_port);
+
+    while (rs->multicast_publisher_run)
+    {
+        result = multicast_publisher_read_packet(args, &packet_type, &spectrum_line,
+                 spectrum_data);
+
+        if (result != RIG_OK)
+        {
+            if (result == -RIG_ETIMEOUT)
+            {
+                continue;
+            }
+
+            // TODO: how to detect closing of pipe, indicate with error code
+            // TODO: error handling, flush pipe in case of error?
+            hl_usleep(500 * 1000);
+            continue;
+        }
+
+        result = snapshot_serialize(sizeof(snapshot_buffer), snapshot_buffer, rig,
+                                    packet_type == MULTICAST_PUBLISHER_DATA_PACKET_TYPE_SPECTRUM ? &spectrum_line :
+                                    NULL);
+
+        if (result != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: error serializing rig snapshot data, result=%d\n",
+                      __func__, result);
+            continue;
+        }
+
+        rig_debug(RIG_DEBUG_TRACE, "%s: sending rig snapshot data: %s\n", __func__,
+                  snapshot_buffer);
+
+        send_result = sendto(
+                          socket_fd,
+                          snapshot_buffer,
+                          strlen(snapshot_buffer),
+                          0,
+                          (struct sockaddr *) &dest_addr,
+                          sizeof(dest_addr)
+                      );
+
+        if (send_result < 0)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: error sending UDP packet: %s\n", __func__,
+                      strerror(errno));
+        }
+    }
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Stopping multicast publisher\n", __FILE__,
+              __LINE__);
+    return NULL;
+}
+
+//! @endcond
+
+/**
+ * \brief Start multicast publisher
+ *
+ * Start multicast publisher.
+ *
+ * \param multicast_addr UDP address
+ * \param multicast_port UDP socket port
+ * \return RIG_OK or < 0 if error
+ */
+int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
+                                      int multicast_port, enum multicast_item_e items)
+{
+    struct rig_state *rs = &rig->state;
+    multicast_publisher_priv_data *mcast_publisher_priv;
+    int socket_fd;
+    int status;
+
+    ENTERFUNC;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):multicast address=%s, port=%d\n", __FILE__,
+              __LINE__,
+              multicast_addr, multicast_port);
 
     if (strcmp(multicast_addr, "0.0.0.0") == 0)
     {
-        rig_debug(RIG_DEBUG_TRACE, "%s(%d): not starting multicast\n", __FILE__,
-                  __LINE__);
-        return RIG_OK; // don't start it
+        rig_debug(RIG_DEBUG_TRACE, "%s(%d): not starting multicast publisher\n",
+                  __FILE__, __LINE__);
+        return RIG_OK;
     }
 
-    if (multicast_server_threadId != 0)
+    if (rs->multicast_publisher_priv_data != NULL)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s(%d): multicast_server already running\n", __FILE__,
+        rig_debug(RIG_DEBUG_ERR, "%s(%d): multicast publisher already running\n",
+                  __FILE__,
                   __LINE__);
+        RETURNFUNC(-RIG_EINVAL);
     }
 
     status = network_init();
 
-    if (status != RIG_OK) { RETURNFUNC(status); }
+    if (status != RIG_OK)
+    {
+        RETURNFUNC(status);
+    }
+
+    socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (socket_fd < 0)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: error opening new UDP socket: %s", __func__,
+                  strerror(errno));
+        RETURNFUNC(-RIG_EIO);
+    }
 
     if (items & RIG_MULTICAST_TRANSCEIVE)
     {
@@ -590,18 +1028,105 @@ int network_multicast_server(RIG *rig, const char *multicast_addr,
                   __FILE__, __LINE__, items);
     }
 
-    multicast_server_args.rig = rig;
-    int err = pthread_create(&multicast_server_threadId, NULL, multicast_server,
-                             &multicast_server_args);
+    rs->snapshot_packet_sequence_number = 0;
+    rs->multicast_publisher_run = 1;
+    rs->multicast_publisher_priv_data = calloc(1,
+                                        sizeof(multicast_publisher_priv_data));
+
+    if (rs->multicast_publisher_priv_data == NULL)
+    {
+        close(socket_fd);
+        RETURNFUNC(-RIG_ENOMEM);
+    }
+
+    mcast_publisher_priv = (multicast_publisher_priv_data *)
+                           rs->multicast_publisher_priv_data;
+    mcast_publisher_priv->args.socket_fd = socket_fd;
+    mcast_publisher_priv->args.multicast_addr = multicast_addr;
+    mcast_publisher_priv->args.multicast_port = multicast_port;
+    mcast_publisher_priv->args.rig = rig;
+
+    status = multicast_publisher_create_data_pipe(mcast_publisher_priv);
+
+    if (status < 0)
+    {
+        free(rs->multicast_publisher_priv_data);
+        rs->multicast_publisher_priv_data = NULL;
+        close(socket_fd);
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: multicast publisher data pipe creation failed, result=%d\n", __func__,
+                  status);
+        RETURNFUNC(-RIG_EINTERNAL);
+    }
+
+    int err = pthread_create(&mcast_publisher_priv->thread_id, NULL,
+                             multicast_publisher,
+                             &mcast_publisher_priv->args);
 
     if (err)
     {
         rig_debug(RIG_DEBUG_ERR, "%s(%d) pthread_create error %s\n", __FILE__, __LINE__,
                   strerror(errno));
-        return -RIG_EINTERNAL;
+        multicast_publisher_close_data_pipe(mcast_publisher_priv);
+        free(mcast_publisher_priv);
+        rs->multicast_publisher_priv_data = NULL;
+        close(socket_fd);
+        RETURNFUNC(-RIG_EINTERNAL);
     }
 
     RETURNFUNC(RIG_OK);
 }
 
+/**
+ * \brief Stop multicast publisher
+ *
+ * Stop multicast publisher
+ *
+ * \return RIG_OK or < 0 if error
+ */
+int network_multicast_publisher_stop(RIG *rig)
+{
+    struct rig_state *rs = &rig->state;
+    multicast_publisher_priv_data *mcast_publisher_priv;
+
+    ENTERFUNC;
+
+    rs->multicast_publisher_run = 0;
+
+    mcast_publisher_priv = (multicast_publisher_priv_data *)
+                           rs->multicast_publisher_priv_data;
+
+    if (mcast_publisher_priv == NULL)
+    {
+        RETURNFUNC(RIG_OK);
+    }
+
+    if (mcast_publisher_priv->thread_id != 0)
+    {
+        int err = pthread_join(mcast_publisher_priv->thread_id, NULL);
+
+        if (err)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s(%d): pthread_join error %s\n", __FILE__, __LINE__,
+                      strerror(errno));
+            // just ignore it
+        }
+
+        mcast_publisher_priv->thread_id = 0;
+    }
+
+    multicast_publisher_close_data_pipe(mcast_publisher_priv);
+
+    if (mcast_publisher_priv->args.socket_fd >= 0)
+    {
+        close(mcast_publisher_priv->args.socket_fd);
+        mcast_publisher_priv->args.socket_fd = -1;
+    }
+
+    free(rs->multicast_publisher_priv_data);
+    rs->multicast_publisher_priv_data = NULL;
+
+    RETURNFUNC(RIG_OK);
+}
+#endif
 /** @} */

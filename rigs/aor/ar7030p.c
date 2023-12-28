@@ -24,13 +24,10 @@
  * Version 2009.11.21 Larry Gadallah (VE6VQ)
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
 #include <assert.h>
 #include <stdlib.h>
 
@@ -260,7 +257,7 @@ static int ar7030p_init(RIG *rig)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     priv = (struct ar7030p_priv_data *)
-           malloc(sizeof(struct ar7030p_priv_data));
+           calloc(1, sizeof(struct ar7030p_priv_data));
 
     if (!priv)
     {
@@ -1776,7 +1773,7 @@ const struct rig_caps ar7030p_caps =
     .mfg_name = "AOR",
     .version = "20200319.0",
     .copyright = "LGPL",
-    .status = RIG_STATUS_BETA,
+    .status = RIG_STATUS_STABLE,
     .rig_type = RIG_TYPE_RECEIVER,
 
     .dcd_type = RIG_DCD_RIG,
@@ -1951,5 +1948,5 @@ const struct rig_caps ar7030p_caps =
     .get_chan_all_cb = RIG_FUNC_NONE,
     .set_mem_all_cb = RIG_FUNC_NONE,
     .get_mem_all_cb = RIG_FUNC_NONE,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

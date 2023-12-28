@@ -19,15 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
 
 #include <hamlib/rig.h>
 #include <serial.h>
@@ -165,6 +161,7 @@ const struct rig_caps icm710_caps =
     .cfgparams = icm710_cfg_params,
     .set_conf = icm710_set_conf,
     .get_conf = icm710_get_conf,
+    .get_conf2 = icm710_get_conf2,
 
     .priv = (void *)& icm710_priv_caps,
     .rig_init =  icm710_init,
@@ -189,7 +186,7 @@ const struct rig_caps icm710_caps =
     .get_level = icm710_get_level,
     .set_func = icm710_set_func,
     .get_func = icm710_get_func,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -356,7 +353,7 @@ int icm710_set_conf(RIG *rig, token_t token, const char *val)
     return RIG_OK;
 }
 
-int icm710_get_conf(RIG *rig, token_t token, char *val)
+int icm710_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
     struct icm710_priv_data *priv;
 
@@ -365,7 +362,7 @@ int icm710_get_conf(RIG *rig, token_t token, char *val)
     switch (token)
     {
     case TOK_REMOTEID:
-        sprintf(val, "%u", priv->remote_id);
+        SNPRINTF(val, val_len, "%u", priv->remote_id);
         break;
 
     default:
@@ -373,6 +370,11 @@ int icm710_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int icm710_get_conf(RIG *rig, token_t token, char *val)
+{
+    return icm710_get_conf2(rig, token, val, 128);
 }
 
 int icm710_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
@@ -383,7 +385,7 @@ int icm710_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     priv = (struct icm710_priv_data *)rig->state.priv;
 
-    sprintf(freqbuf, "%.6f", freq / MHz(1));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "%.6f", freq / MHz(1));
 
     /* no error reporting upon TXFREQ failure */
     if (RIG_SPLIT_OFF == priv->split)
@@ -430,7 +432,7 @@ int icm710_set_tx_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     priv = (struct icm710_priv_data *)rig->state.priv;
 
-    sprintf(freqbuf, "%.6f", freq / MHz(1));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "%.6f", freq / MHz(1));
 
     retval = icmarine_transaction(rig, CMD_TXFREQ, freqbuf, NULL);
 
@@ -625,7 +627,7 @@ int icm710_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     {
     case RIG_LEVEL_AF:
         value = (unsigned)(val.f * 255);
-        sprintf(lvlbuf, "%u", value);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "%u", value);
         retval = icmarine_transaction(rig, CMD_AFGAIN, lvlbuf, NULL);
 
         if (retval == RIG_OK)
@@ -637,7 +639,7 @@ int icm710_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
     case RIG_LEVEL_RF:
         value = (unsigned)(val.f * 9);
-        sprintf(lvlbuf, "%u", value);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "%u", value);
         retval = icmarine_transaction(rig, CMD_RFGAIN, lvlbuf, NULL);
 
         if (retval == RIG_OK)
@@ -649,7 +651,7 @@ int icm710_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
     case RIG_LEVEL_RFPOWER:
         value = (unsigned)(val.f * 2);
-        sprintf(lvlbuf, "%u", value);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "%u", value);
         retval = icmarine_transaction(rig, CMD_RFPWR, lvlbuf, NULL);
 
         if (retval == RIG_OK)

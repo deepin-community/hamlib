@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "icom.h"
@@ -34,7 +31,7 @@
 
 
 #define IC9100_MODES (RIG_MODE_SSB|RIG_MODE_CW|RIG_MODE_CWR|\
-        RIG_MODE_AM|RIG_MODE_FM|RIG_MODE_RTTY|RIG_MODE_RTTYR)
+        RIG_MODE_AM|RIG_MODE_FM|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_PKTUSB|RIG_MODE_PKTLSB)
 
 #define IC9100_OTHER_TX_MODES ((IC9100_MODES) & ~RIG_MODE_AM)
 
@@ -59,6 +56,7 @@
                             RIG_FUNC_FBKIN| \
                             RIG_FUNC_AFC| \
                             RIG_FUNC_SATMODE| \
+                            RIG_FUNC_DUAL_WATCH| \
                             RIG_FUNC_VSC| \
                             RIG_FUNC_MN| \
                             RIG_FUNC_LOCK| \
@@ -67,7 +65,6 @@
 #define IC9100_LEVEL_ALL    (RIG_LEVEL_AF| \
                             RIG_LEVEL_RF| \
                             RIG_LEVEL_SQL| \
-                            RIG_LEVEL_IF| \
                             RIG_LEVEL_NR| \
                             RIG_LEVEL_CWPITCH| \
                             RIG_LEVEL_RFPOWER| \
@@ -114,7 +111,7 @@ const struct rig_caps ic9100_caps =
     RIG_MODEL(RIG_MODEL_IC9100),
     .model_name = "IC-9100",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".4",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -137,7 +134,9 @@ const struct rig_caps ic9100_caps =
     .has_set_level =  IC9100_LEVEL_ALL,
     .has_get_parm =  IC9100_PARM_ALL,
     .has_set_parm =  IC9100_PARM_ALL,
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
@@ -244,8 +243,8 @@ const struct rig_caps ic9100_caps =
     .get_mode =  icom_get_mode_with_data,
     .set_mode =  icom_set_mode_with_data,
 
-    .get_vfo =  NULL,
     .set_vfo =  icom_set_vfo,
+    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
     .get_ts =  icom_get_ts,
@@ -284,4 +283,5 @@ const struct rig_caps ic9100_caps =
     .set_split_mode = icom_set_split_mode,
     .get_split_mode = icom_get_split_mode,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

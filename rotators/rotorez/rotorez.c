@@ -30,14 +30,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <config.h>
 
 #include <stdio.h>
 #include <stdlib.h>          /* Standard library definitions */
 #include <string.h>          /* String function definitions */
-#include <unistd.h>          /* UNIX standard function definitions */
 #include <ctype.h>            /* for isdigit function */
 
 #include "hamlib/rotator.h"
@@ -135,9 +132,9 @@ const struct rot_caps rotorez_rot_caps =
     ROT_MODEL(ROT_MODEL_ROTOREZ),
     .model_name =       "Rotor-EZ",
     .mfg_name =         "Idiom Press",
-    .version =          "20100214.0",
+    .version =          "20220109.0",
     .copyright =        "LGPL",
-    .status =           RIG_STATUS_BETA,
+    .status =           RIG_STATUS_STABLE,
     .rot_type =         ROT_TYPE_OTHER,
     .port_type =        RIG_PORT_SERIAL,
     .serial_rate_min =  4800,
@@ -182,7 +179,7 @@ const struct rot_caps rotorcard_rot_caps =
     .mfg_name =         "Idiom Press",
     .version =          "20100214.0",
     .copyright =        "LGPL",
-    .status =           RIG_STATUS_UNTESTED,
+    .status =           RIG_STATUS_BETA,
     .rot_type =         ROT_TYPE_OTHER,
     .port_type =        RIG_PORT_SERIAL,
     .serial_rate_min =  4800,
@@ -270,7 +267,54 @@ const struct rot_caps erc_rot_caps =
     .mfg_name =         "DF9GR",
     .version =          "20100823.2",      /* second revision on 23 Aug 2010 */
     .copyright =        "LGPL",
-    .status =           RIG_STATUS_ALPHA,
+    .status =           RIG_STATUS_STABLE,
+    .rot_type =         ROT_TYPE_OTHER,
+    .port_type =        RIG_PORT_SERIAL,
+    .serial_rate_min =  4800,
+    .serial_rate_max =  4800,
+    .serial_data_bits = 8,
+    .serial_stop_bits = 1,
+    .serial_parity =    RIG_PARITY_NONE,
+    .serial_handshake = RIG_HANDSHAKE_NONE,
+    .write_delay =      0,
+    .post_write_delay = 500,
+    .timeout =          1500,
+    .retry =            2,
+
+    .min_az =           0,
+    .max_az =           360,
+    .min_el =           0,
+    .max_el =           0,
+
+    .priv =             NULL,   /* priv */
+//  .cfgparams =        rotorez_cfg_params,
+
+    .rot_init =         rotorez_rot_init,
+    .rot_cleanup =      rotorez_rot_cleanup,
+    .set_position =     rotorez_rot_set_position,
+    .get_position =     erc_rot_get_position,
+    .stop =             dcu1_rot_stop,
+    .reset =            rotorez_rot_reset,
+//  .stop =             rotorez_rot_stop,
+//  .set_conf =         rotorez_rot_set_conf,
+    .get_info =         rotorez_rot_get_info,
+
+};
+
+/*
+ * Rotor capabilities for Hy-Gain YRC-1 compatible with DF9GR ERC
+ *
+ * TODO: Learn of additional capabilities of the ERC
+ */
+
+const struct rot_caps yrc1_rot_caps =
+{
+    ROT_MODEL(ROT_MODEL_YRC1),
+    .model_name =       "DCU2/DCU3/YRC-1",
+    .mfg_name =         "Hy-Gain",
+    .version =          "20100823.2",
+    .copyright =        "LGPL",
+    .status =           RIG_STATUS_STABLE,
     .rot_type =         ROT_TYPE_OTHER,
     .port_type =        RIG_PORT_SERIAL,
     .serial_rate_min =  4800,
@@ -310,7 +354,7 @@ const struct rot_caps rt21_rot_caps =
     ROT_MODEL(ROT_MODEL_RT21),
     .model_name =       "RT-21",
     .mfg_name =     "Green Heron",
-    .version =      "20210801.0",
+    .version =      "20220104.0",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rot_type =     ROT_TYPE_OTHER,
@@ -338,7 +382,7 @@ const struct rot_caps rt21_rot_caps =
     .rot_cleanup =      rotorez_rot_cleanup,
     .set_position =     rt21_rot_set_position,
     .get_position =     rt21_rot_get_position,
-//  .stop =             rotorez_rot_stop,
+    .stop =             rotorez_rot_stop,
 //  .set_conf =         rotorez_rot_set_conf,
 //  .get_info =         rotorez_rot_get_info,
 
@@ -367,7 +411,7 @@ static int rotorez_rot_init(ROT *rot)
     }
 
     rot->state.priv = (struct rotorez_rot_priv_data *)
-                      malloc(sizeof(struct rotorez_rot_priv_data));
+                      calloc(1, sizeof(struct rotorez_rot_priv_data));
 
     if (!rot->state.priv)
     {
@@ -436,7 +480,8 @@ static int rotorez_rot_set_position(ROT *rot, azimuth_t azimuth,
         azimuth = 0;
     }
 
-    sprintf(cmdstr, "AP1%03.0f;", azimuth);     /* Target bearing */
+    SNPRINTF(cmdstr, sizeof(cmdstr), "AP1%03.0f;",
+             azimuth);     /* Target bearing */
     err = rotorez_send_priv_cmd(rot, cmdstr);
 
     if (err != RIG_OK)
@@ -481,7 +526,8 @@ static int rt21_rot_set_position(ROT *rot, azimuth_t azimuth,
         return -RIG_EINVAL;
     }
 
-    sprintf(cmdstr, "AP1%05.1f\r;", azimuth);   /* Total field width of 5 chars */
+    SNPRINTF(cmdstr, sizeof(cmdstr), "AP1%05.1f\r;",
+             azimuth);   /* Total field width of 5 chars */
     err = rotorez_send_priv_cmd(rot, cmdstr);
 
     if (err != RIG_OK)
@@ -491,15 +537,15 @@ static int rt21_rot_set_position(ROT *rot, azimuth_t azimuth,
 
     if (rot->state.rotport2.pathname[0] != 0)
     {
-        sprintf(cmdstr, "AP1%05.1f\r;",
-                elevation);    /* Total field width of 5 chars */
-    }
+        SNPRINTF(cmdstr, sizeof(cmdstr), "AP1%05.1f\r;",
+                 elevation);    /* Total field width of 5 chars */
 
-    err = rotorez_send_priv_cmd2(rot, cmdstr);
+        err = rotorez_send_priv_cmd2(rot, cmdstr);
 
-    if (err != RIG_OK)
-    {
-        return err;
+        if (err != RIG_OK)
+        {
+            return err;
+        }
     }
 
     return RIG_OK;
@@ -541,7 +587,7 @@ static int rotorez_rot_get_position(ROT *rot, azimuth_t *azimuth,
 
         rs = &rot->state;
 
-        err = read_block(&rs->rotport, az, AZ_READ_LEN);
+        err = read_block(&rs->rotport, (unsigned char *) az, AZ_READ_LEN);
 
         if (err != AZ_READ_LEN)
         {
@@ -647,7 +693,7 @@ static int erc_rot_get_position(ROT *rot, azimuth_t *azimuth,
 
         rs = &rot->state;
 
-        err = read_block(&rs->rotport, az, AZ_READ_LEN);
+        err = read_block(&rs->rotport, (unsigned char *) az, AZ_READ_LEN);
 
         if (err != AZ_READ_LEN)
         {
@@ -763,7 +809,8 @@ static int rt21_rot_get_position(ROT *rot, azimuth_t *azimuth,
 
     rs = &rot->state;
 
-    err = read_string(&rs->rotport, az, RT21_AZ_LEN + 1, ";", strlen(";"));
+    err = read_string(&rs->rotport, (unsigned char *) az, RT21_AZ_LEN + 1, ";",
+                      strlen(";"), 0, 1);
 
     if (err < 0)    /* read_string returns negative on error. */
     {
@@ -953,7 +1000,7 @@ static int rotorez_rot_set_conf(ROT *rot, token_t token, const char *val)
     }
 
     rig_debug(RIG_DEBUG_TRACE, "%s: c = %c, *val = %c\n", __func__, c, *val);
-    snprintf(cmdstr, sizeof(cmdstr), "%c", c);
+    SNPRINTF(cmdstr, sizeof(cmdstr), "%c", c);
 
     rig_debug(RIG_DEBUG_TRACE, "%s: cmdstr = %s, *val = %c\n",
               __func__, cmdstr, *val);
@@ -1007,7 +1054,7 @@ static int rotorez_send_priv_cmd(ROT *rot, const char *cmdstr)
     }
 
     rs = &rot->state;
-    err = write_block(&rs->rotport, cmdstr, strlen(cmdstr));
+    err = write_block(&rs->rotport, (unsigned char *) cmdstr, strlen(cmdstr));
 
     if (err != RIG_OK)
     {
@@ -1031,7 +1078,7 @@ static int rotorez_send_priv_cmd2(ROT *rot, const char *cmdstr)
     }
 
     rs = &rot->state;
-    err = write_block(&rs->rotport2, cmdstr, strlen(cmdstr));
+    err = write_block(&rs->rotport2, (unsigned char *) cmdstr, strlen(cmdstr));
 
     if (err != RIG_OK)
     {
@@ -1071,7 +1118,7 @@ static int rotorez_flush_buffer(ROT *rot)
 
     do
     {
-        err = read_block(&rs->rotport, garbage, MAX);
+        err = read_block(&rs->rotport, (unsigned char *) garbage, MAX);
 
         /* Oops!  An IO error was encountered.  Bail out! */
         if (err == -RIG_EIO)
@@ -1098,6 +1145,8 @@ DECLARE_INITROT_BACKEND(rotorez)
     rot_register(&dcu_rot_caps);
     rot_register(&erc_rot_caps);
     rot_register(&rt21_rot_caps);
+    rot_register(&yrc1_rot_caps);
 
     return RIG_OK;
 }
+

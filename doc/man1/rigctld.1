@@ -110,7 +110,7 @@ Here is a summary of the supported options:
 .
 .TP
 .BR \-m ", " \-\-model = \fIid\fP
-Select radio model number.
+Select radio model number.  Defaults to dummy device.
 .IP
 See model list (use \(lqrigctl -l\(rq).
 .IP
@@ -133,6 +133,9 @@ etc. on Linux,
 .IR COM1 ", " COM2 ,
 etc. on MS Windows.  The BSD flavors and Mac OS/X have their own designations.
 See your system's documentation.
+.IP
+.IP
+Can be a network address:port, e.g. 127.0.0.1:12345
 .IP
 The special string \(lquh\-rig\(rq may be given to enable micro-ham device
 support.
@@ -200,6 +203,13 @@ The
 is in decimal notation, unless prefixed by
 .IR 0x ,
 in which case it is hexadecimal.
+.
+.TP
+.BR \-S ", " \-\-separator = \fIchar\fP
+Use char as separator instead of line feed
+.IP
+The default is \n.  Recommend using $ or @ as they work on both Unix and Windows
+.IP
 .
 .TP
 .BR \-T ", " \-\-listen\-addr = \fIIPADDR\fP
@@ -358,6 +368,14 @@ Use only in combination with the
 option as it generates no output on its own.
 .
 .TP
+.BR \-A ", " \-\-password
+Sets password on rigctld which requires hamlib to use rig_set_password and rigctl to use \\password to access rigctld.  A 32-char shared secret will be displayed to be used on the client side.
+.
+.TP
+.BR \-R ", " \-\-rigctld_idle
+Will make rigctld close the rig when no clients are connected.  Normally remains connected to speed up connects.
+.
+.TP
 .BR \-h ", " \-\-help
 Show a summary of these options and exit.
 .
@@ -396,12 +414,12 @@ Since most of the
 .B Hamlib
 operations have a
 .BR set " and a " get
-method, an upper case letter will be used for
+method, a single pper case letter will be used for
 .B set
-methods whereas the corresponding lower case letter refers to the
+methods whereas the corresponding single lower case letter refers to the
 .B get
 method.  Each operation also has a long name; prepend a backslash, \(oq\\\(cq,
-to send a long command name.
+to send a long command name all in lower case.
 .
 .PP
 Example (Perl): \(lqprint $socket "\\\\dump_caps\\n";\(rq to see what the
@@ -460,7 +478,7 @@ Mode is a token: \(oqUSB\(cq, \(oqLSB\(cq, \(oqCW\(cq, \(oqCWR\(cq,
 \(oqECSSLSB\(cq, \(oqFA\(cq, \(oqSAM\(cq, \(oqSAL\(cq, \(oqSAH\(cq,
 \(oqDSB\(cq.
 .IP
-Passband is in Hz as an integer, or \(oq0\(cq for the radio backend default.
+Passband is in Hz as an integer, -1 for no change, or \(oq0\(cq for the radio backend default.
 .IP
 .BR Note :
 Passing a \(oq?\(cq (query) as the first argument instead of a Mode token will
@@ -484,7 +502,8 @@ Set
 .RI \(aq VFO \(aq.
 .IP
 VFO is a token: \(oqVFOA\(cq, \(oqVFOB\(cq, \(oqVFOC\(cq, \(oqcurrVFO\(cq,
-\(oqVFO\(cq, \(oqMEM\(cq, \(oqMain\(cq, \(oqSub\(cq, \(oqTX\(cq, \(oqRX\(cq.
+\(oqVFO\(cq, \(oqMEM\(cq, \(oqMain\(cq, \(oqSub\(cq, \(oqTX\(cq, \(oqRX\(cq, 
+\(oqMainA\(cq, \(oqMainB\(cq, \(oqMainC\(cq, \(oqSubA\(cq, \(oqSubB\(cq \(oqSubC\(cq.
 .IP
 In VFO mode (see
 .B \-\-vfo
@@ -820,17 +839,22 @@ Set
 and
 .RI \(aq "Level Value" \(aq.
 .IP
-Level is a token: \(oqPREAMP\(cq, \(oqATT\(cq, \(oqVOX\(cq, \(oqAF\(cq,
+evel is a token: \(oqPREAMP\(cq, \(oqATT\(cq, \(oqVOXDELAY\(cq, \(oqAF\(cq,
 \(oqRF\(cq, \(oqSQL\(cq, \(oqIF\(cq, \(oqAPF\(cq, \(oqNR\(cq, \(oqPBT_IN\(cq,
-\(oqPBT_OUT\(cq, \(oqCWPITCH\(cq, \(oqRFPOWER\(cq, \(oqRFPOWER_METER\(cq, \(oqRFPOWER_METER_WATTS\(cq, \(oqMICGAIN\(cq,
+\(oqPBT_OUT\(cq, \(oqCWPITCH\(cq, \(oqRFPOWER\(cq, \(oqMICGAIN\(cq,
 \(oqKEYSPD\(cq, \(oqNOTCHF\(cq, \(oqCOMP\(cq, \(oqAGC\(cq, \(oqBKINDL\(cq,
 \(oqBAL\(cq, \(oqMETER\(cq, \(oqVOXGAIN\(cq, \(oqANTIVOX\(cq,
-\(oqSLOPE_LOW\(cq, \(oqSLOPE_HIGH\(cq, \(oqRAWSTR\(cq, \(oqSWR\(cq,
-\(oqALC\(cq, \(oqSTRENGTH\(cq.
+\(oqSLOPE_LOW\(cq, \(oqSLOPE_HIGH\(cq, \(oqBKIN_DLYMS\(cq, \(oqRAWSTR\(cq, \(oqSWR\(cq,
+\(oqALC\(cq, \(oqSTRENGTH\(cq, \(oqRFPOWER_METER\(cq, \(oqCOMPMETER\(cq, \(oqVD_METER\(cq, \(oqID_METER\(cq,
+\(oqNOTCHF_RAW\(cq, \(oqMONITOR_GAIN\(cq, \(oqNQ\(cq, \(oqRFPOWER_METER_WATTS\cq, \(oqSPECTRUM_MODE\(cq,
+\(oqSPECTRUM_SPAN\(cq, \(oqSPECTRUM_EDGE_LOW\(cq, \(oqSPECTRUM_EDGE_HIGH\(cq, \(oqSPECTRUM_SPEED\cq,
+\(oqSPECTRUM_REF\(cq, (oqSPECTRUM_AVG\(cq, \(oqSPECTRUM_ATT\cq, \(oqTEMP_METER\cq, \(oqBAND_SELECT\(cq,
+\(oqUSB_AF\(cq.
 .IP
 The Level Value can be a float or an integer value.  For the AGC token the
 value is one of \(oq0\(cq = OFF, \(oq1\(cq = SUPERFAST, \(oq2\(cq = FAST,
 \(oq3\(cq = SLOW, \(oq4\(cq = USER, \(oq5\(cq = MEDIUM, \(oq6\(cq = AUTO.
+Note that not all values work on all rigs.  To list usable values do 'rigctl -m [modelnum] -u | grep "AGC levels"' or for Windows 'rigctl -m [modelnum] -u | find "AGC levels"'.
 .IP
 .BR Note :
 Passing a \(oq?\(cq (query) as the first argument instead of a Level token
@@ -1077,14 +1101,37 @@ and
 also need to be provided as output power may vary according to these values.
 .IP
 VFO parameter is not used in VFO mode.
+.TP
+.BR set_clock " \(aq" \fIDateTime\fP \(aq
+Set
+.RI \(aq DateTime \(aq
+.IP
+Sets rig clock -- note that some rigs do not handle seconds or milliseconds.
+If you try to set that you will get a debug warning message.
+Format is ISO8601.
+.EX
+Formats accepted
+YYYY-MM-DDTHH:MM:SS.sss+ZZ (where +ZZ is either -/+ UTC offset)
+YYYY-MM-DDTHH:MM:SS+ZZ
+YYYY-MM-DDTHH:MM+ZZ
+YYYY-MM-DD (sets date only)
+.EE
+.
+.TP
+.BR get_clock
+Get
+.RI \(aq RigTime \(aq
+.IP
+Gets rig clock -- note that some rigs do not handle seconds or milliseconds.
+Format is ISO8601 YYYY-MM-DDTHH:MM:SS.sss+ZZ where +ZZ is either -/+ UTC offset
 .
 .TP
 .B chk_vfo
-Returns \(lqCHKVFO 1\\n\(rq (single line only) if
+Returns \(lq1\\n\(rq (single line only) if
 .B rigctld
 was invoked with the
 .BR \-o / \-\-vfo
-option and \(lqCHKVFO 0\\n\(rq if not.
+option and \(lq0\\n\(rq if not.
 .IP
 When in VFO mode the client will need to pass
 .RI \(aq VFO \(aq
@@ -1104,6 +1151,17 @@ Set
 Set vfo option Status 1=on or 0=off
 This is the same as using the -o switch for rigctl and ritctld.
 This can be dyamically changed while running.
+.
+.TP
+.BR set_lock_mode " \(aq" \fILocked\fP \(aq
+Turns mode lock on(1) or off(0) (only when using rigctld).  Turning on will prevent all clients from changing the rig mode.
+For example this is useful when running CW Skimmer in FM mode on an IC-7300.  Clicking spots
+in a spotting program will not change the VFOA mode when lock is on.  So "set_lock_mode 1" when
+CW Skimmer is started and "set_lock_mode 0" when CW Skimmer is stopped.
+.
+.TP
+.BR get_lock_mode
+Returns current lock mode status 1=On, 2=Off (only useful with rigctld)
 .
 .
 .SH PROTOCOL

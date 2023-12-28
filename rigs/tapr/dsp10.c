@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include "hamlib/rig.h"
@@ -63,7 +61,7 @@ const struct rig_caps dsp10_caps =
     .mfg_name =  "TAPR",
     .version =  "20061007.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -106,11 +104,11 @@ const struct rig_caps dsp10_caps =
     .rx_range_list1 =  { RIG_FRNG_END, },    /* FIXME: enter region 1 setting */
     .tx_range_list1 =  { RIG_FRNG_END, },
     .rx_range_list2 =  {
-        {MHz(144), kHz(148), DSP10_MODES, -1, -1, DSP10_VFO},
+        {MHz(144), MHz(148), DSP10_MODES, -1, -1, DSP10_VFO},
         RIG_FRNG_END,
     },
     .tx_range_list2 =  {
-        {MHz(144), kHz(148), DSP10_MODES, mW(20), mW(20), DSP10_VFO},
+        {MHz(144), MHz(148), DSP10_MODES, mW(20), mW(20), DSP10_VFO},
         RIG_FRNG_END,
     },
     .tuning_steps =  {
@@ -127,5 +125,6 @@ const struct rig_caps dsp10_caps =
 
     .set_freq =  tapr_set_freq,
     .set_mode =  tapr_set_mode,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

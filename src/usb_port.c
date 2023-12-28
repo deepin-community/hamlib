@@ -31,16 +31,12 @@
  * doc todo: deal with defined(HAVE_LIBUSB)... quashing the doc process.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 
 
 #include <stdlib.h>
-#include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
 

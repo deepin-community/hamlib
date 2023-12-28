@@ -25,7 +25,7 @@
 #define G313_FUNC  RIG_FUNC_NONE
 #define G313_LEVEL (RIG_LEVEL_ATT | RIG_LEVEL_AGC | RIG_LEVEL_RF | RIG_LEVEL_STRENGTH | RIG_LEVEL_RAWSTR)
 
-#define G313_MODES (RIG_MODE_NONE)
+#define G313_MODES (RIG_MODE_USB)
 
 #if defined (_WIN32) || !defined(OTHER_POSIX)
 
@@ -58,8 +58,6 @@ const struct confparams g313_cfg_params[] =
 
 #define G313_FUNC  RIG_FUNC_NONE
 #define G313_LEVEL (RIG_LEVEL_ATT | RIG_LEVEL_AGC | RIG_LEVEL_RF | RIG_LEVEL_STRENGTH | RIG_LEVEL_RAWSTR)
-
-#define G313_MODES (RIG_MODE_NONE)
 
 static int g313_init(RIG *rig);
 static int g313_cleanup(RIG *rig);
@@ -166,7 +164,7 @@ const struct rig_caps g313_caps =
     .mfg_name =       "Winradio",
     .version =        "20191204.0",
     .copyright =        "LGPL", /* This wrapper, not the G313 DLL */
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_PCRECEIVER,
     .port_type =      RIG_PORT_NONE,
     .targetable_vfo =    0,
@@ -225,6 +223,7 @@ const struct rig_caps g313_caps =
     .get_level =     g313_get_level,
 
     .get_info =      g313_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -233,7 +232,7 @@ int g313_init(RIG *rig)
 {
     struct g313_priv_data *priv;
 
-    rig->state.priv = (struct g313_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct g313_priv_data *)calloc(1, sizeof(
                           struct g313_priv_data));
 
     if (!rig->state.priv)
@@ -696,14 +695,14 @@ int g313_set_conf(RIG *rig, token_t token, const char *val)
     return RIG_OK;
 }
 
-int g313_get_conf(RIG *rig, token_t token, char *val)
+int g313_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
     struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
 
     switch (token)
     {
     case WAVEOUT_SOUNDCARDID:
-        sprintf(val, "%d", priv->WaveOutDeviceID);
+        SNPRINTF(val, val_len, "%d", priv->WaveOutDeviceID);
         break;
 
     default:
@@ -711,6 +710,11 @@ int g313_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int g313_get_conf(RIG *rig, token_t token, char *val)
+{
+    return g313_get_conf2(rig, token, val, 128);
 }
 
 #endif /* _WIN32 */

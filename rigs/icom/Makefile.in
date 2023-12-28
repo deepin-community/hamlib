@@ -107,29 +107,29 @@ am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
 	$(top_srcdir)/macros/ltsugar.m4 \
 	$(top_srcdir)/macros/ltversion.m4 \
 	$(top_srcdir)/macros/lt~obsolete.m4 \
-	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/tcl.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/pkg.m4 \
+	$(top_srcdir)/macros/tcl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/include/hamlib/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libhamlib_icom_la_LIBADD =
-am__objects_1 = ic706.lo icr8500.lo ic735.lo ic775.lo ic756.lo \
-	ic275.lo ic475.lo ic1275.lo ic820h.lo ic821h.lo icr7000.lo \
-	ic910.lo ic9100.lo ic970.lo ic725.lo ic737.lo ic718.lo \
-	os535.lo os456.lo omni.lo delta2.lo ic92d.lo ic736.lo ic738.lo \
-	ic7410.lo ic746.lo ic703.lo ic726.lo ic271.lo ic765.lo \
-	ic781.lo ic471.lo icr9000.lo icr9500.lo icr10.lo icr20.lo \
-	icr30.lo icr6.lo icr71.lo icr72.lo icr75.lo icrx7.lo \
+am__objects_1 = icom.lo frame.lo ic706.lo icr8500.lo ic735.lo ic775.lo \
+	ic756.lo ic275.lo ic475.lo ic1275.lo ic820h.lo ic821h.lo \
+	icr7000.lo ic910.lo ic9100.lo ic970.lo ic725.lo ic737.lo \
+	ic718.lo os535.lo os456.lo omni.lo delta2.lo ic92d.lo ic736.lo \
+	ic738.lo ic7410.lo ic746.lo ic703.lo ic726.lo ic271.lo \
+	ic765.lo ic781.lo ic471.lo icr9000.lo icr9500.lo icr10.lo \
+	icr20.lo icr30.lo icr6.lo icr71.lo icr72.lo icr75.lo icrx7.lo \
 	icr8600.lo id1.lo id31.lo id51.lo id4100.lo id5100.lo \
 	perseus.lo ic2730.lo ic707.lo ic728.lo ic751.lo ic761.lo \
 	ic78.lo ic7800.lo ic785x.lo ic7000.lo ic7100.lo ic7200.lo \
-	ic7300.lo ic7600.lo ic7610.lo ic7700.lo icom.lo frame.lo \
-	optoscan.lo x108g.lo
+	ic7300.lo ic7600.lo ic7610.lo ic7700.lo icf8101.lo optoscan.lo \
+	xiegu.lo
 am_libhamlib_icom_la_OBJECTS = $(am__objects_1)
 libhamlib_icom_la_OBJECTS = $(am_libhamlib_icom_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -148,7 +148,7 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include/hamlib
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/delta2.Plo ./$(DEPDIR)/frame.Plo \
@@ -172,19 +172,20 @@ am__depfiles_remade = ./$(DEPDIR)/delta2.Plo ./$(DEPDIR)/frame.Plo \
 	./$(DEPDIR)/ic785x.Plo ./$(DEPDIR)/ic820h.Plo \
 	./$(DEPDIR)/ic821h.Plo ./$(DEPDIR)/ic910.Plo \
 	./$(DEPDIR)/ic9100.Plo ./$(DEPDIR)/ic92d.Plo \
-	./$(DEPDIR)/ic970.Plo ./$(DEPDIR)/icom.Plo \
-	./$(DEPDIR)/icr10.Plo ./$(DEPDIR)/icr20.Plo \
-	./$(DEPDIR)/icr30.Plo ./$(DEPDIR)/icr6.Plo \
-	./$(DEPDIR)/icr7000.Plo ./$(DEPDIR)/icr71.Plo \
-	./$(DEPDIR)/icr72.Plo ./$(DEPDIR)/icr75.Plo \
-	./$(DEPDIR)/icr8500.Plo ./$(DEPDIR)/icr8600.Plo \
-	./$(DEPDIR)/icr9000.Plo ./$(DEPDIR)/icr9500.Plo \
-	./$(DEPDIR)/icrx7.Plo ./$(DEPDIR)/id1.Plo ./$(DEPDIR)/id31.Plo \
+	./$(DEPDIR)/ic970.Plo ./$(DEPDIR)/icf8101.Plo \
+	./$(DEPDIR)/icom.Plo ./$(DEPDIR)/icr10.Plo \
+	./$(DEPDIR)/icr20.Plo ./$(DEPDIR)/icr30.Plo \
+	./$(DEPDIR)/icr6.Plo ./$(DEPDIR)/icr7000.Plo \
+	./$(DEPDIR)/icr71.Plo ./$(DEPDIR)/icr72.Plo \
+	./$(DEPDIR)/icr75.Plo ./$(DEPDIR)/icr8500.Plo \
+	./$(DEPDIR)/icr8600.Plo ./$(DEPDIR)/icr9000.Plo \
+	./$(DEPDIR)/icr9500.Plo ./$(DEPDIR)/icrx7.Plo \
+	./$(DEPDIR)/id1.Plo ./$(DEPDIR)/id31.Plo \
 	./$(DEPDIR)/id4100.Plo ./$(DEPDIR)/id51.Plo \
 	./$(DEPDIR)/id5100.Plo ./$(DEPDIR)/omni.Plo \
 	./$(DEPDIR)/optoscan.Plo ./$(DEPDIR)/os456.Plo \
 	./$(DEPDIR)/os535.Plo ./$(DEPDIR)/perseus.Plo \
-	./$(DEPDIR)/x108g.Plo
+	./$(DEPDIR)/xiegu.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -336,6 +337,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL_INC_DIR = @PERL_INC_DIR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -346,6 +350,7 @@ PYTHON_EXTRA_LDFLAGS = @PYTHON_EXTRA_LDFLAGS@
 PYTHON_EXTRA_LIBS = @PYTHON_EXTRA_LIBS@
 PYTHON_LIBS = @PYTHON_LIBS@
 PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PLATFORM_SITE_PKG = @PYTHON_PLATFORM_SITE_PKG@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_SITE_PKG = @PYTHON_SITE_PKG@
 PYTHON_VERSION = @PYTHON_VERSION@
@@ -362,12 +367,16 @@ STRIP = @STRIP@
 SWIG = @SWIG@
 SWIG_LIB = @SWIG_LIB@
 TCL_BIN_DIR = @TCL_BIN_DIR@
+TCL_CFLAGS = @TCL_CFLAGS@
 TCL_INCLUDE_SPEC = @TCL_INCLUDE_SPEC@
+TCL_LIBS = @TCL_LIBS@
 TCL_LIB_FILE = @TCL_LIB_FILE@
 TCL_LIB_SPEC = @TCL_LIB_SPEC@
 TCL_SHLIB_SUFFIX = @TCL_SHLIB_SUFFIX@
 TCL_SRC_DIR = @TCL_SRC_DIR@
 TCL_VERSION = @TCL_VERSION@
+USRP_CFLAGS = @USRP_CFLAGS@
+USRP_LIBS = @USRP_LIBS@
 VERSION = @VERSION@
 WINEXELDFLAGS = @WINEXELDFLAGS@
 WINLDFLAGS = @WINLDFLAGS@
@@ -435,7 +444,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-ICOMSRC = ic706.c icr8500.c ic735.c ic775.c ic756.c  \
+ICOMSRC = icom.c icom.h icom_defs.h frame.c frame.h ic706.c icr8500.c ic735.c ic775.c ic756.c  \
 	ic275.c ic475.c ic1275.c ic820h.c ic821h.c \
 	icr7000.c ic910.c ic9100.c ic970.c ic725.c ic737.c ic718.c \
 	os535.c os456.c omni.c delta2.c ic92d.c \
@@ -445,8 +454,8 @@ ICOMSRC = ic706.c icr8500.c ic735.c ic775.c ic756.c  \
 	id1.c id31.c id51.c id4100.c id5100.c perseus.c ic2730.c \
 	ic707.c ic728.c ic751.c ic761.c \
 	ic78.c ic7800.c ic785x.c \
-	ic7000.c ic7100.c ic7200.c ic7300.c ic7600.c ic7610.c ic7700.c \
-	icom.c icom.h icom_defs.h frame.c frame.h optoscan.c optoscan.h x108g.c
+	ic7000.c ic7100.c ic7200.c ic7300.c ic7600.c ic7610.c ic7700.c icf8101.c \
+	ic7300.h optoscan.c optoscan.h xiegu.c level_gran_icom.h
 
 noinst_LTLIBRARIES = libhamlib-icom.la
 libhamlib_icom_la_SOURCES = $(ICOMSRC)
@@ -548,6 +557,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ic9100.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ic92d.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ic970.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/icf8101.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/icom.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/icr10.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/icr20.Plo@am__quote@ # am--include-marker
@@ -572,7 +582,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/os456.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/os535.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/perseus.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/x108g.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xiegu.Plo@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -778,6 +788,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/ic9100.Plo
 	-rm -f ./$(DEPDIR)/ic92d.Plo
 	-rm -f ./$(DEPDIR)/ic970.Plo
+	-rm -f ./$(DEPDIR)/icf8101.Plo
 	-rm -f ./$(DEPDIR)/icom.Plo
 	-rm -f ./$(DEPDIR)/icr10.Plo
 	-rm -f ./$(DEPDIR)/icr20.Plo
@@ -802,7 +813,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/os456.Plo
 	-rm -f ./$(DEPDIR)/os535.Plo
 	-rm -f ./$(DEPDIR)/perseus.Plo
-	-rm -f ./$(DEPDIR)/x108g.Plo
+	-rm -f ./$(DEPDIR)/xiegu.Plo
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -891,6 +902,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/ic9100.Plo
 	-rm -f ./$(DEPDIR)/ic92d.Plo
 	-rm -f ./$(DEPDIR)/ic970.Plo
+	-rm -f ./$(DEPDIR)/icf8101.Plo
 	-rm -f ./$(DEPDIR)/icom.Plo
 	-rm -f ./$(DEPDIR)/icr10.Plo
 	-rm -f ./$(DEPDIR)/icr20.Plo
@@ -915,7 +927,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/os456.Plo
 	-rm -f ./$(DEPDIR)/os535.Plo
 	-rm -f ./$(DEPDIR)/perseus.Plo
-	-rm -f ./$(DEPDIR)/x108g.Plo
+	-rm -f ./$(DEPDIR)/xiegu.Plo
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

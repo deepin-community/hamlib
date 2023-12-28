@@ -54,16 +54,10 @@
  */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 // cppcheck-suppress *
 #include <stdlib.h>
-// cppcheck-suppress *
-#include <string.h>  /* String function definitions */
-// cppcheck-suppress *
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -137,7 +131,7 @@ const struct rig_caps vr5000_caps =
     .mfg_name =           "Yaesu",
     .version =            "20200505.0",
     .copyright =          "LGPL",
-    .status =             RIG_STATUS_ALPHA,
+    .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_RECEIVER,
     .ptt_type =           RIG_PTT_NONE,
     .dcd_type =           RIG_DCD_RIG,
@@ -155,9 +149,13 @@ const struct rig_caps vr5000_caps =
     .has_get_func =       RIG_FUNC_NONE,
     .has_set_func =       RIG_FUNC_NONE,
     .has_get_level =      RIG_LEVEL_RAWSTR,
-    .has_set_level =      RIG_LEVEL_NONE,
+    .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .vfo_ops =            RIG_OP_NONE,
     .preamp =             { RIG_DBLST_END, },
     .attenuator =         { RIG_DBLST_END, },
@@ -229,7 +227,7 @@ const struct rig_caps vr5000_caps =
     .get_mode =       vr5000_get_mode,
     .set_ts =         vr5000_set_ts,
     .get_ts =         vr5000_get_ts,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -289,7 +287,7 @@ int vr5000_open(RIG *rig)
     int retval;
 
     /* CAT write command on */
-    retval =  write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    retval =  write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 
     if (retval != RIG_OK)
     {
@@ -297,7 +295,7 @@ int vr5000_open(RIG *rig)
     }
 
     /* disable RIG_VFO_B  (only on display) */
-    retval =  write_block(&rig->state.rigport, (char *) b_off, YAESU_CMD_LENGTH);
+    retval =  write_block(&rig->state.rigport, b_off, YAESU_CMD_LENGTH);
 
     if (retval != RIG_OK)
     {
@@ -328,7 +326,7 @@ int vr5000_close(RIG *rig)
 {
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x80};
 
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 }
 
 
@@ -415,7 +413,7 @@ int vr5000_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     rig_flush(&rig->state.rigport);
 
     /* send READ STATUS(Meter only) cmd to rig  */
-    retval = write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    retval = write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 
     if (retval < 0)
     {
@@ -423,7 +421,7 @@ int vr5000_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     }
 
     /* read back the 1 byte */
-    retval = read_block(&rig->state.rigport, (char *) cmd, 1);
+    retval = read_block(&rig->state.rigport, cmd, 1);
 
     if (retval < 1)
     {
@@ -449,7 +447,7 @@ int vr5000_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
     rig_flush(&rig->state.rigport);
 
     /* send READ STATUS(Meter only) cmd to rig  */
-    retval = write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    retval = write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 
     if (retval < 0)
     {
@@ -457,7 +455,7 @@ int vr5000_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
     }
 
     /* read back the 1 byte */
-    retval = read_block(&rig->state.rigport, (char *) cmd, 1);
+    retval = read_block(&rig->state.rigport, cmd, 1);
 
     if (retval < 1)
     {
@@ -617,7 +615,7 @@ int set_vr5000(RIG *rig, vfo_t vfo, freq_t freq, rmode_t mode, pbwidth_t width,
     /* fill in m2 */
     cmd_mode_ts[1] = steps[i];
 
-    retval =  write_block(&rig->state.rigport, (char *) cmd_mode_ts,
+    retval =  write_block(&rig->state.rigport, cmd_mode_ts,
                           YAESU_CMD_LENGTH);
 
     if (retval != RIG_OK)
@@ -637,7 +635,7 @@ int set_vr5000(RIG *rig, vfo_t vfo, freq_t freq, rmode_t mode, pbwidth_t width,
     cmd_freq[3] = frq & 0xff;
 
     /* frequency set */
-    return write_block(&rig->state.rigport, (char *) cmd_freq, YAESU_CMD_LENGTH);
+    return write_block(&rig->state.rigport, cmd_freq, YAESU_CMD_LENGTH);
 }
 
 

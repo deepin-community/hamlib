@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
@@ -123,7 +121,7 @@ static int dummy_rot_init(ROT *rot)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     rot->state.priv = (struct dummy_rot_priv_data *)
-                      malloc(sizeof(struct dummy_rot_priv_data));
+                      calloc(1, sizeof(struct dummy_rot_priv_data));
 
     if (!rot->state.priv)
     {
@@ -190,6 +188,13 @@ static int dummy_rot_open(ROT *rot)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
+    if (rot->caps->rot_model == ROT_MODEL_DUMMY)
+    {
+        simulating = 1;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: dummy rotator so simulating speed\n",
+                  __func__);
+    }
+
     return RIG_OK;
 }
 
@@ -225,7 +230,7 @@ static int dummy_set_conf(ROT *rot, token_t token, const char *val)
 }
 
 
-static int dummy_get_conf(ROT *rot, token_t token, char *val)
+static int dummy_get_conf2(ROT *rot, token_t token, char *val, int val_len)
 {
     struct dummy_rot_priv_data *priv;
 
@@ -234,7 +239,7 @@ static int dummy_get_conf(ROT *rot, token_t token, char *val)
     switch (token)
     {
     case TOK_CFG_ROT_MAGICCONF:
-        strcpy(val, priv->magic_conf);
+        SNPRINTF(val, val_len, "%s", priv->magic_conf);
         break;
 
     default:
@@ -243,6 +248,12 @@ static int dummy_get_conf(ROT *rot, token_t token, char *val)
 
     return RIG_OK;
 }
+
+static int dummy_get_conf(ROT *rot, token_t token, char *val)
+{
+    return dummy_get_conf2(rot, token, val, 128);
+}
+
 
 
 static int dummy_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
@@ -496,11 +507,11 @@ static int dummy_set_level(ROT *rot, setting_t level, value_t val)
 
     if (ROT_LEVEL_IS_FLOAT(level))
     {
-        sprintf(lstr, "%f", val.f);
+        SNPRINTF(lstr, sizeof(lstr), "%f", val.f);
     }
     else
     {
-        sprintf(lstr, "%d", val.i);
+        SNPRINTF(lstr, sizeof(lstr), "%d", val.i);
     }
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s %s\n", __func__,
@@ -565,15 +576,15 @@ static int dummy_set_ext_level(ROT *rot, token_t token, value_t val)
         break;
 
     case RIG_CONF_COMBO:
-        sprintf(lstr, "%d", val.i);
+        SNPRINTF(lstr, sizeof(lstr), "%d", val.i);
         break;
 
     case RIG_CONF_NUMERIC:
-        sprintf(lstr, "%f", val.f);
+        SNPRINTF(lstr, sizeof(lstr), "%f", val.f);
         break;
 
     case RIG_CONF_CHECKBUTTON:
-        sprintf(lstr, "%s", val.i ? "ON" : "OFF");
+        SNPRINTF(lstr, sizeof(lstr), "%s", val.i ? "ON" : "OFF");
         break;
 
     case RIG_CONF_BUTTON:
@@ -751,11 +762,11 @@ static int dummy_set_parm(ROT *rot, setting_t parm, value_t val)
 
     if (ROT_PARM_IS_FLOAT(parm))
     {
-        sprintf(pstr, "%f", val.f);
+        SNPRINTF(pstr, sizeof(pstr), "%f", val.f);
     }
     else
     {
-        sprintf(pstr, "%d", val.i);
+        SNPRINTF(pstr, sizeof(pstr), "%d", val.i);
     }
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s %s\n", __func__,
@@ -819,15 +830,15 @@ static int dummy_set_ext_parm(ROT *rot, token_t token, value_t val)
         break;
 
     case RIG_CONF_COMBO:
-        sprintf(lstr, "%d", val.i);
+        SNPRINTF(lstr, sizeof(lstr), "%d", val.i);
         break;
 
     case RIG_CONF_NUMERIC:
-        sprintf(lstr, "%f", val.f);
+        SNPRINTF(lstr, sizeof(lstr), "%f", val.f);
         break;
 
     case RIG_CONF_CHECKBUTTON:
-        sprintf(lstr, "%s", val.i ? "ON" : "OFF");
+        SNPRINTF(lstr, sizeof(lstr), "%s", val.i ? "ON" : "OFF");
         break;
 
     case RIG_CONF_BUTTON:
@@ -913,19 +924,19 @@ static int dummy_rot_get_status(ROT *rot, rot_status_t *status)
 /*
  * Dummy rotator capabilities.
  */
-const struct rot_caps dummy_rot_caps =
+struct rot_caps dummy_rot_caps =
 {
     ROT_MODEL(ROT_MODEL_DUMMY),
     .model_name =     "Dummy",
     .mfg_name =       "Hamlib",
-    .version =        "20210207.0",
+    .version =        "20220531.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_NONE,
 
     .min_az =     -180.,
-    .max_az =     180.,
+    .max_az =     450.,
     .min_el =     0.,
     .max_el =     90.,
 

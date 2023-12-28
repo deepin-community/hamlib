@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -48,6 +46,27 @@
 
 #define RX350_VFO_OPS (RIG_OP_TO_VFO|RIG_OP_FROM_VFO)
 
+// Taken from RX320_STR_CAL -- unknown if accurate for RX350
+#define RX350_STR_CAL { 17, { \
+                {      0, -60 }, \
+                {     10, -50 }, \
+                {     20, -40 }, \
+                {     30, -30 }, \
+                {     40, -20 }, \
+                {     50, -15 }, \
+                {    100, -10 }, \
+                {    200, -5 }, \
+                {    225, -3 }, \
+                {    256,  0 }, \
+                {    512,  1 }, \
+                {    768,  3}, \
+                {   1024,  4 }, \
+                {   1280,  5 }, \
+                {   2560,  10 }, \
+                {   5120,  20 }, \
+                {  10000,  30 }, \
+        } }
+
 
 /*
  * RX350 receiver capabilities.
@@ -65,7 +84,7 @@ const struct rig_caps rx350_caps =
     .mfg_name =  "Ten-Tec",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_ALPHA,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -87,7 +106,10 @@ const struct rig_caps rx350_caps =
     .has_set_level =  RIG_LEVEL_SET(RX350_LEVELS),
     .has_get_parm =  RX350_PARMS,
     .has_set_parm =  RX350_PARMS,
-    .level_gran =  {},                 /* FIXME: granularity */
+    .level_gran =
+    {
+        [LVL_RAWSTR]        = { .min = { .i = 0 },     .max = { .i = 255 } }
+    },
     .parm_gran =  {},
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
@@ -133,6 +155,7 @@ const struct rig_caps rx350_caps =
         {RX350_MODES, 0}, /* 34 filters */
         RIG_FLT_END,
     },
+    .str_cal = RX350_STR_CAL,
     .priv = (void *)NULL,
 
     .set_freq =  tentec2_set_freq,
@@ -143,7 +166,7 @@ const struct rig_caps rx350_caps =
     .get_mode =  tentec2_get_mode,
     .reset =  tentec2_reset,
     .get_info =  tentec2_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

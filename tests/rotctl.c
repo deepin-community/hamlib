@@ -23,16 +23,11 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-#include <hamlibdatetime.h>
-
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
@@ -374,6 +369,14 @@ int main(int argc, char *argv[])
         rot_token_foreach(my_rot, print_conf_list, (rig_ptr_t)my_rot);
     }
 
+    retcode = rot_open(my_rot);
+
+    if (retcode != RIG_OK)
+    {
+        fprintf(stderr, "rot_open: error = %s \n", rigerror(retcode));
+        exit(2);
+    }
+
     /*
      * Print out capabilities, and exits immediately as we may be interested
      * only in caps, and rig_open may fail.
@@ -383,14 +386,6 @@ int main(int argc, char *argv[])
         dumpcaps_rot(my_rot, stdout);
         rot_cleanup(my_rot);    /* if you care about memory */
         exit(0);
-    }
-
-    retcode = rot_open(my_rot);
-
-    if (retcode != RIG_OK)
-    {
-        fprintf(stderr, "rot_open: error = %s \n", rigerror(retcode));
-        exit(2);
     }
 
     my_rot->state.az_offset = az_offset;
@@ -438,7 +433,7 @@ int main(int argc, char *argv[])
             hist_path_size = sizeof(char) * (strlen(hist_dir) + strlen(hist_file) + 1);
             hist_path = (char *)calloc(hist_path_size, sizeof(char));
 
-            snprintf(hist_path, hist_path_size, "%s%s", hist_dir, hist_file);
+            SNPRINTF(hist_path, hist_path_size, "%s%s", hist_dir, hist_file);
 
         }
 
@@ -514,8 +509,8 @@ void usage()
         "  -s, --serial-speed=BAUD       set serial speed of the serial port\n"
         "  -t, --send-cmd-term=CHAR      set send_cmd command termination char\n"
         "  -C, --set-conf=PARM=VAL       set config parameters\n"
-        "  -o, --set-azoffset==VAL       set offset for azimuth\n"
-        "  -O, --set-eloffset==VAL       set offset for elevation\n"
+        "  -o, --set-azoffset=VAL        set offset for azimuth\n"
+        "  -O, --set-eloffset=VAL        set offset for elevation\n"
         "  -L, --show-conf               list all config parameters\n"
         "  -l, --list                    list all model numbers and exit\n"
         "  -u, --dump-caps               dump capabilities and exit\n"

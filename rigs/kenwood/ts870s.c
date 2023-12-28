@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -223,7 +221,7 @@ static int ts870s_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    sprintf(buf, "MD%c", kmode);
+    SNPRINTF(buf, sizeof(buf), "MD%c", kmode);
     retval = kenwood_transaction(rig, buf, NULL, 0);
 
     if (retval != RIG_OK) { return retval; }
@@ -248,7 +246,7 @@ static int ts870s_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
                     mode_default_hpf = 100;
                 }
 
-                sprintf(buf, "IS %04d", (int)(width + mode_default_hpf));
+                SNPRINTF(buf, sizeof(buf), "IS %04d", (int)(width + mode_default_hpf));
                 retval = kenwood_transaction(rig, buf, NULL, 0);
             }
             else
@@ -257,7 +255,7 @@ static int ts870s_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
                  * This rig will simply use an IF bandpass which is closest to width,
                  * so we don't need to check the value...
                  */
-                sprintf(buf, "FW%04d", (int)width / 10);
+                SNPRINTF(buf, sizeof(buf), "FW%04d", (int)width / 10);
                 retval = kenwood_transaction(rig, buf, NULL, 0);
             }
         }
@@ -275,7 +273,7 @@ int ts870s_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     {
     case RIG_LEVEL_RFPOWER:
         intval = val.f * 100;
-        sprintf(levelbuf, "PC%03d", intval);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "PC%03d", intval);
         return kenwood_transaction(rig, levelbuf, NULL, 0);
         break;
 
@@ -541,7 +539,7 @@ const struct rig_caps ts870s_caps =
     RIG_MODEL(RIG_MODEL_TS870S),
     .model_name = "TS-870S",
     .mfg_name =  "Kenwood",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -556,7 +554,7 @@ const struct rig_caps ts870s_caps =
     .serial_handshake =  RIG_HANDSHAKE_NONE,
     .write_delay =  0,
     .post_write_delay =  0,
-    .timeout =  200,
+    .timeout =  500,
     .retry =  10,
 
     .has_get_func =  TS870S_FUNC_ALL,
@@ -565,7 +563,10 @@ const struct rig_caps ts870s_caps =
     .has_set_level =  TS870S_LEVEL_SET,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
-    .level_gran =  {},                 /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  {},
     .ctcss_list =  kenwood38_ctcss_list,
     .dcs_list =  NULL,
@@ -576,6 +577,8 @@ const struct rig_caps ts870s_caps =
     .max_ifshift =  Hz(0),
     .targetable_vfo =  RIG_TARGETABLE_FREQ,
     .transceive =  RIG_TRN_RIG,
+    // Has GT command but ranges from 000-005(Off) to 255 max
+    // Would take special processing
     .bank_qty =   0,
     .chan_desc_sz =  0,
 
@@ -678,7 +681,7 @@ const struct rig_caps ts870s_caps =
     .set_powerstat =  kenwood_set_powerstat,
     .get_powerstat =  kenwood_get_powerstat,
     .reset =  kenwood_reset,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

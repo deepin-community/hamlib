@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "idx_builtin.h"
@@ -71,7 +68,7 @@ const struct rig_caps ic2730_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_ALPHA,
     .rig_type =  RIG_TYPE_MOBILE,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -209,4 +206,5 @@ const struct rig_caps ic2730_caps =
     .set_split_mode = icom_set_split_mode,
     .get_split_mode = icom_get_split_mode,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

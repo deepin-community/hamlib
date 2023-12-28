@@ -18,11 +18,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "idx_builtin.h"
@@ -57,7 +54,7 @@ const struct rig_caps ra3702_caps =
     .mfg_name =  "Racal",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -155,7 +152,7 @@ const struct rig_caps ra3702_caps =
     .scan = ra37xx_scan,
     .vfo_op = ra37xx_vfo_op,
     .get_info = ra37xx_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

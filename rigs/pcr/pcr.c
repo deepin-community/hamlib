@@ -28,15 +28,11 @@
  * (403) PCR1500 fw 2.0, proto 2.0 (usb) by KM3T
  *
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* String function definitions */
-#include <unistd.h>     /* UNIX standard function definitions */
-#include <math.h>
 #include <errno.h>
 #include <ctype.h>
 
@@ -177,7 +173,7 @@ pcr_read_block(RIG *rig, char *rxbuffer, size_t count)
     /* already in sync? */
     if (priv->sync && !caps->always_sync)
     {
-        return read_block(&rs->rigport, rxbuffer, count);
+        return read_block(&rs->rigport, (unsigned char *) rxbuffer, count);
     }
 
     /* read first char */
@@ -186,7 +182,7 @@ pcr_read_block(RIG *rig, char *rxbuffer, size_t count)
         char *p = &rxbuffer[0];
 
         /* read first char */
-        int err = read_block(&rs->rigport, p, 1);
+        int err = read_block(&rs->rigport, (unsigned char *) p, 1);
 
         if (err < 0)
         {
@@ -209,7 +205,7 @@ pcr_read_block(RIG *rig, char *rxbuffer, size_t count)
         count--;
         p++;
 
-        err = read_block(&rs->rigport, p, count);
+        err = read_block(&rs->rigport, (unsigned char *) p, count);
 
         if (err < 0)
         {
@@ -361,11 +357,11 @@ pcr_send(RIG *rig, const char *cmd)
     /* XXX not required in auto update mode? (should not harm) */
     priv->cmd_buf[len + 0] = 0x0a;
 
-    rs->hold_decode = 1;
+    rs->transaction_active = 1;
 
-    err = write_block(&rs->rigport, priv->cmd_buf, len + 1);
+    err = write_block(&rs->rigport, (unsigned char *) priv->cmd_buf, len + 1);
 
-    rs->hold_decode = 0;
+    rs->transaction_active = 0;
 
     return err;
 }
@@ -485,7 +481,8 @@ pcr_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct pcr_priv_data *) malloc(sizeof(struct pcr_priv_data));
+    rig->state.priv = (struct pcr_priv_data *) calloc(1,
+                      sizeof(struct pcr_priv_data));
 
     if (!rig->state.priv)
     {
@@ -519,8 +516,6 @@ pcr_init(RIG *rig)
 
     priv->sub_rcvr = priv->main_rcvr;
     priv->current_vfo = RIG_VFO_MAIN;
-
-    rig->state.transceive   = RIG_TRN_OFF;
 
     return RIG_OK;
 }
@@ -754,7 +749,7 @@ pcr_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     struct pcr_priv_data *priv;
     struct pcr_rcvr *rcvr;
     unsigned char buf[20];
-    int freq_len, err;
+    int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: vfo = %s, freq = %.0f\n",
               __func__, rig_strvfo(vfo), freq);
@@ -763,12 +758,10 @@ pcr_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     rcvr = is_sub_rcvr(rig, vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
     // cppcheck-suppress *
-    freq_len = sprintf((char *) buf, "K%c%010" PRIll "0%c0%c00",
-                       is_sub_rcvr(rig, vfo) ? '1' : '0',
-                       (int64_t) freq,
-                       rcvr->last_mode, rcvr->last_filter);
-
-    buf[freq_len] = '\0';
+    SNPRINTF((char *) buf, sizeof(buf), "K%c%010" PRIll "0%c0%c00",
+             is_sub_rcvr(rig, vfo) ? '1' : '0',
+             (int64_t) freq,
+             rcvr->last_mode, rcvr->last_filter);
 
     err = pcr_transaction(rig, (char *) buf);
 
@@ -812,7 +805,7 @@ pcr_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
                                         vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
     unsigned char buf[20];
-    int buf_len, err;
+    int err;
     int pcrmode;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: mode = %s, width = %d\n",
@@ -906,14 +899,9 @@ pcr_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         rig_debug(RIG_DEBUG_VERBOSE, "%s: filter set to %d (%c)\n",
                   __func__, (int)width, pcrfilter);
 
-        buf_len = sprintf((char *) buf, "K%c%010" PRIll "0%c0%c00",
-                          is_sub_rcvr(rig, vfo) ? '1' : '0',
-                          (int64_t) rcvr->last_freq, pcrmode, pcrfilter);
-
-        if (buf_len < 0)
-        {
-            return -RIG_ETRUNC;
-        }
+        SNPRINTF((char *) buf, sizeof(buf), "K%c%010" PRIll "0%c0%c00",
+                 is_sub_rcvr(rig, vfo) ? '1' : '0',
+                 (int64_t) rcvr->last_freq, pcrmode, pcrfilter);
 
         err = pcr_transaction(rig, (char *) buf);
 
@@ -926,14 +914,9 @@ pcr_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     }
     else
     {
-        buf_len = sprintf((char *) buf, "K%c%010" PRIll "0%c0%c00",
-                          is_sub_rcvr(rig, vfo) ? '1' : '0',
-                          (int64_t) rcvr->last_freq, pcrmode, rcvr->last_filter);
-
-        if (buf_len < 0)
-        {
-            return -RIG_ETRUNC;
-        }
+        SNPRINTF((char *) buf, sizeof(buf), "K%c%010" PRIll "0%c0%c00",
+                 is_sub_rcvr(rig, vfo) ? '1' : '0',
+                 (int64_t) rcvr->last_freq, pcrmode, rcvr->last_filter);
 
         err = pcr_transaction(rig, (char *) buf);
 
@@ -1074,14 +1057,14 @@ pcr_get_info(RIG *rig)
         country = "Not queried yet";
     }
 
-    sprintf(priv->info, "Firmware v%d.%d, Protocol v%d.%d, "
-            "Optional devices:%s%s%s, Country: %s",
-            priv->firmware / 10, priv->firmware % 10,
-            priv->protocol / 10, priv->protocol % 10,
-            (priv->options & OPT_UT106) ? " DSP" : "",
-            (priv->options & OPT_UT107) ? " DARC" : "",
-            priv->options ? "" : " none",
-            country);
+    SNPRINTF(priv->info, sizeof(priv->info), "Firmware v%d.%d, Protocol v%d.%d, "
+             "Optional devices:%s%s%s, Country: %s",
+             priv->firmware / 10, priv->firmware % 10,
+             priv->protocol / 10, priv->protocol % 10,
+             (priv->options & OPT_UT106) ? " DSP" : "",
+             (priv->options & OPT_UT107) ? " DARC" : "",
+             priv->options ? "" : " none",
+             country);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: Firmware v%d.%d, Protocol v%d.%d, "
               "Optional devices:%s%s%s, Country: %s\n",
@@ -1445,7 +1428,7 @@ pcr_set_level_cmd(RIG *rig, const char *base, int level)
         return -RIG_EINVAL;
     }
 
-    snprintf(buf, 12, "%s%02X", base, level);
+    SNPRINTF(buf, 12, "%s%02X", base, level);
     buf[11] = '\0';
     return pcr_transaction(rig, buf);
 }
@@ -1490,7 +1473,7 @@ pcr_set_volume(RIG *rig, vfo_t vfo, float level)
  *  80-ff   Noise squelch + S meter squelch ...
  *       Comparative S level = (squelch setting - 128) X 2
  *
- *  Could do with some constatnts to add together to allow better (and more accurate)
+ *  Could do with some constants to add together to allow better (and more accurate)
  *  use of Hamlib API. Otherwise may get unexpected squelch settings if have to do by hand.
  */
 

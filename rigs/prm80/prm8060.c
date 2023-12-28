@@ -19,12 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-#include <string.h>
+#include <hamlib/config.h>
 
 #include "hamlib/rig.h"
 #include "idx_builtin.h"
@@ -76,7 +71,7 @@ const struct rig_caps prm8060_caps =
     .mfg_name =  "Philips/Simoco",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -163,7 +158,7 @@ const struct rig_caps prm8060_caps =
     .get_dcd =  prm80_get_dcd,
     .get_ptt =  prm80_get_ptt,
     .get_info =  prm80_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

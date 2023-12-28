@@ -22,9 +22,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
@@ -133,7 +131,7 @@ const struct rig_caps fifisdr_caps =
     .mfg_name = "FiFi",
     .version = "20200112.0",
     .copyright = "LGPL",
-    .status = RIG_STATUS_BETA,
+    .status = RIG_STATUS_STABLE,
 
     .rig_type = RIG_TYPE_RECEIVER,
     .ptt_type = RIG_PTT_NONE,
@@ -244,6 +242,7 @@ const struct rig_caps fifisdr_caps =
     .get_ext_level = fifisdr_get_ext_level,
 
     .get_info = fifisdr_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -418,7 +417,7 @@ const char *fifisdr_get_info(RIG *rig)
         return NULL;
     }
 
-    snprintf(buf, sizeof(buf), "Firmware version: %u", svn_version);
+    SNPRINTF(buf, sizeof(buf), "Firmware version: %u", svn_version);
 
     return buf;
 }
@@ -654,7 +653,7 @@ static int fifisdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         /* Transform Hamlib enum value to FiFi-SDR selector */
         fifi_agc = 0;
 
-        switch ((enum agc_level_e)val.i)
+        switch (val.i)
         {
         case RIG_AGC_OFF:       fifi_agc = 0;   break;
 

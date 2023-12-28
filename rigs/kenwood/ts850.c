@@ -19,13 +19,10 @@
 *
 */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <math.h>
 
 #include <hamlib/rig.h>
@@ -108,7 +105,7 @@ const struct rig_caps ts850_caps =
     .mfg_name =  "Kenwood",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -130,7 +127,10 @@ const struct rig_caps ts850_caps =
     .has_set_level =  TS850_LEVEL_SET,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  {},
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  {},
     .extparms = ts850_ext_parms,
     .ctcss_list =  kenwood38_ctcss_list,
@@ -143,6 +143,7 @@ const struct rig_caps ts850_caps =
     .vfo_ops = TS850_VFO_OPS,
     .targetable_vfo =  RIG_TARGETABLE_FREQ,
     .transceive =  RIG_TRN_RIG,
+    // No AGC levels
     .bank_qty =   0,
     .chan_desc_sz =  3,
     .chan_list =  {
@@ -246,7 +247,8 @@ const struct rig_caps ts850_caps =
     .get_mem =  kenwood_get_mem_if,
     .get_channel = kenwood_get_channel,
     .set_channel = ts850_set_channel,
-    .set_trn =  kenwood_set_trn
+    .set_trn =  kenwood_set_trn,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -287,7 +289,7 @@ int ts850_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
         c = 'D';
     }
 
-    sprintf(buf, "R%c", c);
+    SNPRINTF(buf, sizeof(buf), "R%c", c);
 
     retval = kenwood_transaction(rig, "RC", NULL, 0);
 
@@ -350,7 +352,7 @@ int ts850_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit)
         c = 'D';
     }
 
-    sprintf(buf, "R%c", c);
+    SNPRINTF(buf, sizeof(buf), "R%c", c);
 
     for (i = 0; i < labs(lrint(xit / 20)); i++)
     {
@@ -553,8 +555,8 @@ int ts850_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
         tone = 0;
     }
 
-    sprintf(cmdbuf, "MW0 %02d%011d%c0%c%02d ",
-            num, freq, mode, tones, tone);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "MW0 %02d%011d%c0%c%02d ",
+             num, freq, mode, tones, tone);
     retval = kenwood_transaction(rig, cmdbuf, NULL, 0);
 
     if (retval != RIG_OK)
@@ -562,8 +564,8 @@ int ts850_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
         return retval;
     }
 
-    sprintf(cmdbuf, "MW1 %02d%011d%c0%c%02d ",
-            num, tx_freq, tx_mode, tones, tone);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "MW1 %02d%011d%c0%c%02d ",
+             num, tx_freq, tx_mode, tones, tone);
     retval = kenwood_transaction(rig, cmdbuf, NULL, 0);
 
     if (retval != RIG_OK)

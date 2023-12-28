@@ -26,15 +26,13 @@
  */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
 #include "newcat.h"
+#include "yaesu.h"
 #include "ft450.h"
-#include "idx_builtin.h"
 
 /*
  * FT-450 rig capabilities
@@ -44,7 +42,7 @@ const struct rig_caps ft450_caps =
     RIG_MODEL(RIG_MODEL_FT450),
     .model_name =         "FT-450",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".0",
+    .version =            NEWCAT_VER ".2",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -67,7 +65,9 @@ const struct rig_caps ft450_caps =
     .has_set_level =      RIG_LEVEL_SET(FT450_LEVELS),
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_CWPITCH] = { .min = { .i = 400 }, .max = { .i = 800 }, .step = { .i = 100 } },
@@ -81,7 +81,10 @@ const struct rig_caps ft450_caps =
     .max_rit =            Hz(9999),
     .max_xit =            Hz(0),
     .max_ifshift =        Hz(1000),
+    .agc_level_count =    4,
+    .agc_levels =         { RIG_AGC_OFF, RIG_AGC_FAST, RIG_AGC_SLOW, RIG_AGC_AUTO },
     .vfo_ops =            FT450_VFO_OPS,
+    .scan_ops =           RIG_SCAN_VFO,
     .targetable_vfo =     RIG_TARGETABLE_FREQ,
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 450 has an Auto Info command */
     .bank_qty =           0,
@@ -162,7 +165,7 @@ const struct rig_caps ft450_caps =
 
     .cfgparams =          newcat_cfg_params,
     .set_conf =           newcat_set_conf,
-    .get_conf =           newcat_get_conf,
+    .get_conf2 =          newcat_get_conf2,
     .set_freq =           newcat_set_freq,
     .get_freq =           newcat_get_freq,
     .set_mode =           newcat_set_mode,
@@ -201,5 +204,10 @@ const struct rig_caps ft450_caps =
     .get_trn =            newcat_get_trn,
     .set_channel =        newcat_set_channel,
     .get_channel =        newcat_get_channel,
-
+    .send_morse =         newcat_send_morse,
+    .wait_morse =         rig_wait_morse,
+    .scan =               newcat_scan,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
+
+struct rig_caps ft450d_caps;

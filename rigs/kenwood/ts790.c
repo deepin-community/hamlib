@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -98,7 +95,10 @@ const struct rig_caps ts790_caps =
     .has_set_level =  RIG_LEVEL_SET(TS790_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  {},                 /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  {},
     .vfo_ops =  TS790_VFO_OP,
     .scan_ops =  TS790_SCAN_OP,
@@ -110,6 +110,7 @@ const struct rig_caps ts790_caps =
     .max_ifshift =  0,
     .targetable_vfo =  RIG_TARGETABLE_FREQ,
     .transceive =  RIG_TRN_RIG,
+    // No AGC levels
     .bank_qty =   0,
     .chan_desc_sz =  0,
 
@@ -213,7 +214,7 @@ const struct rig_caps ts790_caps =
     .set_trn =  kenwood_set_trn,
     .get_trn =  kenwood_get_trn,
     .get_info =  kenwood_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

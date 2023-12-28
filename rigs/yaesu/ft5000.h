@@ -59,14 +59,15 @@
                RIG_LEVEL_VOXGAIN|RIG_LEVEL_VOXDELAY|RIG_LEVEL_COMP|\
                RIG_LEVEL_ANTIVOX|RIG_LEVEL_NR|RIG_LEVEL_NOTCHF|\
                RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|\
-               RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER)
+               RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER|\
+               RIG_LEVEL_BAND_SELECT)
 
 /* TBC */
 #define FTDX5000_FUNCS (RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_LOCK|\
-               RIG_FUNC_MON|RIG_FUNC_NB|RIG_FUNC_NR|RIG_FUNC_VOX|\
+               RIG_FUNC_MON|RIG_FUNC_NB|RIG_FUNC_NB2|RIG_FUNC_NR|RIG_FUNC_VOX|\
                RIG_FUNC_FBKIN|RIG_FUNC_COMP|RIG_FUNC_ANF|RIG_FUNC_MN|\
                RIG_FUNC_RIT|RIG_FUNC_XIT|\
-               RIG_FUNC_TUNER)
+               RIG_FUNC_TUNER|RIG_FUNC_APF)
 
 /* TBC */
 #define FTDX5000_VFO_OPS (RIG_OP_TUNE|RIG_OP_CPY|RIG_OP_XCHG|\
@@ -92,7 +93,30 @@
 			{ 220,  40 }, /* +40 */ \
 			{ 240,  50 }, /* +50 */ \
 			{ 255,  60 }, /* +60 */ \
-		} }
+		}\
+    }
+
+// Values stolen from FLRig -- thanks to Dave W1HKJ
+#define FT5000_RFPOWER_METER_CAL \
+    { \
+       14, \
+        { \
+            {55, 10.0f}, \
+            {75, 20.0f}, \
+            {101, 40.0f}, \
+            {125, 60.0f}, \
+            {144, 80.0f}, \
+            {161, 100.0f}, \
+            {177, 120.0f}, \
+            {190, 140.0f}, \
+            {202, 160.0f}, \
+            {215, 180.0f}, \
+            {225, 200.0f}, \
+            {237, 220.0f}, \
+            {242, 240.0f}, \
+            {255, 250.0f}, \
+        } \
+    }
 
 
 /*

@@ -14,11 +14,11 @@ dnl Please do not use '-' in the version number, as package managers will fail,
 dnl however, the use of '~' should be fine as apt (others?) will treat
 dnl it as an earlier version than the actual release.  TNX KA6MAL
 dnl PACKAGE_NAME + " " + PACKAGE_VERSION must not exceed 20 chars!
-AC_INIT([Hamlib],[4.3.1],[hamlib-developer@lists.sourceforge.net],[hamlib],[http://www.hamlib.org])
+AC_INIT([Hamlib],[4.5.5],[hamlib-developer@lists.sourceforge.net],[hamlib],[http://www.hamlib.org])
 
 AC_CONFIG_SRCDIR([include/hamlib/rig.h])
 AC_CONFIG_MACRO_DIR([macros])
-AC_CONFIG_HEADERS([include/config.h])
+AC_CONFIG_HEADERS([include/hamlib/config.h])
 
 dnl Place build system provided programs in this directory.
 AC_CONFIG_AUX_DIR([build-aux])
@@ -47,16 +47,16 @@ dnl added to AC_CONFIG_FILES near the end of this file.  See README.developer
 dnl Beware of duplication should a backend directory include both rig and
 dnl rotor definitions, e.g. "dummy".  Optional backends will not be listed
 dnl here but will be added later, e.g. "winradio".
-RIG_BACKEND_LIST="rigs/adat rigs/alinco rigs/aor rigs/barrett rigs/dorji rigs/drake rigs/dummy rigs/elad rigs/flexradio rigs/icom rigs/icmarine rigs/jrc rigs/kachina rigs/kenwood rigs/kit rigs/lowe rigs/pcr rigs/prm80 rigs/racal rigs/rft rigs/rs rigs/skanti rigs/tapr rigs/tentec rigs/tuner rigs/uniden rigs/winradio rigs/wj rigs/yaesu"
-ROT_BACKEND_LIST="rotators/amsat rotators/ars rotators/celestron rotators/cnctrk rotators/easycomm rotators/ether6 rotators/fodtrack rotators/gs232a rotators/heathkit rotators/m2 rotators/meade rotators/rotorez rotators/sartek rotators/spid rotators/ts7400 rotators/prosistel rotators/ioptron rotators/satel rotators/radant"
+RIG_BACKEND_LIST="rigs/adat rigs/alinco rigs/aor rigs/barrett rigs/codan rigs/dorji rigs/drake rigs/dummy rigs/elad rigs/flexradio rigs/icom rigs/icmarine rigs/jrc rigs/kachina rigs/kenwood rigs/kit rigs/lowe rigs/pcr rigs/prm80 rigs/racal rigs/rft rigs/rs rigs/skanti rigs/tapr rigs/tentec rigs/tuner rigs/uniden rigs/winradio rigs/wj rigs/yaesu rigs/gomspace"
+ROT_BACKEND_LIST="rotators/amsat rotators/ars rotators/celestron rotators/cnctrk rotators/grbltrk rotators/easycomm rotators/ether6 rotators/fodtrack rotators/gs232a rotators/heathkit rotators/m2 rotators/meade rotators/rotorez rotators/sartek rotators/spid rotators/ts7400 rotators/prosistel rotators/ioptron rotators/satel rotators/radant"
 # Amplifiers are all in the amplifiers directory
-AMP_BACKEND_LIST="amplifiers/elecraft"
+AMP_BACKEND_LIST="amplifiers/elecraft amplifiers/gemini"
 
 dnl See README.release on setting these values
 # Values given to -version-info when linking.  See libtool documentation.
 # Set them here to keep c++/Makefile and src/Makefile in sync.
 ABI_VERSION=4
-ABI_REVISION=3
+ABI_REVISION=6
 ABI_AGE=0
 
 AC_DEFINE_UNQUOTED([ABI_VERSION], [$ABI_VERSION], [Frontend ABI version])
@@ -71,7 +71,7 @@ AC_SUBST([ABI_AGE])
 AM_CPPFLAGS="${AM_CPPFLAGS} -DIN_HAMLIB"
 
 # Add Hamlib header include paths
-AM_CPPFLAGS="${AM_CPPFLAGS} -I\$(top_srcdir)/include -I\$(top_srcdir)/src -I\$(top_srcdir)/lib"
+AM_CPPFLAGS="${AM_CPPFLAGS} -I\$(top_srcdir)/include -I\$(top_srcdir)/src -I\$(top_srcdir)/lib -I\$(top_builddir)/include"
 
 
 ## --------------- ##
@@ -269,7 +269,7 @@ LT_INIT([win32-dll])
 dnl The host_os variable is set by the AC_CANONICAL_HOST macro above.
 AS_CASE(["$host_os"],
     [freebsd*], [
-	AM_CPPFLAGS="-I/usr/local/include ${AM_CPPFLAGS}"
+	AM_CPPFLAGS="${AM_CPPFLAGS} -I/usr/local/include"
 	AM_LDFLAGS="${AM_LDFLAGS} -L/usr/local/lib"
 	AC_SUBST([AM_LDFLAGS])],
 
@@ -321,10 +321,11 @@ LIBUSB=""
 AC_ARG_VAR([LIBUSB_CFLAGS], [C compiler flags for libusb, overriding configure defaults])
 AC_ARG_VAR([LIBUSB_LIBS], [linker flags for libusb, overriding configure check (useful for specifying static libusb-1.0.a (see INSTALL))])
 
-AS_IF([test x"${cf_with_libusb}" = "xyes"],
-    [AS_IF([test -z $LIBUSB_LIBS],
+AS_IF([test x"${cf_with_libusb}" = "xyes"], [
+    AS_IF([test -z $LIBUSB_LIBS],
 	[AC_CHECK_LIB([usb-1.0], [libusb_init], [LIBUSB_LIBS="-lusb-1.0"],
-	    [AC_MSG_WARN([libusb_init was not found in libusb-1.0--USB backends will be disabled])])
+	    [AC_MSG_WARN([libusb_init was not found in libusb-1.0--USB backends will be disabled])]
+        [cf_with_libusb="no"])
 	], [cf_with_libusb="yes"])
 
     AS_IF([test x"${cf_with_libusb}" = "xyes"],
@@ -588,11 +589,16 @@ AC_ARG_WITH([tcl-binding],
     [build_tcl=no])
 AC_MSG_RESULT([$build_tcl])
 
-dnl SC_PATH_TCLCONFIG and SC_LOAD_TCLCONFIG from macros/tcl.m4
+dnl tcl.pc or SC_PATH_TCLCONFIG and SC_LOAD_TCLCONFIG from macros/tcl.m4
 AS_IF([test x"${build_tcl}" = "xyes"],[
-    dnl Search for and load tclConfig.sh.
-    SC_PATH_TCLCONFIG
-    SC_LOAD_TCLCONFIG
+    dnl Search for and load tcl.pc or tclConfig.sh.
+    PKG_CHECK_MODULES([TCL], [tcl],
+        [],
+        [
+            AC_MSG_WARN([Unable to find Tcl pkgconfig])
+            SC_PATH_TCLCONFIG
+            SC_LOAD_TCLCONFIG
+        ])
 
     tcl_save_CPPFLAGS=$CPPFLAGS
     CPPFLAGS="$CPPFLAGS $TCL_INCLUDE_SPEC"
@@ -616,6 +622,9 @@ AC_SUBST([TCL_VERSION])
 AC_SUBST([TCL_LIB_SPEC])
 AC_SUBST([TCL_INCLUDE_SPEC])
 AC_SUBST([TCL_SHLIB_SUFFIX])
+dnl These variables are set once tcl.pc is found.
+AC_SUBST([TCL_LIBS])
+AC_SUBST([TCL_CFLAGS])
 
 
 dnl Check for lua availability, so we can enable HamlibLua
@@ -684,6 +693,15 @@ AC_ARG_ENABLE([winradio],
 	      [cf_with_winradio="no"],
 	      [cf_with_winradio="yes" AC_DEFINE([HAVE_WINRADIO],[1],[Define if winradio backend is built])])
 AC_MSG_RESULT([$cf_with_winradio])
+
+dnl Parallel port device disable
+AC_MSG_CHECKING([whether to build parallel port devices])
+AC_ARG_ENABLE([parallel],
+	      [AS_HELP_STRING([--disable-parallel],
+			      [do not build parallel devices @<:@default=yes@:>@])],
+	      [cf_with_parallel="no"],
+	      [cf_with_parallel="yes" AC_DEFINE([HAVE_PARALLEL],[1],[Define if parallel devices are to be built])])
+AC_MSG_RESULT([$cf_with_parallel])
 
 DL_LIBS=""
 
@@ -813,6 +831,7 @@ macros/Makefile
 include/Makefile
 lib/Makefile
 src/Makefile
+security/Makefile
 c++/Makefile
 bindings/Makefile
 doc/Makefile
@@ -821,6 +840,7 @@ rotators/amsat/Makefile
 rotators/ars/Makefile
 rotators/celestron/Makefile
 rotators/cnctrk/Makefile
+rotators/grbltrk/Makefile
 rotators/easycomm/Makefile
 rotators/ether6/Makefile
 rotators/fodtrack/Makefile
@@ -841,6 +861,7 @@ rigs/adat/Makefile
 rigs/alinco/Makefile
 rigs/aor/Makefile
 rigs/barrett/Makefile
+rigs/codan/Makefile
 rigs/dorji/Makefile
 rigs/drake/Makefile
 rigs/dummy/Makefile
@@ -866,10 +887,13 @@ rigs/uniden/Makefile
 rigs/winradio/Makefile
 rigs/wj/Makefile
 rigs/yaesu/Makefile
+rigs/gomspace/Makefile
 tests/Makefile
 scripts/Makefile
 android/Makefile
 amplifiers/elecraft/Makefile
+amplifiers/gemini/Makefile
+simulators/Makefile
 hamlib.pc
 ])
 
@@ -897,6 +921,7 @@ echo \
 
     Enable HTML rig feature matrix  ${cf_enable_html_matrix}
     Enable WinRadio		    ${cf_with_winradio}
+    Enable Parallel		    ${cf_with_parallel}
     Enable USRP 		    ${cf_with_usrp}
     Enable USB backends 	    ${cf_with_libusb}
     Enable shared libs		    ${enable_shared}

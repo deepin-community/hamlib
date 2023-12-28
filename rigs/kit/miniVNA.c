@@ -19,15 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -48,9 +42,11 @@ static int miniVNA_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     rig_flush(&rig->state.rigport);
 
-    sprintf(cmdstr, "0\r%lu\r1\r0\r", (unsigned long int)(freq * DDS_RATIO));
+    SNPRINTF(cmdstr, sizeof(cmdstr), "0\r%lu\r1\r0\r",
+             (unsigned long int)(freq * DDS_RATIO));
 
-    retval = write_block(&rig->state.rigport, cmdstr, strlen(cmdstr));
+    retval = write_block(&rig->state.rigport, (unsigned char *) cmdstr,
+                         strlen(cmdstr));
 
     if (retval != RIG_OK)
     {
@@ -67,7 +63,7 @@ const struct rig_caps miniVNA_caps =
     .mfg_name =       "mRS",
     .version =        "20190817.0",
     .copyright =   "LGPL",
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_BETA,
     .rig_type =       RIG_TYPE_TUNER,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =  115200,
@@ -81,14 +77,24 @@ const struct rig_caps miniVNA_caps =
     .timeout =  1000,
     .retry =  3,
 
-    .rx_range_list1 =  { {.startf = kHz(100), .endf = MHz(180), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
+    .rx_range_list1 =  { {.startf = kHz(100), .endf = MHz(180), .modes = RIG_MODE_CW, .low_power = -1, .high_power = -1, RIG_VFO_A},
         RIG_FRNG_END,
     },
-    .tx_range_list1 =   { {.startf = kHz(100), .endf = MHz(180), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
+    .tx_range_list1 =   { {.startf = kHz(100), .endf = MHz(180), .modes = RIG_MODE_CW, .low_power = W(0), .high_power = W(.004), RIG_VFO_A},
         RIG_FRNG_END,
     },
-    .tuning_steps =  { {RIG_MODE_NONE, 1}, RIG_TS_END, },
+    .tuning_steps =     {
+        // Rem: no support for changing tuning step
+        {RIG_MODE_ALL, 1},
+        RIG_TS_END,
+    },
+
+    .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
+        RIG_FLT_END
+    },
 
     .set_freq =     miniVNA_set_freq,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

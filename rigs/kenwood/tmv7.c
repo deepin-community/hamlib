@@ -19,14 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -101,7 +97,7 @@ const struct rig_caps tmv7_caps =
     .mfg_name =  "Kenwood",
     .version =  TH_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_MOBILE,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -120,11 +116,9 @@ const struct rig_caps tmv7_caps =
     .has_set_func =  TMV7_FUNC_ALL,
     .has_get_level =  TMV7_LEVEL_ALL,
     .has_set_level =  RIG_LEVEL_SET(TMV7_LEVEL_ALL),
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 7 } },
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 32 } },
-        [LVL_AF] = { .min = { .i = 0 }, .max = { .i = 32 } },
-        [LVL_RFPOWER] = { .min = { .i = 0 }, .max = { .i = 2 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
     .parm_gran =  {},
     .ctcss_list =  kenwood38_ctcss_list,
@@ -186,7 +180,8 @@ const struct rig_caps tmv7_caps =
     },
     /* mode/filter list, remember: order matters! */
     .filters =  {
-        RIG_FLT_END,
+        {RIG_MODE_ALL, RIG_FLT_ANY},
+        RIG_FLT_END
     },
 
     .str_cal = { 4, { {0, -60 }, {1, -30,}, {5, 0}, {7, 20}}}, /* rought guess */
@@ -219,6 +214,7 @@ const struct rig_caps tmv7_caps =
     .set_ptt = th_set_ptt,
     .get_dcd = th_get_dcd,
     .decode_event =  tmv7_decode_event,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -381,20 +377,20 @@ int tmv7_set_vfo(RIG *rig, vfo_t vfo)
     {
     case RIG_VFO_A:
     case RIG_VFO_VFO:
-        sprintf(vfobuf, "VMC 0,0");
+        SNPRINTF(vfobuf, sizeof(vfobuf), "VMC 0,0");
         break;
 
     case RIG_VFO_B:
-        sprintf(vfobuf, "VMC 1,0");
+        SNPRINTF(vfobuf, sizeof(vfobuf), "VMC 1,0");
         break;
 
     case RIG_VFO_MEM:
-        sprintf(vfobuf, "BC");
+        SNPRINTF(vfobuf, sizeof(vfobuf), "BC");
         retval = kenwood_transaction(rig, vfobuf, ackbuf, sizeof(ackbuf));
 
         if (retval != RIG_OK) { return retval; }
 
-        sprintf(vfobuf, "VMC %c,2", ackbuf[3]);
+        SNPRINTF(vfobuf, sizeof(vfobuf), "VMC %c,2", ackbuf[3]);
         break;
 
     default:
@@ -417,11 +413,11 @@ int tmv7_set_vfo(RIG *rig, vfo_t vfo)
     {
     case RIG_VFO_A:
     case RIG_VFO_VFO:
-        sprintf(vfobuf, "BC 0,0");
+        SNPRINTF(vfobuf, sizeof(vfobuf), "BC 0,0");
         break;
 
     case RIG_VFO_B:
-        sprintf(vfobuf, "BC 1,1");
+        SNPRINTF(vfobuf,  sizeof(vfobuf), "BC 1,1");
         break;
 
     case RIG_VFO_MEM:
@@ -507,44 +503,48 @@ int tmv7_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 
     if (chan->channel_num < 100)
     {
-        snprintf(req, sizeof(req), "MR 0,0,%03d", chan->channel_num);
+        SNPRINTF(req, sizeof(req), "MR 0,0,%03d", chan->channel_num);
     }
     else if (chan->channel_num < 200)
     {
-        snprintf(req, sizeof(req), "MR 1,0,%03d", chan->channel_num - 100);
+        SNPRINTF(req, sizeof(req), "MR 1,0,%03d", chan->channel_num - 100);
     }
     else if (chan->channel_num < 204)
     {
-        snprintf(req, sizeof(req), "MR 0,0,L%01d", chan->channel_num - 200);
-        sprintf(chan->channel_desc, "L%01d/V", chan->channel_num - 200);
+        SNPRINTF(req, sizeof(req), "MR 0,0,L%01d", chan->channel_num - 200);
+        SNPRINTF(chan->channel_desc, sizeof(chan->channel_desc), "L%01d/V",
+                 chan->channel_num - 200);
     }
     else if (chan->channel_num < 211)
     {
-        snprintf(req, sizeof(req), "MR 1,0,L%01d", chan->channel_num - 203);
-        sprintf(chan->channel_desc, "L%01d/U", chan->channel_num - 203);
+        SNPRINTF(req, sizeof(req), "MR 1,0,L%01d", chan->channel_num - 203);
+        SNPRINTF(chan->channel_desc, sizeof(chan->channel_desc), "L%01d/U",
+                 chan->channel_num - 203);
     }
     else if (chan->channel_num < 214)
     {
-        snprintf(req, sizeof(req), "MR 0,0,U%01d", chan->channel_num - 210);
-        sprintf(chan->channel_desc, "U%01d/V", chan->channel_num - 210);
+        SNPRINTF(req, sizeof(req), "MR 0,0,U%01d", chan->channel_num - 210);
+        SNPRINTF(chan->channel_desc, sizeof(chan->channel_desc), "U%01d/V",
+                 chan->channel_num - 210);
     }
     else if (chan->channel_num < 220)
     {
-        snprintf(req, sizeof(req), "MR 1,0,U%01d", chan->channel_num - 213);
-        sprintf(chan->channel_desc, "U%01d/U", chan->channel_num - 213);
+        SNPRINTF(req, sizeof(req), "MR 1,0,U%01d", chan->channel_num - 213);
+        SNPRINTF(chan->channel_desc, sizeof(chan->channel_desc), "U%01d/U",
+                 chan->channel_num - 213);
     }
     else if (chan->channel_num < 223)
     {
         if (chan->channel_num == 221)
         {
-            snprintf(req, sizeof(req), "CR 0,0");
-            sprintf(chan->channel_desc, "Call V");
+            SNPRINTF(req, sizeof(req), "CR 0,0");
+            SNPRINTF(chan->channel_desc, sizeof(chan->channel_desc), "Call V");
         }
 
         if (chan->channel_num == 222)
         {
-            snprintf(req, sizeof(req), "CR 1,0");
-            sprintf(chan->channel_desc, "Call U");
+            SNPRINTF(req, sizeof(req), "CR 1,0");
+            SNPRINTF(chan->channel_desc, sizeof(chan->channel_desc), "Call U");
         }
     }
     else
@@ -552,7 +552,7 @@ int tmv7_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
         return -RIG_EINVAL;
     }
 
-    snprintf(membuf, sizeof(membuf), "%s", req);
+    SNPRINTF(membuf, sizeof(membuf), "%s", req);
     retval = kenwood_transaction(rig, membuf, ackbuf, sizeof(ackbuf));
 
     if (retval != RIG_OK)
@@ -617,7 +617,7 @@ int tmv7_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
     if (chan->channel_num < 223 && shift == 0)
     {
         req[5] = '1';
-        sprintf(membuf, "%s", req);
+        SNPRINTF(membuf, sizeof(membuf), "%s", req);
         retval = kenwood_transaction(rig, membuf, ackbuf, sizeof(ackbuf));
 
         if (retval == RIG_OK)
@@ -633,11 +633,11 @@ int tmv7_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
     {
         if (chan->channel_num < 100)
         {
-            sprintf(membuf, "MNA 0,%03d", chan->channel_num);
+            SNPRINTF(membuf, sizeof(membuf), "MNA 0,%03d", chan->channel_num);
         }
         else
         {
-            sprintf(membuf, "MNA 1,%03d", chan->channel_num - 100);
+            SNPRINTF(membuf, sizeof(membuf), "MNA 1,%03d", chan->channel_num - 100);
         }
 
         retval = kenwood_transaction(rig, membuf, ackbuf, sizeof(ackbuf));
@@ -735,38 +735,38 @@ int tmv7_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 
     if (chan->channel_num < 100)
     {
-        sprintf(req, "MW 0,0,%03d", chan->channel_num);
+        SNPRINTF(req, sizeof(req), "MW 0,0,%03d", chan->channel_num);
     }
     else if (chan->channel_num < 200)
     {
-        sprintf(req, "MW 1,0,%03d", chan->channel_num - 100);
+        SNPRINTF(req, sizeof(req), "MW 1,0,%03d", chan->channel_num - 100);
     }
     else if (chan->channel_num < 204)
     {
-        sprintf(req, "MW 0,0,L%01d", chan->channel_num - 200);
+        SNPRINTF(req, sizeof(req), "MW 0,0,L%01d", chan->channel_num - 200);
     }
     else if (chan->channel_num < 211)
     {
-        sprintf(req, "MW 1,0,L%01d", chan->channel_num - 203);
+        SNPRINTF(req, sizeof(req), "MW 1,0,L%01d", chan->channel_num - 203);
     }
     else if (chan->channel_num < 214)
     {
-        sprintf(req, "MW 0,0,U%01d", chan->channel_num - 210);
+        SNPRINTF(req, sizeof(req), "MW 0,0,U%01d", chan->channel_num - 210);
     }
     else if (chan->channel_num < 220)
     {
-        sprintf(req, "MW 1,0,U%01d", chan->channel_num - 213);
+        SNPRINTF(req, sizeof(req), "MW 1,0,U%01d", chan->channel_num - 213);
     }
     else if (chan->channel_num < 223)
     {
         if (chan->channel_num == 221)
         {
-            sprintf(req, "CW 0,0");
+            SNPRINTF(req, sizeof(req), "CW 0,0");
         }
 
         if (chan->channel_num == 222)
         {
-            sprintf(req, "CW 1,0");
+            SNPRINTF(req, sizeof(req), "CW 1,0");
         }
     }
     else
@@ -775,13 +775,19 @@ int tmv7_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     }
 
     if (chan->channel_num < 221)
-        sprintf(membuf, "%s,%011ld,%01d,%01d,0,%01d,%01d,0,%02d,000,%02d,0,0",
-                req, (long)freq, step, shift, tone,
-                ctcss, tonefq, ctcssfq);
+    {
+        SNPRINTF(membuf, sizeof(membuf),
+                 "%s,%011ld,%01d,%01d,0,%01d,%01d,0,%02d,000,%02d,0,0",
+                 req, (long)freq, step, shift, tone,
+                 ctcss, tonefq, ctcssfq);
+    }
     else
-        sprintf(membuf, "%s,%011ld,%01d,%01d,0,%01d,%01d,0,%02d,000,%02d,",
-                req, (long)freq, step, shift, tone,
-                ctcss, tonefq, ctcssfq);
+    {
+        SNPRINTF(membuf, sizeof(membuf),
+                 "%s,%011ld,%01d,%01d,0,%01d,%01d,0,%02d,000,%02d,",
+                 req, (long)freq, step, shift, tone,
+                 ctcss, tonefq, ctcssfq);
+    }
 
     retval = kenwood_transaction(rig, membuf, NULL, 0);
 
@@ -794,7 +800,8 @@ int tmv7_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     {
         req[5] = '1';
         // cppcheck-suppress *
-        sprintf(membuf, "%s,%011"PRIll",%01d", req, (int64_t)chan->tx_freq, step);
+        SNPRINTF(membuf, sizeof(membuf), "%s,%011"PRIll",%01d", req,
+                 (int64_t)chan->tx_freq, step);
         retval = kenwood_transaction(rig, membuf, NULL, 0);
 
         if (retval != RIG_OK)
@@ -807,11 +814,13 @@ int tmv7_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     {
         if (chan->channel_num < 100)
         {
-            sprintf(membuf, "MNA 0,%03d,%s", chan->channel_num, chan->channel_desc);
+            SNPRINTF(membuf, sizeof(membuf), "MNA 0,%03d,%s", chan->channel_num,
+                     chan->channel_desc);
         }
         else
         {
-            sprintf(membuf, "MNA 1,%03d,%s", chan->channel_num - 100, chan->channel_desc);
+            SNPRINTF(membuf, sizeof(membuf), "MNA 1,%03d,%s", chan->channel_num - 100,
+                     chan->channel_desc);
         }
 
         retval = kenwood_transaction(rig, membuf, NULL, 0);

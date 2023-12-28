@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -76,7 +74,7 @@ ts811_set_vfo(RIG *rig, vfo_t vfo)
         return -RIG_EINVAL;
     }
 
-    sprintf(cmdbuf, "FN%c", vfo_function);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "FN%c", vfo_function);
     return kenwood_transaction(rig, cmdbuf, NULL, 0);
 }
 
@@ -90,7 +88,7 @@ const struct rig_caps ts811_caps =
     .mfg_name =  "Kenwood",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_ALPHA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -112,7 +110,10 @@ const struct rig_caps ts811_caps =
     .has_set_level =  RIG_LEVEL_SET(TS811_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  {},                 /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  {},
     .ctcss_list =  kenwood38_ctcss_list,
     .preamp =   { RIG_DBLST_END, },
@@ -192,6 +193,7 @@ const struct rig_caps ts811_caps =
     .set_mem =  kenwood_set_mem,
     .get_mem = kenwood_get_mem_if,
     .reset =  kenwood_reset,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

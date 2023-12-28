@@ -107,26 +107,27 @@ am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
 	$(top_srcdir)/macros/ltsugar.m4 \
 	$(top_srcdir)/macros/ltversion.m4 \
 	$(top_srcdir)/macros/lt~obsolete.m4 \
-	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/tcl.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/pkg.m4 \
+	$(top_srcdir)/macros/tcl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/include/hamlib/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libhamlib_yaesu_la_LIBADD =
 am__objects_1 = ft100.lo ft747.lo ft817.lo ft847.lo ft890.lo ft900.lo \
-	ft920.lo ft1000mp.lo ft857.lo ft897.lo ft990.lo frg8800.lo \
-	ft757gx.lo ft600.lo ft736.lo frg100.lo frg9600.lo ft1000d.lo \
-	vr5000.lo ft767gx.lo ft840.lo ft980.lo vx1700.lo
+	ft920.lo ft1000mp.lo ft857.lo ft897.lo ft990.lo ft990v12.lo \
+	frg8800.lo ft757gx.lo ft600.lo ft736.lo frg100.lo frg9600.lo \
+	ft1000d.lo vr5000.lo ft767gx.lo ft840.lo ft980.lo vx1700.lo \
+	ft710.lo
 am__objects_2 = newcat.lo ft450.lo ft950.lo ft991.lo ft2000.lo \
 	ft9000.lo ft5000.lo ft1200.lo ft891.lo ftdx101.lo ftdx101mp.lo \
 	ft3000.lo ftdx10.lo
-am_libhamlib_yaesu_la_OBJECTS = $(am__objects_1) $(am__objects_2) \
-	yaesu.lo
+am_libhamlib_yaesu_la_OBJECTS = yaesu.lo $(am__objects_1) \
+	$(am__objects_2)
 libhamlib_yaesu_la_OBJECTS = $(am_libhamlib_yaesu_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -144,7 +145,7 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include/hamlib
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/frg100.Plo ./$(DEPDIR)/frg8800.Plo \
@@ -153,15 +154,16 @@ am__depfiles_remade = ./$(DEPDIR)/frg100.Plo ./$(DEPDIR)/frg8800.Plo \
 	./$(DEPDIR)/ft1200.Plo ./$(DEPDIR)/ft2000.Plo \
 	./$(DEPDIR)/ft3000.Plo ./$(DEPDIR)/ft450.Plo \
 	./$(DEPDIR)/ft5000.Plo ./$(DEPDIR)/ft600.Plo \
-	./$(DEPDIR)/ft736.Plo ./$(DEPDIR)/ft747.Plo \
-	./$(DEPDIR)/ft757gx.Plo ./$(DEPDIR)/ft767gx.Plo \
-	./$(DEPDIR)/ft817.Plo ./$(DEPDIR)/ft840.Plo \
-	./$(DEPDIR)/ft847.Plo ./$(DEPDIR)/ft857.Plo \
-	./$(DEPDIR)/ft890.Plo ./$(DEPDIR)/ft891.Plo \
-	./$(DEPDIR)/ft897.Plo ./$(DEPDIR)/ft900.Plo \
-	./$(DEPDIR)/ft9000.Plo ./$(DEPDIR)/ft920.Plo \
-	./$(DEPDIR)/ft950.Plo ./$(DEPDIR)/ft980.Plo \
-	./$(DEPDIR)/ft990.Plo ./$(DEPDIR)/ft991.Plo \
+	./$(DEPDIR)/ft710.Plo ./$(DEPDIR)/ft736.Plo \
+	./$(DEPDIR)/ft747.Plo ./$(DEPDIR)/ft757gx.Plo \
+	./$(DEPDIR)/ft767gx.Plo ./$(DEPDIR)/ft817.Plo \
+	./$(DEPDIR)/ft840.Plo ./$(DEPDIR)/ft847.Plo \
+	./$(DEPDIR)/ft857.Plo ./$(DEPDIR)/ft890.Plo \
+	./$(DEPDIR)/ft891.Plo ./$(DEPDIR)/ft897.Plo \
+	./$(DEPDIR)/ft900.Plo ./$(DEPDIR)/ft9000.Plo \
+	./$(DEPDIR)/ft920.Plo ./$(DEPDIR)/ft950.Plo \
+	./$(DEPDIR)/ft980.Plo ./$(DEPDIR)/ft990.Plo \
+	./$(DEPDIR)/ft990v12.Plo ./$(DEPDIR)/ft991.Plo \
 	./$(DEPDIR)/ftdx10.Plo ./$(DEPDIR)/ftdx101.Plo \
 	./$(DEPDIR)/ftdx101mp.Plo ./$(DEPDIR)/newcat.Plo \
 	./$(DEPDIR)/vr5000.Plo ./$(DEPDIR)/vx1700.Plo \
@@ -317,6 +319,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL_INC_DIR = @PERL_INC_DIR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -327,6 +332,7 @@ PYTHON_EXTRA_LDFLAGS = @PYTHON_EXTRA_LDFLAGS@
 PYTHON_EXTRA_LIBS = @PYTHON_EXTRA_LIBS@
 PYTHON_LIBS = @PYTHON_LIBS@
 PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PLATFORM_SITE_PKG = @PYTHON_PLATFORM_SITE_PKG@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_SITE_PKG = @PYTHON_SITE_PKG@
 PYTHON_VERSION = @PYTHON_VERSION@
@@ -343,12 +349,16 @@ STRIP = @STRIP@
 SWIG = @SWIG@
 SWIG_LIB = @SWIG_LIB@
 TCL_BIN_DIR = @TCL_BIN_DIR@
+TCL_CFLAGS = @TCL_CFLAGS@
 TCL_INCLUDE_SPEC = @TCL_INCLUDE_SPEC@
+TCL_LIBS = @TCL_LIBS@
 TCL_LIB_FILE = @TCL_LIB_FILE@
 TCL_LIB_SPEC = @TCL_LIB_SPEC@
 TCL_SHLIB_SUFFIX = @TCL_SHLIB_SUFFIX@
 TCL_SRC_DIR = @TCL_SRC_DIR@
 TCL_VERSION = @TCL_VERSION@
+USRP_CFLAGS = @USRP_CFLAGS@
+USRP_LIBS = @USRP_LIBS@
 VERSION = @VERSION@
 WINEXELDFLAGS = @WINEXELDFLAGS@
 WINLDFLAGS = @WINLDFLAGS@
@@ -418,17 +428,17 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 YAESUSRC = ft100.c ft100.h ft747.c ft747.h ft817.c ft817.h ft847.c ft847.h \
 	ft890.c ft890.h ft900.c ft900.h ft920.c ft920.h ft1000mp.c ft1000mp.h \
-	ft857.c ft857.h ft897.c ft897.h ft990.c ft990.h frg8800.c ft757gx.c \
+	ft857.c ft857.h ft897.c ft897.h ft990.c ft990.h ft990v12.c ft990v12.h frg8800.c ft757gx.c \
 	ft757gx.h ft600.h ft600.c ft736.c frg100.c frg100.h frg9600.c ft1000d.c \
 	ft1000d.h vr5000.c ft767gx.c ft767gx.h ft840.c ft840.h ft980.c ft980.h \
-	vx1700.c vx1700.h ftdx10.h
+	vx1700.c vx1700.h ftdx10.h ft710.c
 
 NEWCATSRC = newcat.c newcat.h ft450.c ft450.h ft950.c ft950.h ft991.c ft991.h \
 	ft2000.c ft2000.h ft9000.c ft9000.h ft5000.c ft5000.h ft1200.c ft1200.h \
 	ft891.c ft891.h ftdx101.c ftdx101.h ftdx101mp.c ft3000.c ftdx10.c
 
 noinst_LTLIBRARIES = libhamlib-yaesu.la
-libhamlib_yaesu_la_SOURCES = $(YAESUSRC) $(NEWCATSRC) yaesu.c yaesu.h
+libhamlib_yaesu_la_SOURCES = yaesu.c yaesu.h level_gran_yaesu.h $(YAESUSRC) $(NEWCATSRC)
 EXTRA_DIST = README.ft890 README.ft920 Android.mk
 all: all-am
 
@@ -496,6 +506,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft450.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft5000.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft600.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft710.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft736.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft747.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft757gx.Plo@am__quote@ # am--include-marker
@@ -513,6 +524,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft950.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft980.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft990.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft990v12.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ft991.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ftdx10.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ftdx101.Plo@am__quote@ # am--include-marker
@@ -695,6 +707,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/ft450.Plo
 	-rm -f ./$(DEPDIR)/ft5000.Plo
 	-rm -f ./$(DEPDIR)/ft600.Plo
+	-rm -f ./$(DEPDIR)/ft710.Plo
 	-rm -f ./$(DEPDIR)/ft736.Plo
 	-rm -f ./$(DEPDIR)/ft747.Plo
 	-rm -f ./$(DEPDIR)/ft757gx.Plo
@@ -712,6 +725,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/ft950.Plo
 	-rm -f ./$(DEPDIR)/ft980.Plo
 	-rm -f ./$(DEPDIR)/ft990.Plo
+	-rm -f ./$(DEPDIR)/ft990v12.Plo
 	-rm -f ./$(DEPDIR)/ft991.Plo
 	-rm -f ./$(DEPDIR)/ftdx10.Plo
 	-rm -f ./$(DEPDIR)/ftdx101.Plo
@@ -777,6 +791,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/ft450.Plo
 	-rm -f ./$(DEPDIR)/ft5000.Plo
 	-rm -f ./$(DEPDIR)/ft600.Plo
+	-rm -f ./$(DEPDIR)/ft710.Plo
 	-rm -f ./$(DEPDIR)/ft736.Plo
 	-rm -f ./$(DEPDIR)/ft747.Plo
 	-rm -f ./$(DEPDIR)/ft757gx.Plo
@@ -794,6 +809,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/ft950.Plo
 	-rm -f ./$(DEPDIR)/ft980.Plo
 	-rm -f ./$(DEPDIR)/ft990.Plo
+	-rm -f ./$(DEPDIR)/ft990v12.Plo
 	-rm -f ./$(DEPDIR)/ft991.Plo
 	-rm -f ./$(DEPDIR)/ftdx10.Plo
 	-rm -f ./$(DEPDIR)/ftdx101.Plo

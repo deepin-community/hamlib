@@ -107,13 +107,13 @@ am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
 	$(top_srcdir)/macros/ltsugar.m4 \
 	$(top_srcdir)/macros/ltversion.m4 \
 	$(top_srcdir)/macros/lt~obsolete.m4 \
-	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/tcl.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/pkg.m4 \
+	$(top_srcdir)/macros/tcl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/include/hamlib/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
@@ -121,7 +121,7 @@ libhamlib_kenwood_la_LIBADD =
 am__objects_1 = ts850.lo ts870s.lo ts570.lo ts450s.lo ts950.lo \
 	ts50s.lo ts790.lo ts2000.lo k2.lo k3.lo xg3.lo ts930.lo \
 	ts680.lo ts690.lo ts140.lo ts480.lo trc80.lo ts590.lo \
-	ts890s.lo ts990s.lo flex6xxx.lo pihpsdr.lo
+	ts890s.lo ts990s.lo flex6xxx.lo pihpsdr.lo tx500.lo
 am__objects_2 = thd7.lo thf7.lo thg71.lo tmd700.lo tmv7.lo thf6a.lo \
 	thd72.lo tmd710.lo thd74.lo
 am__objects_3 = ts440.lo ts940.lo ts711.lo ts811.lo r5000.lo
@@ -146,7 +146,7 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include/hamlib
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/elecraft.Plo ./$(DEPDIR)/flex.Plo \
@@ -168,7 +168,8 @@ am__depfiles_remade = ./$(DEPDIR)/elecraft.Plo ./$(DEPDIR)/flex.Plo \
 	./$(DEPDIR)/ts850.Plo ./$(DEPDIR)/ts870s.Plo \
 	./$(DEPDIR)/ts890s.Plo ./$(DEPDIR)/ts930.Plo \
 	./$(DEPDIR)/ts940.Plo ./$(DEPDIR)/ts950.Plo \
-	./$(DEPDIR)/ts990s.Plo ./$(DEPDIR)/xg3.Plo
+	./$(DEPDIR)/ts990s.Plo ./$(DEPDIR)/tx500.Plo \
+	./$(DEPDIR)/xg3.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -320,6 +321,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL_INC_DIR = @PERL_INC_DIR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -330,6 +334,7 @@ PYTHON_EXTRA_LDFLAGS = @PYTHON_EXTRA_LDFLAGS@
 PYTHON_EXTRA_LIBS = @PYTHON_EXTRA_LIBS@
 PYTHON_LIBS = @PYTHON_LIBS@
 PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PLATFORM_SITE_PKG = @PYTHON_PLATFORM_SITE_PKG@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_SITE_PKG = @PYTHON_SITE_PKG@
 PYTHON_VERSION = @PYTHON_VERSION@
@@ -346,12 +351,16 @@ STRIP = @STRIP@
 SWIG = @SWIG@
 SWIG_LIB = @SWIG_LIB@
 TCL_BIN_DIR = @TCL_BIN_DIR@
+TCL_CFLAGS = @TCL_CFLAGS@
 TCL_INCLUDE_SPEC = @TCL_INCLUDE_SPEC@
+TCL_LIBS = @TCL_LIBS@
 TCL_LIB_FILE = @TCL_LIB_FILE@
 TCL_LIB_SPEC = @TCL_LIB_SPEC@
 TCL_SHLIB_SUFFIX = @TCL_SHLIB_SUFFIX@
 TCL_SRC_DIR = @TCL_SRC_DIR@
 TCL_VERSION = @TCL_VERSION@
+USRP_CFLAGS = @USRP_CFLAGS@
+USRP_LIBS = @USRP_LIBS@
 VERSION = @VERSION@
 WINEXELDFLAGS = @WINEXELDFLAGS@
 WINLDFLAGS = @WINLDFLAGS@
@@ -422,12 +431,12 @@ top_srcdir = @top_srcdir@
 TSSRC = ts850.c ts870s.c ts570.c ts450s.c ts950.c ts50s.c \
 	ts790.c ts2000.c k2.c k3.c xg3.c ts930.c \
 	ts680.c ts690.c ts140.c ts480.c trc80.c ts590.c ts890s.c \
-	ts990s.c ts990s.h flex6xxx.c pihpsdr.c
+	ts990s.c ts990s.h flex6xxx.c pihpsdr.c tx500.c
 
 IC10SRC = ts440.c ts940.c ts711.c ts811.c r5000.c
 THSRC = thd7.c thf7.c thg71.c tmd700.c tmv7.c thf6a.c thd72.c tmd710.c thd74.c
 KENWOODSRC = kenwood.c kenwood.h th.c th.h ic10.c ic10.h elecraft.c elecraft.h \
-	transfox.c flex.c flex.h
+	transfox.c flex.c flex.h level_gran_kenwood.h
 
 noinst_LTLIBRARIES = libhamlib-kenwood.la
 libhamlib_kenwood_la_SOURCES = $(TSSRC) $(THSRC) $(IC10SRC) $(KENWOODSRC)
@@ -527,6 +536,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ts940.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ts950.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ts990s.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tx500.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xg3.Plo@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -731,6 +741,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/ts940.Plo
 	-rm -f ./$(DEPDIR)/ts950.Plo
 	-rm -f ./$(DEPDIR)/ts990s.Plo
+	-rm -f ./$(DEPDIR)/tx500.Plo
 	-rm -f ./$(DEPDIR)/xg3.Plo
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -818,6 +829,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/ts940.Plo
 	-rm -f ./$(DEPDIR)/ts950.Plo
 	-rm -f ./$(DEPDIR)/ts990s.Plo
+	-rm -f ./$(DEPDIR)/tx500.Plo
 	-rm -f ./$(DEPDIR)/xg3.Plo
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic

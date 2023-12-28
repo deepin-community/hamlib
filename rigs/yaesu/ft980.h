@@ -148,7 +148,7 @@ const struct rig_caps ft980_caps =
     .mfg_name =           "Yaesu",
     .version =            "20200114.0",
     .copyright =          "LGPL",
-    .status =             RIG_STATUS_BETA,
+    .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
     .ptt_type =           RIG_PTT_SERIAL_RTS,
     .dcd_type =           RIG_DCD_NONE,
@@ -169,6 +169,10 @@ const struct rig_caps ft980_caps =
     .has_set_level =      RIG_LEVEL_NONE,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .vfo_ops =            FT980_VFO_OPS,
     .preamp =             { RIG_DBLST_END, },
     .attenuator =         { RIG_DBLST_END, },
@@ -353,7 +357,7 @@ typedef struct _ft980_memory_t
 #define FT_980_STATUSFLAG_UPDN_MASK    0X30
 #define FT_980_STATUSFLAG_CLAR_MASK    0x40
 
-/* op_vfo: VFO decode: Main, Gen, and 3 unsused AUX */
+/* op_vfo: VFO decode: Main, Gen, and 3 unused AUX */
 #define FT980_VFO_HAM_SEL  0x80
 #define FT980_VFO_GEN_SEL  0x00
 #define FT980_VFO_AUX1_SEL 0x81
@@ -382,8 +386,8 @@ typedef struct _ft980_memory_t
 /*
  * Start of Command Code Defines
  */
-static const char cmd_OK[YAESU_CMD_LENGTH]     = { 0x00, 0x00, 0x00, 0x00, 0x0B};
-static const char cmd_ON_OFF[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x00};
+static const unsigned char cmd_OK[YAESU_CMD_LENGTH]     = { 0x00, 0x00, 0x00, 0x00, 0x0B};
+static const unsigned char cmd_ON_OFF[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x00};
 
 /* Opcodes 00 to 0B */
 enum ft980_native_cmd_e {

@@ -32,11 +32,11 @@
  */
 
 
-#define BACKEND_VER "20200324"
+#define BACKEND_VER "20220614"
 
 #define TRUE	1
 #define FALSE	0
-#define TT565_BUFSIZE 16
+#define TT565_BUFSIZE 32
 
 /**
  * \brief Memory capability
@@ -198,7 +198,7 @@ RIG_MODEL(RIG_MODEL_TT565),
 .mfg_name =  "Ten-Tec",
 .version =  BACKEND_VER ".0",
 .copyright =  "LGPL",
-.status =  RIG_STATUS_BETA,
+.status =  RIG_STATUS_STABLE,
 .rig_type =  RIG_TYPE_TRANSCEIVER,
 .ptt_type =  RIG_PTT_RIG,
 .dcd_type =  RIG_DCD_NONE,
@@ -358,6 +358,7 @@ RIG_MODEL(RIG_MODEL_TT565),
 .reset =  tt565_reset,
 .get_info =  tt565_get_info,
 .send_morse = tt565_send_morse,
+.wait_morse =  rig_wait_morse,
 .get_func = tt565_get_func,
 .set_func = tt565_set_func,
 .get_ant = tt565_get_ant,
@@ -415,7 +416,7 @@ RIG_MODEL(RIG_MODEL_TT599),
 .mfg_name =  "Ten-Tec",
 .version =  BACKEND_VER ".0",
 .copyright =  "LGPL",
-.status =  RIG_STATUS_UNTESTED,
+.status =  RIG_STATUS_STABLE,
 .rig_type =  RIG_TYPE_TRANSCEIVER,
 .ptt_type =  RIG_PTT_RIG,
 .dcd_type =  RIG_DCD_NONE,

@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -86,9 +84,9 @@ const struct rig_caps thd7a_caps =
     RIG_MODEL(RIG_MODEL_THD7A),
     .model_name = "TH-D7A",
     .mfg_name =  "Kenwood",
-    .version =  TH_VER ".0",
+    .version =  TH_VER ".1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_HANDHELD | RIG_FLAG_APRS | RIG_FLAG_TNC | RIG_FLAG_DXCLUSTER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -101,7 +99,7 @@ const struct rig_caps thd7a_caps =
     .serial_handshake =  RIG_HANDSHAKE_NONE,
     .write_delay =  0,
     .post_write_delay =  0,
-    .timeout =  200,
+    .timeout =  500,
     .retry =  3,
 
     .has_get_func =  THD7_FUNC_ALL,
@@ -110,11 +108,9 @@ const struct rig_caps thd7a_caps =
     .has_set_level =  RIG_LEVEL_SET(THD7_LEVEL_ALL),
     .has_get_parm =  THD7_PARMS,
     .has_set_parm =  THD7_PARMS,    /* FIXME: parms */
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_RFPOWER] = { .min = { .i = 3 }, .max = { .i = 0 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
     .parm_gran =  {},
     .ctcss_list =  kenwood38_ctcss_list,
@@ -199,6 +195,7 @@ const struct rig_caps thd7a_caps =
     .get_dcd =  th_get_dcd,
 
     .decode_event =  th_decode_event,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

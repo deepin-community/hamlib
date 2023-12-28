@@ -30,17 +30,100 @@
  */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <string.h>
 #include "hamlib/rig.h"
 #include "bandplan.h"
 #include "serial.h"
 #include "newcat.h"
+#include "yaesu.h"
 #include "ft891.h"
-#include "idx_builtin.h"
+
+/* Prototypes */
+static int ft891_init(RIG *rig);
+static int ft891_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split,
+                               vfo_t *tx_vfo);
+static int ft891_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
+                                pbwidth_t *tx_width);
+static int ft891_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
+                                pbwidth_t tx_width);
+static int ft891_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
+static int ft891_set_split_vfo(RIG *rig, vfo_t vfo, split_t split,
+                               vfo_t tx_vfo);
+
+const struct confparams ft891_ext_levels[] =
+{
+    {
+        TOK_KEYER,
+        "KEYER",
+        "Keyer",
+        "Keyer on/off",
+        NULL,
+        RIG_CONF_CHECKBUTTON,
+    },
+    {
+        TOK_APF_FREQ,
+        "APF_FREQ",
+        "APF frequency",
+        "Audio peak filter frequency",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = -250, .max = 250, .step = 10 } },
+    },
+    {
+        TOK_APF_WIDTH,
+        "APF_WIDTH",
+        "APF width",
+        "Audio peak filter width",
+        NULL,
+        RIG_CONF_COMBO,
+        { .c = { .combostr = { "Narrow", "Medium", "Wide", NULL } } },
+    },
+    {
+        TOK_CONTOUR,
+        "CONTOUR",
+        "Contour",
+        "Contour on/off",
+        NULL,
+        RIG_CONF_CHECKBUTTON,
+    },
+    {
+        TOK_CONTOUR_FREQ,
+        "CONTOUR_FREQ",
+        "Contour frequency",
+        "Contour frequency",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = 10, .max = 3200, .step = 1 } },
+    },
+    {
+        TOK_CONTOUR_LEVEL,
+        "CONTOUR_LEVEL",
+        "Contour level",
+        "Contour level (dB)",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = -40, .max = 20, .step = 1 } },
+    },
+    {
+        TOK_CONTOUR_WIDTH,
+        "CONTOUR_WIDTH",
+        "Contour width",
+        "Contour width",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = 1, .max = 11, .step = 1 } },
+    },
+    { RIG_CONF_END, NULL, }
+};
+
+int ft891_ext_tokens[] =
+{
+    TOK_KEYER, TOK_APF_FREQ, TOK_APF_WIDTH,
+    TOK_CONTOUR, TOK_CONTOUR_FREQ, TOK_CONTOUR_LEVEL, TOK_CONTOUR_WIDTH,
+    TOK_BACKEND_NONE
+};
 
 /*
  * FT-891 rig capabilities
@@ -50,7 +133,7 @@ const struct rig_caps ft891_caps =
     RIG_MODEL(RIG_MODEL_FT891),
     .model_name =         "FT-891",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".3",
+    .version =            NEWCAT_VER ".7",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -73,7 +156,9 @@ const struct rig_caps ft891_caps =
     .has_set_level =      RIG_LEVEL_SET(FT891_LEVELS),
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 50 } },
@@ -87,7 +172,10 @@ const struct rig_caps ft891_caps =
     .max_rit =            Hz(9999),
     .max_xit =            Hz(9999),
     .max_ifshift =        Hz(1200),
+    .agc_level_count =    5,
+    .agc_levels =         { RIG_AGC_OFF, RIG_AGC_FAST, RIG_AGC_MEDIUM, RIG_AGC_SLOW, RIG_AGC_AUTO },
     .vfo_ops =            FT891_VFO_OPS,
+    .scan_ops =           RIG_SCAN_VFO,
     .targetable_vfo =     RIG_TARGETABLE_FREQ,
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 950 has an Auto Info command */
     .bank_qty =           0,
@@ -182,6 +270,9 @@ const struct rig_caps ft891_caps =
         RIG_FLT_END,
     },
 
+    .ext_tokens =         ft891_ext_tokens,
+    .extlevels =          ft891_ext_levels,
+
     .priv =               NULL,           /* private data FIXME: */
 
     .rig_init =           ft891_init,
@@ -229,7 +320,14 @@ const struct rig_caps ft891_caps =
     .get_trn =            newcat_get_trn,
     .set_channel =        newcat_set_channel,
     .get_channel =        newcat_get_channel,
-
+    .set_ext_level =      newcat_set_ext_level,
+    .get_ext_level =      newcat_get_ext_level,
+    .send_morse =         newcat_send_morse,
+    .wait_morse =         rig_wait_morse,
+    .set_clock =          newcat_set_clock,
+    .get_clock =          newcat_get_clock,
+    .scan =               newcat_scan,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -253,7 +351,7 @@ const struct rig_caps ft891_caps =
  *           the correct TX VFO is selected by the rig in split mode.
  *           An error is returned if vfo and tx_vfo are the same.
  */
-int ft891_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
+static int ft891_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
 {
     struct newcat_priv_data *priv;
     struct rig_state *state;
@@ -294,10 +392,10 @@ int ft891_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
         return -RIG_EINVAL;
     }
 
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "ST%c;", ci);
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "ST%c;", ci);
 
-    if (RIG_OK != (err = write_block(&state->rigport, priv->cmd_str,
-                                     strlen(priv->cmd_str))))
+    if (RIG_OK != (err = write_block(&state->rigport,
+                                     (unsigned char *) priv->cmd_str, strlen(priv->cmd_str))))
     {
         rig_debug(RIG_DEBUG_ERR, "%s: write_block err = %d\n", __func__, err);
         return err;
@@ -322,7 +420,8 @@ int ft891_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
  *
  * Comments: The passed value for the vfo is ignored since can only split one way
  */
-int ft891_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
+static int ft891_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split,
+                               vfo_t *tx_vfo)
 {
     struct newcat_priv_data *priv;
     int err;
@@ -338,7 +437,7 @@ int ft891_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 
     priv = (struct newcat_priv_data *)rig->state.priv;
 
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "ST;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "ST;");
 
     if (RIG_OK != (err = newcat_get_cmd(rig)))
     {
@@ -380,8 +479,8 @@ int ft891_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
  *
  */
 
-int ft891_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
-                         pbwidth_t *tx_width)
+static int ft891_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
+                                pbwidth_t *tx_width)
 {
     struct newcat_priv_data *priv;
     int err;
@@ -395,7 +494,7 @@ int ft891_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
 
     priv = (struct newcat_priv_data *)rig->state.priv;
 
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "OI;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "OI;");
 
     if (RIG_OK != (err = newcat_get_cmd(rig)))
     {
@@ -427,8 +526,8 @@ int ft891_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
  *
  */
 
-int ft891_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
-                         pbwidth_t tx_width)
+static int ft891_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
+                                pbwidth_t tx_width)
 {
     struct newcat_priv_data *priv;
     struct rig_state *state;
@@ -465,10 +564,10 @@ int ft891_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
     }
 
     // Copy A to B
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "AB;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "AB;");
 
-    if (RIG_OK != (err = write_block(&state->rigport, priv->cmd_str,
-                                     strlen(priv->cmd_str))))
+    if (RIG_OK != (err = write_block(&state->rigport,
+                                     (unsigned char *) priv->cmd_str, strlen(priv->cmd_str))))
     {
         rig_debug(RIG_DEBUG_VERBOSE, "%s:%d write_block err = %d\n", __func__, __LINE__,
                   err);
@@ -493,7 +592,7 @@ int ft891_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
 }
 
 
-int ft891_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
+static int ft891_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     struct newcat_priv_data *priv;
     int err;
@@ -505,7 +604,7 @@ int ft891_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     priv = (struct newcat_priv_data *)rig->state.priv;
 
     // Copy A to B
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "AB;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "AB;");
 
     if (RIG_OK != (err = newcat_set_cmd(rig)))
     {
@@ -515,7 +614,7 @@ int ft891_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     return RIG_OK;
 }
 
-int ft891_init(RIG *rig)
+static int ft891_init(RIG *rig)
 {
     int ret;
     rig_debug(RIG_DEBUG_VERBOSE, "%s called, version %s\n", __func__,

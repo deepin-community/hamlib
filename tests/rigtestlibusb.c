@@ -24,12 +24,14 @@
 
 #include <stdio.h>
 #include <string.h>
-#if __has_include("libusb.h")
+#include "config.h"
+#if defined(HAVE_LIBUSB_H)
 #include "libusb.h"
-#else
+#elif defined(HAVE_LIBUSB_1_0_LIBUSB_H)
 #include <libusb-1.0/libusb.h>
 #endif
 
+#if HAVE_LIBUSB
 int verbose = 0;
 
 static void print_endpoint_comp(const struct
@@ -310,7 +312,8 @@ static void print_device(libusb_device *dev, libusb_device_handle *handle)
     }
 }
 
-#if defined(LIBUSB_API_VERSION) && (LIBUSB_API_VERSION >= 0x01000107)
+#if defined(ANDROID) && defined(LIBUSB_API_VERSION) && (LIBUSB_API_VERSION < 0x01000107)
+#warning LIBUSB-1.0.23 or greater is required for Android devices
 
 #include <errno.h>
 #include <fcntl.h>
@@ -343,7 +346,6 @@ static int test_wrapped_device(const char *device_name)
     return 0;
 }
 #else
-#warning LIBUSB-1.0.23 may be required in Hamlib > 4.3
 static int test_wrapped_device(const char *device_name)
 {
     (void)device_name;
@@ -410,3 +412,10 @@ int main(int argc, char *argv[])
     libusb_exit(NULL);
     return r;
 }
+#else
+int main()
+{
+    puts("libusb not installed");
+    return 0;
+}
+#endif

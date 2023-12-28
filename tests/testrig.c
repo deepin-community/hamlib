@@ -9,13 +9,9 @@
 
 #include <hamlib/rig.h>
 
-#include "misc.h"
+#include <hamlib/config.h>
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
-#define SERIAL_PORT "/dev/pts/2"
+#define SERIAL_PORT "/dev/pts/4"
 
 
 int main(int argc, char *argv[])
@@ -80,6 +76,10 @@ int main(int argc, char *argv[])
         printf("rig_open: error = %s\n", rigerror(retcode));
         exit(2);
     }
+
+    char val[256];
+    retcode = rig_get_conf2(my_rig, rig_token_lookup(my_rig, "write_delay"), val, sizeof(val));
+    printf("write_delay=%s\n", val);
 
 //    printf("Port %s opened ok\n", SERIAL_PORT);
 
@@ -440,7 +440,7 @@ int main(int argc, char *argv[])
     if (retcode == RIG_OK)
     {
         // cppcheck-suppress *
-        printf("rig_get_mode: mode = %"PRIll"\n", rmode);
+        printf("rig_get_mode: mode = %s\n", rig_strrmode(rmode));
     }
     else
     {

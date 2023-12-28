@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "hamlib/rig.h"
@@ -71,8 +68,8 @@ static int ts680_set_vfo(RIG *rig, vfo_t vfo)
         return -RIG_EINVAL;
     }
 
-    sprintf(cmdbuf, "FN%c",
-            vfo_function); /* The 680 and 140 need this to set the VFO on the radio */
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "FN%c",
+             vfo_function); /* The 680 and 140 need this to set the VFO on the radio */
     return kenwood_transaction(rig, cmdbuf, NULL, 0);
 }
 
@@ -86,9 +83,9 @@ const struct rig_caps ts680s_caps =
     RIG_MODEL(RIG_MODEL_TS680S),
     .model_name = "TS-680S",
     .mfg_name =  "Kenwood",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .port_type =  RIG_PORT_SERIAL,
@@ -100,7 +97,7 @@ const struct rig_caps ts680s_caps =
     .serial_handshake =  RIG_HANDSHAKE_HARDWARE,
     .write_delay =  0,
     .post_write_delay =  0,
-    .timeout =  300,
+    .timeout =  500,
     .retry =  10,
 
     .has_get_func =  RIG_FUNC_LOCK,
@@ -196,7 +193,7 @@ const struct rig_caps ts680s_caps =
     .set_mem =  kenwood_set_mem,
     .get_mem = kenwood_get_mem_if,
     .reset =  kenwood_reset,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

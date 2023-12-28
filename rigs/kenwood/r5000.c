@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -62,9 +60,9 @@ const struct rig_caps r5000_caps =
     RIG_MODEL(RIG_MODEL_R5000),
     .model_name = "R-5000",
     .mfg_name =  "Kenwood",
-    .version =  IC10_VER ".0",
+    .version =  IC10_VER ".1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -77,7 +75,7 @@ const struct rig_caps r5000_caps =
     .serial_handshake =  RIG_HANDSHAKE_NONE,
     .write_delay =  0,
     .post_write_delay =  2,
-    .timeout =  400,
+    .timeout =  500,
     .retry =  3,
 
     .has_get_func =  R5000_FUNC_ALL,
@@ -161,6 +159,7 @@ const struct rig_caps r5000_caps =
     .get_info = ic10_get_info,
     .decode_event = ic10_decode_event,
 
+    .hamlib_check_rig_caps = "HAMLIB_CHECK_RIG_CAPS"
 };
 
 /*

@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -105,7 +103,7 @@ const struct rig_caps dds60_caps =
     .mfg_name =  "AmQRP",
     .version =  "20200112.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TUNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -165,6 +163,7 @@ const struct rig_caps dds60_caps =
     .get_conf =  dds60_get_conf,
 
     .set_freq =  dds60_set_freq,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -172,7 +171,7 @@ int dds60_init(RIG *rig)
 {
     struct dds60_priv_data *priv;
 
-    rig->state.priv = (struct dds60_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct dds60_priv_data *)calloc(1, sizeof(
                           struct dds60_priv_data));
 
     if (!rig->state.priv)
@@ -250,7 +249,7 @@ int dds60_set_conf(RIG *rig, token_t token, const char *val)
  * Assumes rig!=NULL, rig->state.priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-int dds60_get_conf(RIG *rig, token_t token, char *val)
+int dds60_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
     struct dds60_priv_data *priv;
 
@@ -259,19 +258,19 @@ int dds60_get_conf(RIG *rig, token_t token, char *val)
     switch (token)
     {
     case TOK_OSCFREQ:
-        sprintf(val, "%"PRIfreq, priv->osc_freq);
+        SNPRINTF(val, val_len, "%"PRIfreq, priv->osc_freq);
         break;
 
     case TOK_IFMIXFREQ:
-        sprintf(val, "%"PRIfreq, priv->if_mix_freq);
+        SNPRINTF(val, val_len, "%"PRIfreq, priv->if_mix_freq);
         break;
 
     case TOK_MULTIPLIER:
-        sprintf(val, "%d", priv->multiplier);
+        SNPRINTF(val, val_len, "%d", priv->multiplier);
         break;
 
     case TOK_PHASE_MOD:
-        sprintf(val, "%f", priv->phase_step * PHASE_INCR);
+        SNPRINTF(val, val_len, "%f", priv->phase_step * PHASE_INCR);
         break;
 
     default:
@@ -279,6 +278,11 @@ int dds60_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int dds60_get_conf(RIG *rig, token_t token, char *val)
+{
+    return dds60_get_conf2(rig, token, val, 128);
 }
 
 
@@ -365,7 +369,7 @@ int dds60_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     frg = (unsigned long)(((double)freq + priv->if_mix_freq) /
                           osc_ref * 4294967296.0 + 0.5);
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s: word %lu, X6 multipler %d, phase %.2f\n",
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: word %lu, X6 multiplier %d, phase %.2f\n",
               __func__, frg, priv->multiplier, priv->phase_step * PHASE_INCR);
 
     control = priv->multiplier ? 0x01 : 0x00;

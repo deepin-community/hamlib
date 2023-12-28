@@ -46,9 +46,7 @@
  * etc.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -110,7 +108,7 @@ static struct opened_rot_l *opened_rot_list = { NULL };
 static int add_opened_rot(ROT *rot)
 {
     struct opened_rot_l *p;
-    p = (struct opened_rot_l *)malloc(sizeof(struct opened_rot_l));
+    p = (struct opened_rot_l *)calloc(1, sizeof(struct opened_rot_l));
 
     if (!p)
     {
@@ -124,7 +122,7 @@ static int add_opened_rot(ROT *rot)
 }
 
 
-static int remove_opened_rot(ROT *rot)
+static int remove_opened_rot(const ROT *rot)
 {
     struct opened_rot_l *p, *q;
     q = NULL;
@@ -331,6 +329,12 @@ ROT *HAMLIB_API rot_init(rot_model_t rot_model)
         }
     }
 
+    // Now we have to copy our new rig state hamlib_port structure to the deprecated one
+    // Clients built on older 4.X versions will use the old structure
+    // Clients built on newer 4.5 versions will use the new structure
+    memcpy(&rot->state.rotport_deprecated, &rot->state.rotport,
+           sizeof(rot->state.rotport_deprecated));
+
     return rot;
 }
 
@@ -346,7 +350,7 @@ ROT *HAMLIB_API rot_init(rot_model_t rot_model)
  * \return RIG_OK if the operation has been successful, otherwise a **negative
  * value** if an error occurred (in which case, cause is set appropriately).
  *
- * \retval RIG_OK Communication channel succesfully opened.
+ * \retval RIG_OK Communication channel successfully opened.
  * \retval RIG_EINVAL \a rot is NULL or inconsistent.
  * \retval RIG_ENIMPL Communication port type is not implemented yet.
  *
@@ -466,7 +470,6 @@ int HAMLIB_API rot_open(ROT *rot)
         return -RIG_EINVAL;
     }
 
-
     add_opened_rot(rot);
 
     rs->comm_state = 1;
@@ -481,9 +484,14 @@ int HAMLIB_API rot_open(ROT *rot)
 
         if (status != RIG_OK)
         {
+            memcpy(&rot->state.rotport_deprecated, &rot->state.rotport,
+                   sizeof(rot->state.rotport_deprecated));
             return status;
         }
     }
+
+    memcpy(&rot->state.rotport_deprecated, &rot->state.rotport,
+           sizeof(rot->state.rotport_deprecated));
 
     return RIG_OK;
 }
@@ -569,6 +577,9 @@ int HAMLIB_API rot_close(ROT *rot)
 
     rs->comm_state = 0;
 
+    memcpy(&rot->state.rotport_deprecated, &rot->state.rotport,
+           sizeof(rot->state.rotport_deprecated));
+
     return RIG_OK;
 }
 
@@ -624,7 +635,7 @@ int HAMLIB_API rot_cleanup(ROT *rot)
  * \brief Set the azimuth and elevation of the rotator.
  *
  * \param rot The #ROT handle.
- * \param azimuth The azimuth to set in decimal degress.
+ * \param azimuth The azimuth to set in decimal degrees.
  * \param elevation The elevation to set in decimal degrees.
  *
  * Sets the azimuth and elevation of the rotator.
@@ -922,7 +933,7 @@ int HAMLIB_API rot_move(ROT *rot, int direction, int speed)
  *
  * \return A pointer to static memory containing an ASCII nul terminated
  * string (C string) if the operation has been successful, otherwise NULL if
- * \a rot is NULL or inconsisten or the rot_caps#get_info() capability is not
+ * \a rot is NULL or inconsistent or the rot_caps#get_info() capability is not
  * available.
  */
 const char *HAMLIB_API rot_get_info(ROT *rot)

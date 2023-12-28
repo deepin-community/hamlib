@@ -1,3 +1,79 @@
+hamlib (4.5.5-3) unstable; urgency=medium
+
+  * Team upload
+
+  [ Christoph Berg ]
+  * Remove old libhamlib2 Provides/Replaces/Breaks against the buster
+    packages.
+  * debian/tests: Update lua package name
+
+  [ tony mancill ]
+  * Add protective diversion for udev rules shared file (Closes: #1056692)
+    Thank you to MigueL Landaeta for the patch.
+  * Add lintian-override fir udev usr-merge diversion
+
+ -- tony mancill <tmancill@debian.org>  Mon, 27 Nov 2023 08:01:42 -0800
+
+hamlib (4.5.5-2) unstable; urgency=medium
+
+  * Remove transitional packages libhamlib2-perl, libhamlib2-tcl,
+    python3-libhamlib2, lua-hamlib2.
+    (Closes: #1038237, #1038241, #1038287, #1038329)
+
+ -- Christoph Berg <myon@debian.org>  Sun, 18 Jun 2023 21:00:08 +0200
+
+hamlib (4.5.5-1) experimental; urgency=medium
+
+  * New upstream version 4.5.5.
+
+ -- Christoph Berg <myon@debian.org>  Sat, 22 Apr 2023 10:04:10 +0200
+
+hamlib (4.5.4-1) unstable; urgency=medium
+
+  * New upstream version 4.5.4.
+
+ -- Christoph Berg <myon@debian.org>  Mon, 16 Jan 2023 13:40:38 +0100
+
+hamlib (4.5.3-3) unstable; urgency=medium
+
+  * debian/tests/perltest: Ignore backend version number.
+  * Enable INDI support.
+
+ -- Christoph Berg <myon@debian.org>  Mon, 09 Jan 2023 11:55:11 +0100
+
+hamlib (4.5.3-2) unstable; urgency=medium
+
+  * B-D on libtool-bin.
+
+ -- Christoph Berg <myon@debian.org>  Sun, 08 Jan 2023 22:58:55 +0100
+
+hamlib (4.5.3-1) unstable; urgency=medium
+
+  * New upstream version 4.5.3.
+
+ -- Christoph Berg <myon@debian.org>  Sun, 08 Jan 2023 19:44:30 +0100
+
+hamlib (4.5-2) unstable; urgency=medium
+
+  * Update expected output file of perl test.
+
+ -- Christoph Berg <myon@debian.org>  Sun, 06 Nov 2022 12:09:34 +0100
+
+hamlib (4.5-1) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * New upstream version 4.5.
+  * Drop MAXDBLSTSIZ, grig got fixed.
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since buster:
+    + Build-Depends: Drop versioned constraint on dpkg-dev and swig.
+
+  [ Daniele Forsi ]
+  * Update standards version to 4.6.0, no changes needed.
+
+ -- Christoph Berg <myon@debian.org>  Sat, 05 Nov 2022 12:59:40 +0100
+
 hamlib (4.3.1-1) unstable; urgency=medium
 
   * New upstream version 4.3.1.

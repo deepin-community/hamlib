@@ -19,13 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #ifdef HAVE_SYS_IOCTL_H
@@ -107,7 +102,7 @@ const struct rot_caps if100_rot_caps =
     .mfg_name =         "AMSAT",
     .version =          "20110531.0",
     .copyright =        "LGPL",
-    .status =           RIG_STATUS_UNTESTED,
+    .status =           RIG_STATUS_BETA,
     .rot_type =         ROT_TYPE_OTHER,
     .port_type =        RIG_PORT_PARALLEL,
     .write_delay =      0,

@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -40,7 +39,7 @@
 
 #define G313_FUNC  RIG_FUNC_NONE
 #define G313_LEVEL (RIG_LEVEL_ATT | RIG_LEVEL_AGC | RIG_LEVEL_RF | RIG_LEVEL_STRENGTH | RIG_LEVEL_RAWSTR)
-#define G313_MODES (RIG_MODE_NONE)
+#define G313_MODES (RIG_MODE_USB)
 
 #define TOK_SHM_AUDIO 0x150901
 #define TOK_SHM_IF 0x150902
@@ -113,7 +112,7 @@ int g313_init(RIG *rig)
 {
     struct g313_priv_data *priv;
 
-    priv = (struct g313_priv_data *)malloc(sizeof(struct g313_priv_data));
+    priv = (struct g313_priv_data *)calloc(1, sizeof(struct g313_priv_data));
 
     if (!priv)
     {
@@ -651,7 +650,7 @@ const struct rig_caps g313_caps =
     .mfg_name =       "Winradio",
     .version =        "20191224.0",
     .copyright =        "LGPL", /* This wrapper, not the G313 shared library or driver */
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_BETA,
     .rig_type =       RIG_TYPE_PCRECEIVER,
     .port_type =      RIG_PORT_NONE,
     .targetable_vfo =    0,
@@ -710,4 +709,5 @@ const struct rig_caps g313_caps =
     .get_level =     g313_get_level,
 
     .get_info =      g313_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
