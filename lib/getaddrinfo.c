@@ -22,9 +22,7 @@
 /* Forcing WINVER in MinGW yanks in getaddrinfo(), but locks out Win95/Win98 */
 /* #define WINVER 0x0501 */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdio.h>   /* Standard input/output definitions */
@@ -98,7 +96,7 @@ int getaddrinfo(const char *node, const char *service,
         return -1;
     }
 
-    p = malloc(sizeof(struct addrinfo));
+    p = calloc(1, sizeof(struct addrinfo));
 
     if (!p)
     {
@@ -110,7 +108,7 @@ int getaddrinfo(const char *node, const char *service,
     p->ai_socktype = ai_socktype;
     p->ai_protocol = ai_protocol;
     p->ai_addrlen = sizeof(struct sockaddr_in);
-    p->ai_addr = malloc(p->ai_addrlen);
+    p->ai_addr = calloc(1, p->ai_addrlen);
 
     if (!p->ai_addr)
     {

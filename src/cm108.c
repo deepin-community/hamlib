@@ -32,19 +32,13 @@
  * CM108 Audio chips found on many USB audio interfaces have controllable
  * General Purpose Input/Output pins.
  */
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
-#include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
 #include <fcntl.h>   /* File control definitions */
 #include <errno.h>   /* Error number definitions */
-#include <sys/time.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
@@ -120,12 +114,13 @@ int cm108_open(hamlib_port_t *port)
 
     if (!ioctl(fd, HIDIOCGRAWINFO, &hiddevinfo)
             && ((hiddevinfo.vendor == 0x0d8c
-                 // CM108/108B/109/119/119A
+                 // CM108/108B/109/119/119A/119B
                  && ((hiddevinfo.product >= 0x0008
                       && hiddevinfo.product <= 0x000f)
                      || hiddevinfo.product == 0x0012
                      || hiddevinfo.product == 0x013a
-                     || hiddevinfo.product == 0x013c))
+                     || hiddevinfo.product == 0x013c
+                     || hiddevinfo.product == 0x0013))
                 // SSS1621/23
                 || (hiddevinfo.vendor == 0x0c76
                     && (hiddevinfo.product == 0x1605

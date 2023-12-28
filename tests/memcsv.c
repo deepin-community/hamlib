@@ -21,14 +21,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <ctype.h>
 #include <errno.h>
 
@@ -51,6 +48,7 @@ char csv_sep = ','; /* CSV separator */
  * Prototypes
  */
 static int dump_csv_chan(RIG *rig,
+                         vfo_t vfo,
                          channel_t **chan,
                          int channel_num,
                          const chan_t *chan_list,
@@ -304,7 +302,6 @@ static char *mystrtok(char *s, char delim)
         }
     }
 
-    // cppcheck-suppress *
     return str + ent_pos;
 }
 
@@ -556,6 +553,7 @@ void dump_csv_name(const channel_cap_t *mem_caps, FILE *f)
 
 /* Caution! Keep the function consistent with dump_csv_name and set_channel_data! */
 int dump_csv_chan(RIG *rig,
+                  vfo_t vfo,
                   channel_t **chan_pp,
                   int channel_num,
                   const chan_t *chan_list,

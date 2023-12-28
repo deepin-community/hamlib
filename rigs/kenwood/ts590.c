@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "hamlib/rig.h"
@@ -44,7 +41,7 @@ int ts590_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
 #define TS590_LEVEL_ALL (RIG_LEVEL_RFPOWER|RIG_LEVEL_AF|RIG_LEVEL_RF|\
         RIG_LEVEL_CWPITCH|RIG_LEVEL_METER|RIG_LEVEL_SWR|RIG_LEVEL_ALC|\
         RIG_LEVEL_SQL|RIG_LEVEL_AGC|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|\
-        RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD)
+        RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_PREAMP|RIG_LEVEL_ATT)
 #define TS590_FUNC_ALL (RIG_FUNC_LOCK|RIG_FUNC_AIP|RIG_FUNC_TONE|\
         RIG_FUNC_NB|RIG_FUNC_COMP|RIG_FUNC_VOX|RIG_FUNC_NR|RIG_FUNC_NR|RIG_FUNC_BC)
 
@@ -92,7 +89,7 @@ const struct rig_caps ts590_caps =
     RIG_MODEL(RIG_MODEL_TS590S),
     .model_name = "TS-590S",
     .mfg_name = "Kenwood",
-    .version = BACKEND_VER ".0",
+    .version = BACKEND_VER ".2",
     .copyright = "LGPL",
     .status = RIG_STATUS_STABLE,
     .rig_type = RIG_TYPE_TRANSCEIVER,
@@ -116,6 +113,8 @@ const struct rig_caps ts590_caps =
     .max_ifshift = Hz(0),
     .targetable_vfo = RIG_TARGETABLE_FREQ,
     .transceive = RIG_TRN_RIG,
+    .agc_level_count = 4,
+    .agc_levels = { RIG_AGC_OFF, RIG_AGC_SLOW, RIG_AGC_FAST, RIG_AGC_ON },
 
 
     .chan_list =  { /* TBC */
@@ -238,6 +237,10 @@ const struct rig_caps ts590_caps =
     .has_get_level = TS590_LEVEL_ALL,
     .set_level = kenwood_set_level,
     .get_level = ts590_get_level,
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .has_get_func = TS590_FUNC_ALL,
     .has_set_func = TS590_FUNC_ALL,
     .set_func = kenwood_set_func,
@@ -255,6 +258,7 @@ const struct rig_caps ts590_caps =
     .get_channel =  kenwood_get_channel,
     .vfo_ops = TS590_VFO_OPS,
     .vfo_op =  kenwood_vfo_op,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 const struct rig_caps ts590sg_caps =
@@ -262,9 +266,9 @@ const struct rig_caps ts590sg_caps =
     RIG_MODEL(RIG_MODEL_TS590SG),
     .model_name = "TS-590SG",
     .mfg_name = "Kenwood",
-    .version = BACKEND_VER ".0",
+    .version = BACKEND_VER ".1",
     .copyright = "LGPL",
-    .status = RIG_STATUS_BETA,
+    .status = RIG_STATUS_STABLE,
     .rig_type = RIG_TYPE_TRANSCEIVER,
     .ptt_type = RIG_PTT_RIG_MICDATA,
     .dcd_type = RIG_DCD_RIG,
@@ -425,6 +429,7 @@ const struct rig_caps ts590sg_caps =
     .get_channel =  kenwood_get_channel,
     .vfo_ops = TS590_VFO_OPS,
     .vfo_op =  kenwood_vfo_op,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -470,6 +475,7 @@ int ts590_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     int lvl_len;
     int retval;
     char lvlbuf[50];
+
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -568,6 +574,58 @@ int ts590_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
         // returns the raw value in dots
         sscanf(lvlbuf + 3, "%d", &val->i);
+        return retval;
+
+    case RIG_LEVEL_PREAMP:
+        retval = kenwood_transaction(rig, "PA", lvlbuf, sizeof(lvlbuf));
+
+        if (retval != RIG_OK)
+        {
+            RETURNFUNC(retval);
+        }
+
+        if (lvlbuf[2] == '0')
+        {
+            val->i = 0;
+        }
+        else if (lvlbuf[2] == '1')
+        {
+            val->i = rig->state.preamp[0];
+        }
+        else
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: "
+                      "unexpected preamp char '%c'\n",
+                      __func__, lvlbuf[2]);
+            RETURNFUNC(-RIG_EPROTO);
+        }
+
+        return retval;
+
+    case RIG_LEVEL_ATT:
+        retval = kenwood_transaction(rig, "RA", lvlbuf, sizeof(lvlbuf));
+
+        if (retval != RIG_OK)
+        {
+            RETURNFUNC(retval);
+        }
+
+        if (lvlbuf[3] == '0')
+        {
+            val->i = 0;
+        }
+        else if (lvlbuf[3] == '1')
+        {
+            val->i = rig->state.attenuator[0];
+        }
+        else
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: "
+                      "unexpected att char '%c'\n",
+                      __func__, lvlbuf[2]);
+            RETURNFUNC(-RIG_EPROTO);
+        }
+
         return retval;
 
     case RIG_LEVEL_RAWSTR:

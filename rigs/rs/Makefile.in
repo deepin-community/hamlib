@@ -107,18 +107,18 @@ am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
 	$(top_srcdir)/macros/ltsugar.m4 \
 	$(top_srcdir)/macros/ltversion.m4 \
 	$(top_srcdir)/macros/lt~obsolete.m4 \
-	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/tcl.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/pkg.m4 \
+	$(top_srcdir)/macros/tcl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/include/hamlib/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libhamlib_rs_la_LIBADD =
-am__objects_1 = esmc.lo eb200.lo rs.lo gp2000.lo xk2100.lo
+am__objects_1 = esmc.lo eb200.lo rs.lo gp2000.lo xk2100.lo ek89x.lo
 am_libhamlib_rs_la_OBJECTS = $(am__objects_1)
 libhamlib_rs_la_OBJECTS = $(am_libhamlib_rs_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -137,11 +137,11 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include/hamlib
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/eb200.Plo ./$(DEPDIR)/esmc.Plo \
-	./$(DEPDIR)/gp2000.Plo ./$(DEPDIR)/rs.Plo \
+am__depfiles_remade = ./$(DEPDIR)/eb200.Plo ./$(DEPDIR)/ek89x.Plo \
+	./$(DEPDIR)/esmc.Plo ./$(DEPDIR)/gp2000.Plo ./$(DEPDIR)/rs.Plo \
 	./$(DEPDIR)/xk2100.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -294,6 +294,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL_INC_DIR = @PERL_INC_DIR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -304,6 +307,7 @@ PYTHON_EXTRA_LDFLAGS = @PYTHON_EXTRA_LDFLAGS@
 PYTHON_EXTRA_LIBS = @PYTHON_EXTRA_LIBS@
 PYTHON_LIBS = @PYTHON_LIBS@
 PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PLATFORM_SITE_PKG = @PYTHON_PLATFORM_SITE_PKG@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_SITE_PKG = @PYTHON_SITE_PKG@
 PYTHON_VERSION = @PYTHON_VERSION@
@@ -320,12 +324,16 @@ STRIP = @STRIP@
 SWIG = @SWIG@
 SWIG_LIB = @SWIG_LIB@
 TCL_BIN_DIR = @TCL_BIN_DIR@
+TCL_CFLAGS = @TCL_CFLAGS@
 TCL_INCLUDE_SPEC = @TCL_INCLUDE_SPEC@
+TCL_LIBS = @TCL_LIBS@
 TCL_LIB_FILE = @TCL_LIB_FILE@
 TCL_LIB_SPEC = @TCL_LIB_SPEC@
 TCL_SHLIB_SUFFIX = @TCL_SHLIB_SUFFIX@
 TCL_SRC_DIR = @TCL_SRC_DIR@
 TCL_VERSION = @TCL_VERSION@
+USRP_CFLAGS = @USRP_CFLAGS@
+USRP_LIBS = @USRP_LIBS@
 VERSION = @VERSION@
 WINEXELDFLAGS = @WINEXELDFLAGS@
 WINLDFLAGS = @WINLDFLAGS@
@@ -393,7 +401,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-RSSRC = esmc.c eb200.c rs.c rs.h gp2000.c gp2000.h xk2100.c
+RSSRC = esmc.c eb200.c rs.c rs.h gp2000.c gp2000.h xk2100.c ek89x.c ek89x.h
 noinst_LTLIBRARIES = libhamlib-rs.la
 libhamlib_rs_la_SOURCES = $(RSSRC)
 EXTRA_DIST = Android.mk
@@ -452,6 +460,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eb200.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ek89x.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/esmc.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gp2000.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rs.Plo@am__quote@ # am--include-marker
@@ -619,6 +628,7 @@ clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
 
 distclean: distclean-am
 		-rm -f ./$(DEPDIR)/eb200.Plo
+	-rm -f ./$(DEPDIR)/ek89x.Plo
 	-rm -f ./$(DEPDIR)/esmc.Plo
 	-rm -f ./$(DEPDIR)/gp2000.Plo
 	-rm -f ./$(DEPDIR)/rs.Plo
@@ -669,6 +679,7 @@ installcheck-am:
 
 maintainer-clean: maintainer-clean-am
 		-rm -f ./$(DEPDIR)/eb200.Plo
+	-rm -f ./$(DEPDIR)/ek89x.Plo
 	-rm -f ./$(DEPDIR)/esmc.Plo
 	-rm -f ./$(DEPDIR)/gp2000.Plo
 	-rm -f ./$(DEPDIR)/rs.Plo

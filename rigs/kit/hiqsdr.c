@@ -17,17 +17,13 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <fcntl.h>   /* File control definitions */
 #include <errno.h>   /* Error number definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "iofunc.h"
@@ -113,7 +109,7 @@ const struct rig_caps hiqsdr_caps =
     .mfg_name =       "N2ADR",
     .version =        "20200323.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_UNTESTED,
+    .status =         RIG_STATUS_ALPHA,
     .rig_type =       RIG_TYPE_TUNER,
     .targetable_vfo =  RIG_TARGETABLE_NONE,
     .ptt_type =       RIG_PTT_RIG,
@@ -190,6 +186,7 @@ const struct rig_caps hiqsdr_caps =
 
     .set_level =    hiqsdr_set_level,
     .get_level =    hiqsdr_get_level,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -198,10 +195,10 @@ static int send_command(RIG *rig)
     struct hiqsdr_priv_data *priv = (struct hiqsdr_priv_data *)rig->state.priv;
     int ret;
 
-    ret = write_block(&rig->state.rigport, (const char *)priv->control_frame,
+    ret = write_block(&rig->state.rigport, (unsigned char *) priv->control_frame,
                       CTRL_FRAME_LEN);
 #if 0
-    ret = read_block(&rig->state.rigport, (char *)priv->control_frame,
+    ret = read_block(&rig->state.rigport, (unsigned char *) priv->control_frame,
                      CTRL_FRAME_LEN);
 
     if (ret != CTRL_FRAME_LEN)
@@ -263,7 +260,7 @@ int hiqsdr_set_conf(RIG *rig, token_t token, const char *val)
  * Assumes rig!=NULL, rig->state.priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-int hiqsdr_get_conf(RIG *rig, token_t token, char *val)
+int hiqsdr_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
     struct hiqsdr_priv_data *priv;
     struct rig_state *rs;
@@ -274,11 +271,11 @@ int hiqsdr_get_conf(RIG *rig, token_t token, char *val)
     switch (token)
     {
     case TOK_OSCFREQ:
-        sprintf(val, "%f", priv->ref_clock);
+        SNPRINTF(val, val_len, "%f", priv->ref_clock);
         break;
 
     case TOK_SAMPLE_RATE:
-        sprintf(val, "%d", priv->sample_rate);
+        SNPRINTF(val, val_len, "%d", priv->sample_rate);
         break;
 
     default:
@@ -288,13 +285,18 @@ int hiqsdr_get_conf(RIG *rig, token_t token, char *val)
     return RIG_OK;
 }
 
+int hiqsdr_get_conf(RIG *rig, token_t token, char *val)
+{
+    return hiqsdr_get_conf2(rig, token, val, 128);
+}
+
 int hiqsdr_init(RIG *rig)
 {
     struct hiqsdr_priv_data *priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    rig->state.priv = (struct hiqsdr_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct hiqsdr_priv_data *)calloc(1, sizeof(
                           struct hiqsdr_priv_data));
 
     if (!rig->state.priv)

@@ -22,9 +22,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -124,7 +122,7 @@ const struct rig_caps k2_caps =
     .mfg_name =     "Elecraft",
     .version =      BACKEND_VER ".0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_BETA,
+    .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
     .ptt_type =     RIG_PTT_RIG,
     .dcd_type =     RIG_DCD_RIG,
@@ -244,7 +242,8 @@ const struct rig_caps k2_caps =
     .set_ant =      kenwood_set_ant,
     .get_ant =      kenwood_get_ant,
     .send_morse =       kenwood_send_morse,
-    .wait_morse =       rig_wait_morse
+    .wait_morse =       rig_wait_morse,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -393,7 +392,7 @@ int k2_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         }
 
         /* Construct the filter command and set the radio mode and width*/
-        snprintf(fcmd, 8, "FW0000%c", f);
+        SNPRINTF(fcmd, sizeof(fcmd), "FW0000%c", f);
 
         /* Set the filter slot */
         err = kenwood_transaction(rig, fcmd, NULL, 0);
@@ -761,7 +760,7 @@ int k2_pop_fw_lst(RIG *rig, const char *cmd)
     {
         char *bufptr = buf;
 
-        snprintf(fcmd, 8, "FW0000%d", f);
+        SNPRINTF(fcmd, sizeof(fcmd), "FW0000%d", f);
 
         err = kenwood_transaction(rig, fcmd, NULL, 0);
 

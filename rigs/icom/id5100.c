@@ -20,15 +20,14 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "idx_builtin.h"
 #include "icom.h"
+#include "icom_defs.h"
+#include "frame.h"
 
 /*
  * Specs and protocol details comes from the chapter 13 of ID-5100_Full-Inst_Manual.pdf
@@ -42,7 +41,7 @@
  * - Single/dual watch (RIG_LEVEL_BALANCE)
  */
 
-#define ID5100_MODES (RIG_MODE_FM|RIG_MODE_DSTAR)
+#define ID5100_MODES (RIG_MODE_AM|RIG_MODE_AMN|RIG_MODE_FM|RIG_MODE_FMN|RIG_MODE_DSTAR)
 #define ID5100_ALL_RX_MODES (RIG_MODE_AM|ID5100_MODES)
 
 #define ID5100_VFO_ALL (RIG_VFO_MAIN|RIG_VFO_SUB)
@@ -73,7 +72,70 @@
  */
 #define ID5100_STR_CAL  UNKNOWN_IC_STR_CAL
 
+int id5100_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
+{
+    int retval;
+    unsigned char modebuf;
+    unsigned char ackbuf[MAXFRAMELEN];
+    int icmode = 2;
+    int ack_len = sizeof(ackbuf);
 
+    switch (mode)
+    {
+    case RIG_MODE_AM:  icmode = 2; modebuf = 1; break;
+
+    case RIG_MODE_AMN: icmode = 2; modebuf = 2; break;
+
+    case RIG_MODE_FM:  icmode = 5; modebuf = 1; break;
+
+    case RIG_MODE_FMN: icmode = 5; modebuf = 2; break;
+
+    case RIG_MODE_DSTAR: icmode = 0x17; modebuf = 1; break;
+
+    default:
+        rig_debug(RIG_DEBUG_ERR, "%s: Unknown mode=%s\n", __func__, rig_strrmode(mode));
+        return -RIG_EINVAL;
+    }
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: mode=%d, modebuf=%c\n", __func__, icmode,
+              modebuf);
+
+    retval = icom_transaction(rig, C_SET_MODE, icmode, &modebuf, 1, ackbuf,
+                              &ack_len);
+
+    return retval;
+}
+
+int id5100_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
+{
+    int retval;
+    int mode_len;
+    unsigned char modebuf[4];
+
+    retval = icom_transaction(rig, C_RD_MODE, -1, NULL, 0, modebuf, &mode_len);
+
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
+
+    switch (modebuf[1])
+    {
+    case 2:
+        *mode = modebuf[2] == 1 ? RIG_MODE_AM : RIG_MODE_AMN;
+        *width = modebuf[2] == 1 ? 12000 : 6000; break;
+
+    case 5:
+        *mode = modebuf[2] == 1 ? RIG_MODE_FM : RIG_MODE_FMN;
+        *width = modebuf[2] == 1 ? 10000 : 5000; break;
+
+    case 0x17:
+        *mode = RIG_MODE_DSTAR;
+        *width = 6000; break;
+    }
+
+    return RIG_OK;
+}
 
 /*
  */
@@ -89,9 +151,9 @@ const struct rig_caps id5100_caps =
     RIG_MODEL(RIG_MODEL_ID5100),
     .model_name = "ID-5100",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".2",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_MOBILE,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -105,14 +167,16 @@ const struct rig_caps id5100_caps =
     .write_delay =  0,
     .post_write_delay =  0,
     .timeout =  1000,
-    .retry =  3,
+    .retry =  0,
     .has_get_func =  ID5100_FUNC_ALL,
     .has_set_func =  ID5100_FUNC_ALL,
     .has_get_level =  ID5100_LEVEL_ALL,
     .has_set_level =  RIG_LEVEL_SET(ID5100_LEVEL_ALL),
     .has_get_parm =  ID5100_PARM_ALL,
     .has_set_parm =  ID5100_PARM_ALL,
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
@@ -162,6 +226,7 @@ const struct rig_caps id5100_caps =
 
     .tuning_steps =     {
         // Rem: no support for changing tuning step
+        {RIG_MODE_ALL, 1},
         RIG_TS_END,
     },
     /* mode/filter list, remember: order matters! */
@@ -184,12 +249,12 @@ const struct rig_caps id5100_caps =
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
-    .set_mode =  icom_set_mode,
-    .get_mode =  icom_get_mode,
+    .set_mode =  id5100_set_mode,
+    .get_mode =  id5100_get_mode,
     .set_vfo =  icom_set_vfo,
 
     .set_powerstat = icom_set_powerstat,
-    .get_powerstat = icom_get_powerstat,
+    //.get_powerstat = icom_get_powerstat, // ID-5100 cannot get power status
     .decode_event =  icom_decode_event,
 
     .set_func =  icom_set_func,
@@ -217,4 +282,5 @@ const struct rig_caps id5100_caps =
     .get_ctcss_sql =  icom_get_ctcss_sql,
     .set_dcs_sql =  icom_set_dcs_sql,
     .get_dcs_sql =  icom_get_dcs_sql,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

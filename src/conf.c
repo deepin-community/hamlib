@@ -30,15 +30,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 #include "token.h"
@@ -89,14 +86,14 @@ static const struct confparams frontend_cfg_params[] =
         "0", RIG_CONF_NUMERIC, { .n = { 0.0, 1000.0, .001 } }
     },
     {
-        TOK_POLL_INTERVAL, "poll_interval", "Polling interval",
-        "Polling interval in millisecond for transceive emulation",
-        "500", RIG_CONF_NUMERIC, { .n = { 0, 1000000, 1 } }
+        TOK_POLL_INTERVAL, "poll_interval", "Rig state poll interval in milliseconds",
+        "Polling interval in milliseconds for transceive emulation, value of 0 disables polling",
+        "0", RIG_CONF_NUMERIC, { .n = { 0, 1000000, 1 } }
     },
     {
         TOK_PTT_TYPE, "ptt_type", "PTT type",
         "Push-To-Talk interface type override",
-        "RIG", RIG_CONF_COMBO, { .c = {{ "RIG", "DTR", "RTS", "Parallel", "CM108", "GPIO", "GPION", "None", NULL }} }
+        "RIG", RIG_CONF_COMBO, { .c = {{ "RIG", "RIGMICDATA", "DTR", "RTS", "Parallel", "CM108", "GPIO", "GPION", "None", NULL }} }
     },
     {
         TOK_PTT_PATHNAME, "ptt_pathname", "PTT path name",
@@ -168,6 +165,11 @@ static const struct confparams frontend_cfg_params[] =
         "Suppress get_freq on VFOB for RIT tuning satellites",
         "Unset", RIG_CONF_COMBO, { .c = {{ "Unset", "ON", "OFF", NULL }} }
     },
+    {
+        TOK_ASYNC, "async", "Asynchronous data transfer support",
+        "True enables asynchronous data transfer for backends that support it. This allows use of transceive and spectrum data.",
+        "0", RIG_CONF_CHECKBUTTON, { }
+    },
 
     { RIG_CONF_END, NULL, }
 };
@@ -233,6 +235,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
     {
     case TOK_PATHNAME:
         strncpy(rs->rigport.pathname, val, HAMLIB_FILPATHLEN - 1);
+        strncpy(rs->rigport_deprecated.pathname, val, HAMLIB_FILPATHLEN - 1);
         break;
 
     case TOK_WRITE_DELAY:
@@ -242,6 +245,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         }
 
         rs->rigport.write_delay = val_i;
+        rs->rigport_deprecated.write_delay = val_i;
         break;
 
     case TOK_POST_WRITE_DELAY:
@@ -251,6 +255,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         }
 
         rs->rigport.post_write_delay = val_i;
+        rs->rigport_deprecated.timeout = val_i;
         break;
 
     case TOK_TIMEOUT:
@@ -260,6 +265,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         }
 
         rs->rigport.timeout = val_i;
+        rs->rigport_deprecated.timeout = val_i;
         break;
 
     case TOK_RETRY:
@@ -269,6 +275,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         }
 
         rs->rigport.retry = val_i;
+        rs->rigport_deprecated.retry = val_i;
         break;
 
     case TOK_SERIAL_SPEED:
@@ -283,6 +290,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         }
 
         rs->rigport.parm.serial.rate = val_i;
+        rs->rigport_deprecated.parm.serial.rate = val_i;
         break;
 
     case TOK_DATA_BITS:
@@ -297,6 +305,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         }
 
         rs->rigport.parm.serial.data_bits = val_i;
+        rs->rigport_deprecated.parm.serial.data_bits = val_i;
         break;
 
     case TOK_STOP_BITS:
@@ -311,6 +320,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         }
 
         rs->rigport.parm.serial.stop_bits = val_i;
+        rs->rigport_deprecated.parm.serial.stop_bits = val_i;
         break;
 
     case TOK_PARITY:
@@ -322,22 +332,27 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         if (!strcmp(val, "None"))
         {
             rs->rigport.parm.serial.parity = RIG_PARITY_NONE;
+            rs->rigport_deprecated.parm.serial.parity = RIG_PARITY_SPACE;
         }
         else if (!strcmp(val, "Odd"))
         {
             rs->rigport.parm.serial.parity = RIG_PARITY_ODD;
+            rs->rigport_deprecated.parm.serial.parity = RIG_PARITY_SPACE;
         }
         else if (!strcmp(val, "Even"))
         {
             rs->rigport.parm.serial.parity = RIG_PARITY_EVEN;
+            rs->rigport_deprecated.parm.serial.parity = RIG_PARITY_SPACE;
         }
         else if (!strcmp(val, "Mark"))
         {
             rs->rigport.parm.serial.parity = RIG_PARITY_MARK;
+            rs->rigport_deprecated.parm.serial.parity = RIG_PARITY_SPACE;
         }
         else if (!strcmp(val, "Space"))
         {
             rs->rigport.parm.serial.parity = RIG_PARITY_SPACE;
+            rs->rigport_deprecated.parm.serial.parity = RIG_PARITY_SPACE;
         }
         else
         {
@@ -355,14 +370,17 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         if (!strcmp(val, "None"))
         {
             rs->rigport.parm.serial.handshake = RIG_HANDSHAKE_NONE;
+            rs->rigport_deprecated.parm.serial.handshake = RIG_HANDSHAKE_HARDWARE;
         }
         else if (!strcmp(val, "XONXOFF"))
         {
             rs->rigport.parm.serial.handshake = RIG_HANDSHAKE_XONXOFF;
+            rs->rigport_deprecated.parm.serial.handshake = RIG_HANDSHAKE_HARDWARE;
         }
         else if (!strcmp(val, "Hardware"))
         {
             rs->rigport.parm.serial.handshake = RIG_HANDSHAKE_HARDWARE;
+            rs->rigport_deprecated.parm.serial.handshake = RIG_HANDSHAKE_HARDWARE;
         }
         else
         {
@@ -380,14 +398,17 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         if (!strcmp(val, "Unset"))
         {
             rs->rigport.parm.serial.rts_state = RIG_SIGNAL_UNSET;
+            rs->rigport_deprecated.parm.serial.rts_state = RIG_SIGNAL_UNSET;
         }
         else if (!strcmp(val, "ON"))
         {
             rs->rigport.parm.serial.rts_state = RIG_SIGNAL_ON;
+            rs->rigport_deprecated.parm.serial.rts_state = RIG_SIGNAL_ON;
         }
         else if (!strcmp(val, "OFF"))
         {
             rs->rigport.parm.serial.rts_state = RIG_SIGNAL_OFF;
+            rs->rigport_deprecated.parm.serial.rts_state = RIG_SIGNAL_OFF;
         }
         else
         {
@@ -405,14 +426,17 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         if (!strcmp(val, "Unset"))
         {
             rs->rigport.parm.serial.dtr_state = RIG_SIGNAL_UNSET;
+            rs->rigport_deprecated.parm.serial.dtr_state = RIG_SIGNAL_UNSET;
         }
         else if (!strcmp(val, "ON"))
         {
             rs->rigport.parm.serial.dtr_state = RIG_SIGNAL_ON;
+            rs->rigport_deprecated.parm.serial.dtr_state = RIG_SIGNAL_ON;
         }
         else if (!strcmp(val, "OFF"))
         {
             rs->rigport.parm.serial.dtr_state = RIG_SIGNAL_OFF;
+            rs->rigport_deprecated.parm.serial.dtr_state = RIG_SIGNAL_OFF;
         }
         else
         {
@@ -512,10 +536,15 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
+        // JTDX and WSJTX currently use state.pttport to check for PTT_NONE
+        rig->state.pttport.type.ptt = rs->pttport.type.ptt;
+        rs->pttport_deprecated.type.ptt = rs->pttport.type.ptt;
+
         break;
 
     case TOK_PTT_PATHNAME:
         strncpy(rs->pttport.pathname, val, HAMLIB_FILPATHLEN - 1);
+        strncpy(rs->pttport_deprecated.pathname, val, HAMLIB_FILPATHLEN - 1);
         break;
 
     case TOK_PTT_BITNUM:
@@ -525,44 +554,55 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         }
 
         rs->pttport.parm.cm108.ptt_bitnum = val_i;
+        rs->rigport.parm.cm108.ptt_bitnum = val_i;
+        rs->pttport_deprecated.parm.cm108.ptt_bitnum = val_i;
         break;
 
     case TOK_DCD_TYPE:
         if (!strcmp(val, "RIG"))
         {
             rs->dcdport.type.dcd = RIG_DCD_RIG;
+            rs->dcdport_deprecated.type.dcd = RIG_DCD_RIG;
         }
         else if (!strcmp(val, "DSR"))
         {
             rs->dcdport.type.dcd = RIG_DCD_SERIAL_DSR;
+            rs->dcdport_deprecated.type.dcd = RIG_DCD_SERIAL_DSR;
         }
         else if (!strcmp(val, "CTS"))
         {
             rs->dcdport.type.dcd = RIG_DCD_SERIAL_CTS;
+            rs->dcdport_deprecated.type.dcd = RIG_DCD_SERIAL_CTS;
         }
         else if (!strcmp(val, "CD"))
         {
             rs->dcdport.type.dcd = RIG_DCD_SERIAL_CAR;
+            rs->dcdport_deprecated.type.dcd = RIG_DCD_SERIAL_CAR;
         }
         else if (!strcmp(val, "Parallel"))
         {
             rs->dcdport.type.dcd = RIG_DCD_PARALLEL;
+            rs->dcdport_deprecated.type.dcd = RIG_DCD_PARALLEL;
         }
         else if (!strcmp(val, "CM108"))
         {
             rs->dcdport.type.dcd = RIG_DCD_CM108;
+            rs->dcdport_deprecated.type.dcd = RIG_DCD_CM108;
         }
         else if (!strcmp(val, "GPIO"))
         {
             rs->dcdport.type.dcd = RIG_DCD_GPIO;
+            rs->dcdport_deprecated.type.dcd = RIG_DCD_GPIO;
         }
         else if (!strcmp(val, "GPION"))
         {
             rs->dcdport.type.dcd = RIG_DCD_GPION;
+            rs->dcdport_deprecated.type.dcd = RIG_DCD_GPION;
         }
         else if (!strcmp(val, "None"))
         {
             rs->dcdport.type.dcd = RIG_DCD_NONE;
+            rs->dcdport_deprecated.type.dcd = RIG_DCD_NONE;
         }
         else
         {
@@ -573,6 +613,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
 
     case TOK_DCD_PATHNAME:
         strncpy(rs->dcdport.pathname, val, HAMLIB_FILPATHLEN - 1);
+        strncpy(rs->dcdport_deprecated.pathname, val, HAMLIB_FILPATHLEN - 1);
         break;
 
 
@@ -582,6 +623,8 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
 
     case TOK_POLL_INTERVAL:
         rs->poll_interval = atof(val);
+        // Make sure cache times out before next poll cycle
+        rig_set_cache_timeout_ms(rig, HAMLIB_CACHE_ALL, atol(val));
         break;
 
     case TOK_LO_FREQ:
@@ -664,6 +707,15 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         rs->twiddle_rit = val_i ? 1 : 0;
         break;
 
+    case TOK_ASYNC:
+        if (1 != sscanf(val, "%d", &val_i))
+        {
+            return -RIG_EINVAL; //value format error
+        }
+
+        rs->async_data_enabled = val_i ? 1 : 0;
+        break;
+
     default:
         return -RIG_EINVAL;
     }
@@ -676,7 +728,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
  * frontend_get_conf
  * assumes rig!=NULL, val!=NULL
  */
-static int frontend_get_conf(RIG *rig, token_t token, char *val)
+static int frontend_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
     struct rig_state *rs;
     const char *s = "";
@@ -686,30 +738,30 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
     switch (token)
     {
     case TOK_PATHNAME:
-        strcpy(val, rs->rigport.pathname);
+        SNPRINTF(val, val_len, "%s", rs->rigport.pathname);
         break;
 
     case TOK_WRITE_DELAY:
-        sprintf(val, "%d", rs->rigport.write_delay);
+        SNPRINTF(val, val_len, "%d", rs->rigport.write_delay);
         break;
 
     case TOK_POST_WRITE_DELAY:
-        sprintf(val, "%d", rs->rigport.post_write_delay);
+        SNPRINTF(val, val_len, "%d", rs->rigport.post_write_delay);
         break;
 
     case TOK_TIMEOUT:
-        sprintf(val, "%d", rs->rigport.timeout);
+        SNPRINTF(val, val_len, "%d", rs->rigport.timeout);
         break;
 
     case TOK_RETRY:
-        sprintf(val, "%d", rs->rigport.retry);
+        SNPRINTF(val, val_len, "%d", rs->rigport.retry);
         break;
 
 #if 0 // needs to be replace?
 
     case TOK_ITU_REGION:
-        sprintf(val, "%d",
-                rs->itu_region == 1 ? RIG_ITU_REGION1 : RIG_ITU_REGION2);
+        SNPRINTF(val, val_len, "%d",
+                 rs->itu_region == 1 ? RIG_ITU_REGION1 : RIG_ITU_REGION2);
         break;
 #endif
 
@@ -719,7 +771,7 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
             return -RIG_EINVAL;
         }
 
-        sprintf(val, "%d", rs->rigport.parm.serial.rate);
+        SNPRINTF(val, val_len, "%d", rs->rigport.parm.serial.rate);
         break;
 
     case TOK_DATA_BITS:
@@ -728,7 +780,7 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
             return -RIG_EINVAL;
         }
 
-        sprintf(val, "%d", rs->rigport.parm.serial.data_bits);
+        SNPRINTF(val, val_len, "%d", rs->rigport.parm.serial.data_bits);
         break;
 
     case TOK_STOP_BITS:
@@ -737,7 +789,7 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
             return -RIG_EINVAL;
         }
 
-        sprintf(val, "%d", rs->rigport.parm.serial.stop_bits);
+        SNPRINTF(val, val_len, "%d", rs->rigport.parm.serial.stop_bits);
         break;
 
     case TOK_PARITY:
@@ -857,11 +909,11 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
         break;
 
     case TOK_VFO_COMP:
-        sprintf(val, "%f", rs->vfo_comp);
+        SNPRINTF(val, val_len, "%f", rs->vfo_comp);
         break;
 
     case TOK_POLL_INTERVAL:
-        sprintf(val, "%d", rs->poll_interval);
+        SNPRINTF(val, val_len, "%d", rs->poll_interval);
         break;
 
     case TOK_PTT_TYPE:
@@ -915,7 +967,7 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
         break;
 
     case TOK_PTT_BITNUM:
-        sprintf(val, "%d", rs->pttport.parm.cm108.ptt_bitnum);
+        SNPRINTF(val, val_len, "%d", rs->pttport.parm.cm108.ptt_bitnum);
         break;
 
     case TOK_DCD_TYPE:
@@ -969,49 +1021,54 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
         break;
 
     case TOK_LO_FREQ:
-        sprintf(val, "%g", rs->lo_freq);
+        SNPRINTF(val, val_len, "%g", rs->lo_freq);
         break;
 
     case TOK_CACHE_TIMEOUT:
-        sprintf(val, "%d", rig_get_cache_timeout_ms(rig, HAMLIB_CACHE_ALL));
+        SNPRINTF(val, val_len, "%d", rig_get_cache_timeout_ms(rig, HAMLIB_CACHE_ALL));
         break;
 
     case TOK_AUTO_POWER_ON:
-        sprintf(val, "%d", rs->auto_power_on);
+        SNPRINTF(val, val_len, "%d", rs->auto_power_on);
         break;
 
     case TOK_AUTO_POWER_OFF:
-        sprintf(val, "%d", rs->auto_power_off);
+        SNPRINTF(val, val_len, "%d", rs->auto_power_off);
         break;
 
     case TOK_AUTO_DISABLE_SCREENSAVER:
-        sprintf(val, "%d", rs->auto_disable_screensaver);
+        SNPRINTF(val, val_len, "%d", rs->auto_disable_screensaver);
         break;
 
     case TOK_PTT_SHARE:
-        sprintf(val, "%d", rs->ptt_share);
+        SNPRINTF(val, val_len, "%d", rs->ptt_share);
         break;
 
     case TOK_FLUSHX:
-        sprintf(val, "%d", rs->rigport.flushx);
+        SNPRINTF(val, val_len, "%d", rs->rigport.flushx);
         break;
 
     case TOK_DISABLE_YAESU_BANDSELECT:
-        sprintf(val, "%d", rs->disable_yaesu_bandselect);
+        SNPRINTF(val, val_len, "%d", rs->disable_yaesu_bandselect);
         break;
 
     case TOK_TWIDDLE_TIMEOUT:
-        sprintf(val, "%d", rs->twiddle_timeout);
+        SNPRINTF(val, val_len, "%d", rs->twiddle_timeout);
         break;
 
     case TOK_TWIDDLE_RIT:
-        sprintf(val, "%d", rs->twiddle_rit);
+        SNPRINTF(val, val_len, "%d", rs->twiddle_rit);
         break;
 
+    case TOK_ASYNC:
+        SNPRINTF(val, val_len, "%d", rs->async_data_enabled);
+        break;
 
     default:
         return -RIG_EINVAL;
     }
+
+    memcpy(&rs->rigport_deprecated, &rs->rigport, sizeof(hamlib_port_t_deprecated));
 
     return RIG_OK;
 }
@@ -1072,6 +1129,14 @@ int HAMLIB_API rig_token_foreach(RIG *rig,
         }
     }
 
+    for (cfp = rig->caps->extlevels; cfp && cfp->name; cfp ++)
+    {
+        if ((*cfunc)(cfp, data) == 0)
+        {
+            return RIG_OK;
+        }
+    }
+
     return RIG_OK;
 }
 
@@ -1091,7 +1156,7 @@ const struct confparams *HAMLIB_API rig_confparam_lookup(RIG *rig,
     const struct confparams *cfp;
     token_t token;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called for %s\n", __func__, name);
 
     if (!rig || !rig->caps)
     {
@@ -1145,7 +1210,7 @@ token_t HAMLIB_API rig_token_lookup(RIG *rig, const char *name)
 {
     const struct confparams *cfp;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called for %s\n", __func__, name);
 
     cfp = rig_confparam_lookup(rig, name);
 
@@ -1185,7 +1250,7 @@ int HAMLIB_API rig_set_conf(RIG *rig, token_t token, const char *val)
     {
         const struct confparams *cfp;
         char tokenstr[12];
-        sprintf(tokenstr, "%ld", token);
+        SNPRINTF(tokenstr, sizeof(tokenstr), "%ld", token);
         cfp = rig_confparam_lookup(rig, tokenstr);
 
         if (!cfp)
@@ -1227,6 +1292,11 @@ int HAMLIB_API rig_set_conf(RIG *rig, token_t token, const char *val)
  */
 int HAMLIB_API rig_get_conf(RIG *rig, token_t token, char *val)
 {
+    return rig_get_conf2(rig, token, val, 128);
+}
+
+int HAMLIB_API rig_get_conf2(RIG *rig, token_t token, char *val, int val_len)
+{
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (!rig || !rig->caps || !val)
@@ -1236,7 +1306,12 @@ int HAMLIB_API rig_get_conf(RIG *rig, token_t token, char *val)
 
     if (IS_TOKEN_FRONTEND(token))
     {
-        return frontend_get_conf(rig, token, val);
+        return frontend_get_conf2(rig, token, val, val_len);
+    }
+
+    if (rig->caps->get_conf2)
+    {
+        return rig->caps->get_conf2(rig, token, val, val_len);
     }
 
     if (rig->caps->get_conf == NULL)

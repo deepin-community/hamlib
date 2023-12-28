@@ -404,7 +404,7 @@ int execRoutine(RIG *rig, enum ROUTINE_e rtn)
 
     assert(NULL != rig);
 
-    if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+    if (0 == write_block(&rig->state.rigport, &v, 1))
     {
         rc = RIG_OK;
 
@@ -441,7 +441,7 @@ static int setAddr(RIG *rig, enum PAGE_e page, unsigned int addr)
             {
                 v = PGE(page);
 
-                if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+                if (0 == write_block(&rig->state.rigport, &v, 1))
                 {
                     curPage = page;
                     rc = RIG_OK;
@@ -458,7 +458,7 @@ static int setAddr(RIG *rig, enum PAGE_e page, unsigned int addr)
             {
                 v = SRH((0x0f0 & addr) >> 4);
 
-                rc = write_block(&rig->state.rigport, (char *) &v, 1);
+                rc = write_block(&rig->state.rigport, &v, 1);
 
                 if (rc != RIG_OK)
                 {
@@ -467,13 +467,13 @@ static int setAddr(RIG *rig, enum PAGE_e page, unsigned int addr)
 
                 v = ADR((0x00f & addr));
 
-                if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+                if (0 == write_block(&rig->state.rigport, &v, 1))
                 {
                     if (0xff < addr)
                     {
                         v = ADH((0xf00 & addr) >> 8);
 
-                        if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+                        if (0 == write_block(&rig->state.rigport, &v, 1))
                         {
                             curAddr = addr;
                             rc = RIG_OK;
@@ -537,9 +537,9 @@ int writeByte(RIG *rig, enum PAGE_e page, unsigned int addr, unsigned char x)
     {
         rc = -RIG_EIO;
 
-        if (0 == write_block(&rig->state.rigport, (char *) &hi, 1))
+        if (0 == write_block(&rig->state.rigport, &hi, 1))
         {
-            if (0 == write_block(&rig->state.rigport, (char *) &lo, 1))
+            if (0 == write_block(&rig->state.rigport, &lo, 1))
             {
                 rc = RIG_OK;
                 curAddr++;
@@ -679,9 +679,9 @@ int readByte(RIG *rig, enum PAGE_e page, unsigned int addr, unsigned char *x)
     {
         rc = -RIG_EIO;
 
-        if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+        if (0 == write_block(&rig->state.rigport, &v, 1))
         {
-            if (1 == read_block(&rig->state.rigport, (char *) x, 1))
+            if (1 == read_block(&rig->state.rigport, x, 1))
             {
                 curAddr++;
                 rc = RIG_OK;
@@ -842,7 +842,7 @@ int readSignal(RIG *rig, unsigned char *x)
 
     if (RIG_OK == rc)
     {
-        if (1 == read_block(&rig->state.rigport, (char *) x, 1))
+        if (1 == read_block(&rig->state.rigport, x, 1))
         {
             rc = RIG_OK;
 
@@ -897,7 +897,7 @@ int lockRx(RIG *rig, enum LOCK_LVL_e level)
         {
             v = LOC(level);
 
-            if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+            if (0 == write_block(&rig->state.rigport, &v, 1))
             {
                 rc = RIG_OK;
 
@@ -946,39 +946,6 @@ int bcd2Int(const unsigned char bcd)
 
     return (rc);
 }
-
-#ifdef XXREMOVEDXX
-// this function is not referenced anywhere
-/*
- * \brief Convert int into 2 digit BCD number
- *
- * \param int Integer value (0-99)
- *
- * \return 2 digit BCD equivalent (0-99), 0xff on failure
- */
-unsigned char int2BCD(const unsigned int val)
-{
-    unsigned char rc = (unsigned char) 0xff;
-    unsigned char tens = (unsigned char)(val / 10);
-    unsigned char ones = (unsigned char)(val % 10);
-
-    if ((unsigned char) 10 > tens)
-    {
-        rc = (tens << 4);
-
-        if ((unsigned char) 10 > ones)
-        {
-            rc = rc | ones;
-        }
-        else
-        {
-            rc = (unsigned char) 0xff;
-        }
-    }
-
-    return (rc);
-}
-#endif
 
 /*
  * \brief Convert raw AGC value to calibrated level in dBm

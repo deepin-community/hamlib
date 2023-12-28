@@ -127,7 +127,7 @@ int elecraft_open(RIG *rig)
 
         strcpy(data, "EMPTY");
         // Not going to get carried away with retries and such
-        err = write_block(&rs->rigport, cmd, strlen(cmd));
+        err = write_block(&rs->rigport, (unsigned char *) cmd, strlen(cmd));
 
         if (err != RIG_OK)
         {
@@ -135,7 +135,8 @@ int elecraft_open(RIG *rig)
             return err;
         }
 
-        err = read_string(&rs->rigport, buf, sizeof(buf), ";", 1);
+        err = read_string(&rs->rigport, (unsigned char *) buf, sizeof(buf),
+                          ";", 1, 0, 1);
 
         if (err < 0)
         {
@@ -161,6 +162,18 @@ int elecraft_open(RIG *rig)
         if (err != RIG_OK)
         {
             return err;
+        }
+    }
+
+    if (rig->caps->rig_model != RIG_MODEL_XG3)   // XG3 doesn't have extended
+    {
+        // turn on k2 extended to get PC values in more resolution
+        err = kenwood_transaction(rig, "K22;", NULL, 0);
+
+        if (err != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: error setting K22='%s'...continuing\n", __func__,
+                      rigerror(err));
         }
     }
 
@@ -257,9 +270,9 @@ int elecraft_open(RIG *rig)
         }
 
         rig_debug(RIG_DEBUG_TRACE,
-                  "%s: model=%s, is_k2=%d, is_k3=%d, is_k3s=%d, is_kx3=%d, is_kx2=%d, is_k4d=%d, is_k4hd=%d, kpa3=%d\n",
+                  "%s: model=%s, is_k2=%d, is_k3=%d, is_k3s=%d, is_kx3=%d, is_kx2=%d, is_k4=%d, is_k4d=%d, is_k4hd=%d, kpa3=%d\n",
                   __func__, model, priv->is_k2, priv->is_k3, priv->is_k3s, priv->is_kx3,
-                  priv->is_kx2, priv->is_k4d,  priv->is_k4hd, priv->has_kpa3);
+                  priv->is_kx2, priv->is_k4, priv->is_k4d,  priv->is_k4hd, priv->has_kpa3);
 
         err = elecraft_get_extension_level(rig, "K2", &priv->k2_ext_lvl);
 
@@ -309,8 +322,8 @@ int elecraft_open(RIG *rig)
         kenwood_get_trn(rig, &priv->trn_state);  /* ignore errors */
         /* Currently we cannot cope with AI mode so turn it off in
              case last client left it on */
-        kenwood_set_trn(rig, RIG_TRN_OFF); /* ignore status in case
-                                                                                        it's not supported */
+        kenwood_set_trn(rig,
+                        RIG_TRN_OFF); /* ignore status in case it's not supported */
     }
 
     // For rigs like K3X vfo emulation need to set VFO_A to start
@@ -471,3 +484,63 @@ int elecraft_get_firmware_revision_level(RIG *rig, const char *cmd,
 
     return RIG_OK;
 }
+
+//  FR;FT;TQ; is faster than IF;
+//  Works on K4
+int elecraft_get_vfo_tq(RIG *rig, vfo_t *vfo)
+{
+    int retval;
+    int fr, ft, tq;
+    char cmdbuf[10];
+    char splitbuf[12];
+
+    memset(splitbuf, 0, sizeof(splitbuf));
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "FR;");
+    retval = kenwood_safe_transaction(rig, cmdbuf, splitbuf, 12, 3);
+
+    if (retval != RIG_OK)
+    {
+        RETURNFUNC(retval);
+    }
+
+    if (sscanf(splitbuf, "FR%1d", &fr) != 1)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: unable to parse FR '%s'\n", __func__, splitbuf);
+    }
+
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "FT;");
+    retval = kenwood_safe_transaction(rig, cmdbuf, splitbuf, 12, 3);
+
+    if (retval != RIG_OK)
+    {
+        RETURNFUNC(retval);
+    }
+
+    if (sscanf(splitbuf, "FT%1d", &ft) != 1)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: unable to parse FT '%s'\n", __func__, splitbuf);
+    }
+
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "TQ;");
+    retval = kenwood_safe_transaction(rig, cmdbuf, splitbuf, 12, 3);
+
+    if (retval != RIG_OK)
+    {
+        RETURNFUNC(retval);
+    }
+
+    if (sscanf(splitbuf, "TQ%1d", &tq) != 1)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: unable to parse TQ '%s'\n", __func__, splitbuf);
+    }
+
+    *vfo = rig->state.tx_vfo = RIG_VFO_A;
+
+    if (tq && ft == 1) { *vfo = rig->state.tx_vfo = RIG_VFO_B; }
+    else if (tq && ft == 0) { *vfo = rig->state.tx_vfo = RIG_VFO_A; }
+
+    if (!tq && fr == 1) { *vfo = rig->state.rx_vfo = rig->state.tx_vfo = RIG_VFO_B; }
+
+    RETURNFUNC2(RIG_OK);
+}
+

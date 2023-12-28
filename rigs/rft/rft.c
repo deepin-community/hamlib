@@ -19,15 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -57,7 +51,7 @@ int rft_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rig_flush(&rs->rigport);
 
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(&rs->rigport, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -71,7 +65,7 @@ int rft_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
         return 0;
     }
 
-    retval = read_string(&rs->rigport, data, BUFSZ, CR, 1);
+    retval = read_string(&rs->rigport, (unsigned char *) data, BUFSZ, CR, 1, 0, 1);
 
     if (retval == -RIG_ETIMEOUT)
     {
@@ -95,12 +89,12 @@ int rft_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 int rft_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[16], ackbuf[16];
-    int freq_len, ack_len, retval;
+    int ack_len, retval;
 
     /*
      */
-    freq_len = sprintf(freqbuf, "FRQ%f" EOM, (float)freq / 1000);
-    retval = rft_transaction(rig, freqbuf, freq_len, ackbuf, &ack_len);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "FRQ%f" EOM, (float)freq / 1000);
+    retval = rft_transaction(rig, freqbuf, strlen(freqbuf), ackbuf, &ack_len);
 
     return retval;
 }

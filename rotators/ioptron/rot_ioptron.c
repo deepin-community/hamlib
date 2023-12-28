@@ -18,15 +18,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
 #include <ctype.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -87,7 +82,7 @@ transaction_write:
 
     if (cmdstr)
     {
-        retval = write_block(&rs->rotport, cmdstr, strlen(cmdstr));
+        retval = write_block(&rs->rotport, (unsigned char *) cmdstr, strlen(cmdstr));
 
         if (retval != RIG_OK)
         {
@@ -108,7 +103,8 @@ transaction_write:
 
     /** the answer */
     memset(data, 0, data_len);
-    retval = read_string(&rs->rotport, data, data_len, ACK, strlen(ACK));
+    retval = read_string(&rs->rotport, (unsigned char *) data, data_len, ACK,
+                         strlen(ACK), 0, 1);
 
     if (retval < 0)
     {
@@ -164,7 +160,7 @@ ioptron_set_position(ROT *rot, azimuth_t az, elevation_t el)
     faz = az * 360000;
     fel = el * 360000;
     /* set azmiuth, returns '1" if OK */
-    sprintf(cmdstr, ":Sz%09.0f#", faz);
+    SNPRINTF(cmdstr, sizeof(cmdstr), ":Sz%09.0f#", faz);
     retval = ioptron_transaction(rot, cmdstr, retbuf, sizeof(retbuf));
 
     if (retval != RIG_OK || retbuf[0] != ACK1)
@@ -173,7 +169,7 @@ ioptron_set_position(ROT *rot, azimuth_t az, elevation_t el)
     }
 
     /* set altitude, returns '1" if OK */
-    sprintf(cmdstr, ":Sa+%08.0f#", fel);
+    SNPRINTF(cmdstr, sizeof(cmdstr), ":Sa+%08.0f#", fel);
     retval = ioptron_transaction(rot, cmdstr, retbuf, sizeof(retbuf));
 
     if (retval != RIG_OK || retbuf[0] != ACK1)
@@ -182,7 +178,7 @@ ioptron_set_position(ROT *rot, azimuth_t az, elevation_t el)
     }
 
     /* move to set target, V2 command, returns '1" if OK */
-    sprintf(cmdstr, ":MS#"); //
+    SNPRINTF(cmdstr, sizeof(cmdstr), ":MS#"); //
     retval = ioptron_transaction(rot, cmdstr, retbuf, sizeof(retbuf));
 
     if (retval != RIG_OK || retbuf[0] != ACK1)
@@ -191,7 +187,7 @@ ioptron_set_position(ROT *rot, azimuth_t az, elevation_t el)
     }
 
     /* stop tracking, V2 command, returns '1" if OK */
-    sprintf(cmdstr, ":ST0#");
+    SNPRINTF(cmdstr, sizeof(cmdstr), ":ST0#");
     retval = ioptron_transaction(rot, cmdstr, retbuf, sizeof(retbuf));
 
     if (retval != RIG_OK || retbuf[0] != ACK1)
@@ -273,7 +269,7 @@ ioptron_stop(ROT *rot)
 static const char *
 ioptron_get_info(ROT *rot)
 {
-    static char info[16];
+    static char info[32];
     char str[6];
     int retval;
 
@@ -284,7 +280,7 @@ ioptron_get_info(ROT *rot)
     rig_debug(RIG_DEBUG_TRACE, "retval, RIG_OK str %d  %d  %str\n", retval, RIG_OK,
               str);
 
-    sprintf(info, "MountInfo %s", str);
+    SNPRINTF(info, sizeof(info), "MountInfo %s", str);
 
     return info;
 }
@@ -306,9 +302,9 @@ const struct rot_caps ioptron_rot_caps =
     ROT_MODEL(ROT_MODEL_IOPTRON),
     .model_name =     "iOptron",
     .mfg_name =       "iOptron",
-    .version =        "20191209.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min  = 9600,

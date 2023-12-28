@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -103,7 +101,7 @@ const struct rig_caps ic92d_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_ALPHA,
     .rig_type =  RIG_TYPE_HANDHELD,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -124,7 +122,9 @@ const struct rig_caps ic92d_caps =
     .has_set_level =  RIG_LEVEL_SET(IC92D_LEVEL_ALL),
     .has_get_parm =  IC92D_PARM_ALL,
     .has_set_parm =  IC92D_PARM_ALL,
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
@@ -217,6 +217,7 @@ const struct rig_caps ic92d_caps =
 
     .get_info =  ic92d_get_info,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 const char *ic92d_get_info(RIG *rig)
@@ -249,7 +250,8 @@ const char *ic92d_get_info(RIG *rig)
         return NULL;
     }
 
-    sprintf(info, "ID %02x%02x%02x\n", ackbuf[1], ackbuf[2], ackbuf[3]);
+    SNPRINTF(info, sizeof(info), "ID %02x%02x%02x\n", ackbuf[1], ackbuf[2],
+             ackbuf[3]);
 
     return info;
 }

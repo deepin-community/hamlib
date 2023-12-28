@@ -19,19 +19,17 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
 
+#ifdef HAVE_PARALLEL
 #ifdef HAVE_LINUX_PARPORT_H
 #include <linux/parport.h>
+#endif
 #endif
 
 #include "hamlib/rotator.h"

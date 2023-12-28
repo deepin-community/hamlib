@@ -21,12 +21,9 @@
  *  the complete text of the GNU Lesser Public License version 2.1.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
-#include <string.h>
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -75,7 +72,7 @@ const struct rig_caps transfox_caps =
     .mfg_name =     "SigFox",
     .version =      "20111223.0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_ALPHA,
+    .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TUNER,
     .ptt_type =     RIG_PTT_RIG,
     .dcd_type =     RIG_DCD_NONE,
@@ -160,6 +157,7 @@ const struct rig_caps transfox_caps =
     .get_conf =     transfox_get_conf,
 #endif
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

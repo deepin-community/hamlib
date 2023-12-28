@@ -21,15 +21,10 @@
 
 #include "hamlib/rig.h"
 #include <strings.h>
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
 #include <ctype.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -128,7 +123,7 @@ static int satel_cmd(ROT *rot, char *cmd, int cmdlen, char *res, int reslen)
 
     rig_flush(&rs->rotport);
 
-    ret = write_block(&rs->rotport, cmd, cmdlen);
+    ret = write_block(&rs->rotport, (unsigned char *) cmd, cmdlen);
 
     if (ret != RIG_OK)
     {
@@ -137,7 +132,7 @@ static int satel_cmd(ROT *rot, char *cmd, int cmdlen, char *res, int reslen)
 
     if (reslen > 0 && res != NULL)
     {
-        ret = read_string(&rs->rotport, res, reslen, "\n", 1);
+        ret = read_string(&rs->rotport, (unsigned char *) res, reslen, "\n", 1, 0, 1);
 
         if (ret < 0)
         {
@@ -163,7 +158,8 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
 
 
     // read motion state
-    ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
+    ret = read_string(&rs->rotport, (unsigned char *) resbuf, BUF_SIZE, "\n", 1, 0,
+                      1);
 
     if (ret < 0)
     {
@@ -173,7 +169,8 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     stat->motion_enabled = strcmp(resbuf, "Motion ENABLED") == 0 ? true : false;
 
     // XXX skip mode
-    ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
+    ret = read_string(&rs->rotport, (unsigned char *) resbuf, BUF_SIZE, "\n", 1, 0,
+                      1);
 
     if (ret < 0)
     {
@@ -181,7 +178,8 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     }
 
     // XXX skip time
-    ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
+    ret = read_string(&rs->rotport, (unsigned char *) resbuf, BUF_SIZE, "\n", 1, 0,
+                      1);
 
     if (ret < 0)
     {
@@ -189,7 +187,8 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     }
 
     // read azimuth line
-    ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
+    ret = read_string(&rs->rotport, (unsigned char *) resbuf, BUF_SIZE, "\n", 1, 0,
+                      1);
 
     if (ret < 0)
     {
@@ -201,7 +200,8 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     stat->az = (int)strtof(p, NULL);
 
     // read elevation line
-    ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
+    ret = read_string(&rs->rotport, (unsigned char *) resbuf, BUF_SIZE, "\n", 1, 0,
+                      1);
 
     if (ret < 0)
     {
@@ -213,7 +213,8 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     stat->el = (int)strtof(p, NULL);
 
     // skip blank line
-    ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
+    ret = read_string(&rs->rotport, (unsigned char *) resbuf, BUF_SIZE, "\n", 1, 0,
+                      1);
 
     if (ret < 0)
     {
@@ -221,7 +222,8 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     }
 
     // XXX skip stored position count
-    ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
+    ret = read_string(&rs->rotport, (unsigned char *) resbuf, BUF_SIZE, "\n", 1, 0,
+                      1);
 
     if (ret < 0)
     {
@@ -315,7 +317,7 @@ static int satel_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
         }
     }
 
-    snprintf(cmdbuf, BUF_SIZE, "p%d %d\r\n", (int)az, (int)el);
+    SNPRINTF(cmdbuf, BUF_SIZE, "p%d %d\r\n", (int)az, (int)el);
     ret = satel_cmd(rot, cmdbuf, strlen(cmdbuf), NULL, 0);
 
     if (ret != RIG_OK)
@@ -387,7 +389,7 @@ const struct rot_caps satel_rot_caps =
     .mfg_name         = "SatEL",
     .version          = "20210123.0",
     .copyright        = "LGPL",
-    .status           = RIG_STATUS_ALPHA,
+    .status           = RIG_STATUS_STABLE,
     .rot_type         = ROT_TYPE_AZEL,
     .port_type        = RIG_PORT_SERIAL,
     .serial_rate_max  = 9600,

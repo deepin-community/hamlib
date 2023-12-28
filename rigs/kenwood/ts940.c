@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "bandplan.h"
@@ -117,6 +114,7 @@ const struct rig_caps ts940_caps =
     .vfo_ops =  TS940_VFO_OPS,
     .scan_ops =  TS940_SCAN_OPS,
     .transceive =  RIG_TRN_RIG,
+    // Unknown AGC levels
     .bank_qty =   0,
     .chan_desc_sz =  0,
 
@@ -191,7 +189,7 @@ const struct rig_caps ts940_caps =
     .scan =  kenwood_scan,
     .set_channel = kenwood_set_channel,
     .get_channel = kenwood_get_channel,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

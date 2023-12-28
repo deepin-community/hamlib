@@ -19,18 +19,14 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 // cppcheck-suppress *
 #include <stdio.h>
 // cppcheck-suppress *
-#include <stdlib.h>
 // cppcheck-suppress *
 #include <string.h>  /* String function definitions */
 // cppcheck-suppress *
-#include <unistd.h>  /* UNIX standard function definitions */
 // cppcheck-suppress *
 #include <math.h>
 
@@ -81,7 +77,7 @@ transaction_write:
 
     if (cmdstr)
     {
-        retval = write_block(&rs->rotport, cmdstr, strlen(cmdstr));
+        retval = write_block(&rs->rotport, (unsigned char *) cmdstr, strlen(cmdstr));
 
         if (retval != RIG_OK)
         {
@@ -103,8 +99,8 @@ transaction_write:
     if (!no_reply)
     {
         memset(data, 0, data_len);
-        retval = read_string(&rs->rotport, data, data_len, REPLY_EOM,
-                             strlen(REPLY_EOM));
+        retval = read_string(&rs->rotport, (unsigned char *) data, data_len,
+                             REPLY_EOM, strlen(REPLY_EOM), 0, 1);
 
         if (strncmp(data, "\r\n", 2) == 0
                 || strchr(data, '>'))
@@ -177,7 +173,7 @@ gs232a_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
     u_az = (unsigned)rint(az);
     u_el = (unsigned)rint(el);
 
-    sprintf(cmdstr, "W%03u %03u" EOM, u_az, u_el);
+    SNPRINTF(cmdstr, sizeof(cmdstr), "W%03u %03u" EOM, u_az, u_el);
     retval = gs232a_transaction(rot, cmdstr, NULL, 0, 0);
 
     if (retval != RIG_OK)
@@ -283,7 +279,7 @@ static int gs232a_rot_set_level(ROT *rot, setting_t level, value_t val)
         }
 
         /* between 1 (slowest) and 4 (fastest) */
-        sprintf(cmdstr, "X%u" EOM, speed);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "X%u" EOM, speed);
         retval = gs232a_transaction(rot, cmdstr, NULL, 0, 1);
 
         if (retval != RIG_OK)
@@ -335,19 +331,19 @@ static int gs232a_rot_move(ROT *rot, int direction, int speed)
     switch (direction)
     {
     case ROT_MOVE_UP:       /* Elevation increase */
-        sprintf(cmdstr, "U" EOM);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "U" EOM);
         break;
 
     case ROT_MOVE_DOWN:     /* Elevation decrease */
-        sprintf(cmdstr, "D" EOM);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "D" EOM);
         break;
 
     case ROT_MOVE_LEFT:     /* Azimuth decrease */
-        sprintf(cmdstr, "L" EOM);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "L" EOM);
         break;
 
     case ROT_MOVE_RIGHT:    /* Azimuth increase */
-        sprintf(cmdstr, "R" EOM);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "R" EOM);
         break;
 
     default:
@@ -390,7 +386,7 @@ const struct rot_caps gs23_rot_caps =
     ROT_MODEL(ROT_MODEL_GS23),
     .model_name =     "GS-23",
     .mfg_name =       "Yaesu/Kenpro",
-    .version =        "20201203.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
@@ -424,6 +420,51 @@ const struct rot_caps gs23_rot_caps =
     .set_level =     gs232a_rot_set_level,
 };
 
+
+/* ************************************************************************* */
+/*
+ * Generic GS23 azimuth rotator capabilities.
+ */
+
+const struct rot_caps gs23_az_rot_caps =
+{
+    ROT_MODEL(ROT_MODEL_GS23_AZ),
+    .model_name =     "GS-23 azimuth",
+    .mfg_name =       "Yaesu/Kenpro",
+    .version =        "20220527.0",
+    .copyright =      "LGPL",
+    .status =         RIG_STATUS_STABLE,
+    .rot_type =       ROT_TYPE_AZIMUTH,
+    .port_type =      RIG_PORT_SERIAL,
+    .serial_rate_min =   150,
+    .serial_rate_max =   9600,
+    .serial_data_bits =  8,
+    .serial_stop_bits =  1,
+    .serial_parity =     RIG_PARITY_NONE,
+    .serial_handshake =  RIG_HANDSHAKE_NONE,
+    .write_delay =  0,
+    .post_write_delay =  50,
+    .timeout =  400,
+    .retry =  3,
+
+    .min_az =     -180.0,
+    .max_az =     450.0,  /* vary according to rotator type */
+    .min_el =     0.0,
+    .max_el =     0.0,
+
+    .has_get_level =  GS232A_LEVELS,
+    .has_set_level =  ROT_LEVEL_SET(GS232A_LEVELS),
+
+    .level_gran =      { [ROT_LVL_SPEED] = { .min = { .i = 1 }, .max = { .i = 4 }, .step = { .i = 1 } } },
+
+    .rot_init     =  gs232a_rot_init,
+    .get_position =  gs232a_rot_get_position,
+    .set_position =  gs232a_rot_set_position,
+    .stop =          gs232a_rot_stop,
+    .get_level =     gs232a_rot_get_level,
+    .set_level =     gs232a_rot_set_level,
+};
+
 /* ************************************************************************* */
 /*
  * Generic GS232 rotator capabilities.
@@ -434,7 +475,7 @@ const struct rot_caps gs232_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232),
     .model_name =     "GS-232",
     .mfg_name =       "Yaesu/Kenpro",
-    .version =        "20201203.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
@@ -478,9 +519,9 @@ const struct rot_caps gs232a_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232A),
     .model_name =     "GS-232A",
     .mfg_name =       "Yaesu",
-    .version =        "20201203.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,
@@ -524,9 +565,9 @@ const struct rot_caps gs232a_az_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232A_AZ),
     .model_name =     "GS-232A azimuth",
     .mfg_name =       "Yaesu",
-    .version =        "20201203.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZIMUTH,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,
@@ -570,9 +611,9 @@ const struct rot_caps gs232a_el_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232A_EL),
     .model_name =     "GS-232A elevation",
     .mfg_name =       "Yaesu",
-    .version =        "20201203.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_ELEVATION,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,

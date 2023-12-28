@@ -24,14 +24,14 @@
 
 #include <hamlib/rig.h>
 
-#define BACKEND_VER "20200404"
+#define BACKEND_VER "20220630"
 
 
-int format8k_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width);
+int format8k_mode(RIG *rig, char *buf, int buf_len, rmode_t mode, pbwidth_t width);
 int parse8k_aor_mode(RIG *rig, char aormode, char aorwidth, rmode_t *mode, pbwidth_t *width);
 
 struct aor_priv_caps {
-	int (*format_mode)(RIG *rig, char *buf, rmode_t mode, pbwidth_t width);
+	int (*format_mode)(RIG *rig, char *buf, int buf_len, rmode_t mode, pbwidth_t width);
 	int (*parse_aor_mode)(RIG *rig, char aormode, char aorwidth, rmode_t *mode, pbwidth_t *width);
 	char bank_base1;
 	char bank_base2;

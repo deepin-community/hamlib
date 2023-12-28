@@ -22,9 +22,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #define BACKEND_VER "20200112"
 
@@ -162,7 +160,7 @@ const struct rig_caps si570avrusb_caps =
     .mfg_name =     "SoftRock",
     .version =      BACKEND_VER ".0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_BETA,
+    .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TUNER,
     .ptt_type =     RIG_PTT_RIG,
     .dcd_type =     RIG_DCD_NONE,
@@ -225,7 +223,7 @@ const struct rig_caps si570avrusb_caps =
     .get_freq =     si570xxxusb_get_freq,
     .set_ptt =      si570xxxusb_set_ptt,
     .get_info =     si570xxxusb_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -239,7 +237,7 @@ const struct rig_caps si570peaberry1_caps =
     .mfg_name =     "AE9RB",
     .version =      BACKEND_VER ".0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_BETA,
+    .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TUNER,
     .ptt_type =     RIG_PTT_RIG,
     .dcd_type =     RIG_DCD_NONE,
@@ -302,7 +300,7 @@ const struct rig_caps si570peaberry1_caps =
     .get_freq =     si570xxxusb_get_freq,
     .set_ptt =      si570xxxusb_set_ptt,
     .get_info =     si570xxxusb_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -316,7 +314,7 @@ const struct rig_caps si570peaberry2_caps =
     .mfg_name =     "AE9RB",
     .version =      BACKEND_VER ".0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_BETA,
+    .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TUNER,
     .ptt_type =     RIG_PTT_RIG,
     .dcd_type =     RIG_DCD_NONE,
@@ -379,7 +377,7 @@ const struct rig_caps si570peaberry2_caps =
     .get_freq =     si570xxxusb_get_freq,
     .set_ptt =      si570xxxusb_set_ptt,
     .get_info =     si570xxxusb_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -398,7 +396,7 @@ const struct rig_caps si570picusb_caps =
     .mfg_name =     "KTH-SDR kit",
     .version =      BACKEND_VER ".0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_BETA,
+    .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TUNER,
     .ptt_type =     RIG_PTT_NONE,
     .dcd_type =     RIG_DCD_NONE,
@@ -459,14 +457,14 @@ const struct rig_caps si570picusb_caps =
     .set_freq =     si570xxxusb_set_freq,
     .get_freq =     si570xxxusb_get_freq,
     .get_info =     si570xxxusb_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
  * Funkamateur Sdr with Si570
  *
  * Same USB interface as AVR-USB, except different product string
- * and Oscilator correction may be stored on the device
+ * and Oscillator correction may be stored on the device
  *
  *   http://www.funkamateur.de
  *   ( BX- 200 )
@@ -479,7 +477,7 @@ const struct rig_caps fasdr_caps =
     .mfg_name =     "Funkamateur",
     .version =      BACKEND_VER ".0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_ALPHA,
+    .status =       RIG_STATUS_BETA,
     .rig_type =     RIG_FLAG_TUNER | RIG_FLAG_TRANSMITTER,
     .ptt_type =     RIG_PTT_RIG,
     .dcd_type =     RIG_DCD_NONE,
@@ -929,28 +927,27 @@ int si570xxxusb_set_conf(RIG *rig, token_t token, const char *val)
     return RIG_OK;
 }
 
-int si570xxxusb_get_conf(RIG *rig, token_t token, char *val)
+int si570xxxusb_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
     struct si570xxxusb_priv_data *priv;
-
     priv = (struct si570xxxusb_priv_data *)rig->state.priv;
 
     switch (token)
     {
     case TOK_OSCFREQ:
-        sprintf(val, "%"PRIfreq, (freq_t)(priv->osc_freq * 1e6));
+        SNPRINTF(val, val_len, "%"PRIfreq, (freq_t)(priv->osc_freq * 1e6));
         break;
 
     case TOK_MULTIPLIER:
-        sprintf(val, "%f", priv->multiplier);
+        SNPRINTF(val, val_len, "%f", priv->multiplier);
         break;
 
     case TOK_I2C_ADDR:
-        sprintf(val, "%x", priv->i2c_addr);
+        SNPRINTF(val, val_len, "%x", priv->i2c_addr);
         break;
 
     case TOK_BPF:
-        sprintf(val, "%d", priv->bpf);
+        SNPRINTF(val, val_len, "%d", priv->bpf);
         break;
 
     default:
@@ -958,6 +955,11 @@ int si570xxxusb_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int si570xxxusb_get_conf(RIG *rig, token_t token, char *val)
+{
+    return si570xxxusb_get_conf2(rig, token, val, 128);
 }
 
 
@@ -1100,8 +1102,9 @@ const char *si570xxxusb_get_info(RIG *rig)
     /* always succeeds since libusb-1.0.16 */
     libusb_get_device_descriptor(libusb_get_device(udh), &desc);
 
-    sprintf(buf, "USB dev %04d, version: %d.%d", desc.bcdDevice, buffer[1],
-            buffer[0]);
+    SNPRINTF(buf, sizeof(buf), "USB dev %04d, version: %d.%d", desc.bcdDevice,
+             buffer[1],
+             buffer[0]);
 
     return buf;
 }

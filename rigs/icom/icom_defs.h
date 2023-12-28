@@ -193,7 +193,7 @@
 #define S_SCAN_FDFON	0xAA    	/* Fix dF ON */
 #define S_SCAN_NSLCT	0xB0    	/* Set as non select channel */
 #define S_SCAN_SLCT	0xB1		/* Set as select channel */
-#define S_SCAN_SL_NUM	0xB2		/* select programed mem scan 7800 only */
+#define S_SCAN_SL_NUM	0xB2		/* select programmed mem scan 7800 only */
 #define S_SCAN_RSMOFF   0xD0		/* Set scan resume OFF */
 #define S_SCAN_RSMONP   0xD1		/* Set scan resume ON + pause time */
 #define S_SCAN_RSMON    0xD3		/* Set scan resume ON */
@@ -305,49 +305,49 @@
 /*
  * Function settings (C_CTL_FUNC) subcommands  Set and Read
  */
-#define S_FUNC_PAMP   0x02		/* Preamp setting */
-#define S_FUNC_AGCOFF 0x10		/* IC-R8500 only */
-#define S_FUNC_AGCON  0x11		/* IC-R8500 only */
-#define S_FUNC_AGC    0x12		/* AGC setting presets: the dsp models allow these to be modified */
-#define S_FUNC_NBOFF  0x20		/* IC-R8500 only */
-#define S_FUNC_NBON   0x21		/* IC-R8500 only */
-#define S_FUNC_NB     0x22		/* NB setting */
-#define S_FUNC_APFOFF 0x30		/* IC-R8500 only */
-#define S_FUNC_APFON  0x31		/* IC-R8500 only */
-#define S_FUNC_APF    0x32		/* APF setting */
-#define S_FUNC_NR     0x40		/* NR setting */
-#define S_FUNC_ANF    0x41		/* ANF setting */
-#define S_FUNC_TONE   0x42		/* TONE setting */
-#define S_FUNC_TSQL   0x43		/* TSQL setting */
-#define S_FUNC_COMP   0x44		/* COMP setting */
-#define S_FUNC_MON    0x45		/* Monitor setting */
-#define S_FUNC_VOX    0x46		/* VOX setting */
-#define S_FUNC_BKIN   0x47		/* BK-IN setting */
-#define S_FUNC_MN     0x48		/* Manual notch setting */
-#define S_FUNC_RF	0x49		/* RTTY Filter setting */
-#define S_FUNC_AFC  	0x4A        	/* Auto Frequency Control (AFC) setting */
-#define S_FUNC_CSQL	0x4B		/* DTCS tone code squelch setting*/
-#define S_FUNC_VSC	0x4C		/* voice squelch control useful for scanning*/
-#define S_FUNC_MANAGC	0x4D		/* manual AGC */
-#define S_FUNC_DIGISEL	0x4E		/* DIGI-SEL */
-#define S_FUNC_TW_PK	0x4F		/* RTTY Twin Peak filter 0= off 1 = on */
-#define S_FUNC_DIAL_LK	0x50		/* Dial lock */
-#define S_FUNC_P25SQL	0x52		/* P25 DSQL */
-#define S_FUNC_ANTRX	0x53		/* ANT-RX */
-#define S_FUNC_IF1F	0x55		/* 1st IF filter */
-#define S_FUNC_DSPF	0x56		/* DSP filter */
-#define S_FUNC_MANN	0x57		/* Manual notch width */
-#define S_FUNC_SSBT	0x58		/* SSB Tx bandwidth */
-#define S_FUNC_SUBB	0x59		/* Sub band */
-#define S_FUNC_SATM	0x5A		/* Satellite mode */
-#define S_FUNC_DSSQL	0x5B		/* D-STAR DSQL */
-#define S_FUNC_DPSQL	0x5F		/* dPMR DSQL */
-#define S_FUNC_NXSQL	0x60		/* NXDN DSQL */
-#define S_FUNC_DCSQL	0x61		/* DCR DSQL */
-#define S_FUNC_DPSCM	0x62		/* dPMR scrambler */
-#define S_FUNC_NXENC	0x63		/* NXDN encryption */
-#define S_FUNC_DCENC	0x64		/* DCR encryption */
-#define S_FUNC_IPP	0x65		/* IP+ setting */
+#define S_FUNC_PAMP    0x02		/* Preamp setting */
+#define S_FUNC_AGCOFF  0x10		/* IC-R8500 only */
+#define S_FUNC_AGCON   0x11		/* IC-R8500 only */
+#define S_FUNC_AGC     0x12		/* AGC setting presets: the dsp models allow these to be modified */
+#define S_FUNC_NBOFF   0x20		/* IC-R8500 only */
+#define S_FUNC_NBON    0x21		/* IC-R8500 only */
+#define S_FUNC_NB      0x22		/* NB setting */
+#define S_FUNC_APFOFF  0x30		/* IC-R8500 only */
+#define S_FUNC_APFON   0x31		/* IC-R8500 only */
+#define S_FUNC_APF     0x32		/* APF setting */
+#define S_FUNC_NR      0x40		/* NR setting */
+#define S_FUNC_ANF     0x41		/* ANF setting */
+#define S_FUNC_TONE    0x42		/* TONE setting */
+#define S_FUNC_TSQL    0x43		/* TSQL setting */
+#define S_FUNC_COMP    0x44		/* COMP setting */
+#define S_FUNC_MON     0x45		/* Monitor setting */
+#define S_FUNC_VOX     0x46		/* VOX setting */
+#define S_FUNC_BKIN    0x47		/* BK-IN setting */
+#define S_FUNC_MN      0x48		/* Manual notch setting */
+#define S_FUNC_RF      0x49		/* RTTY Filter setting */
+#define S_FUNC_AFC     0x4A     /* Auto Frequency Control (AFC) setting */
+#define S_FUNC_CSQL    0x4B		/* DTCS tone code squelch setting*/
+#define S_FUNC_VSC     0x4C		/* voice squelch control useful for scanning*/
+#define S_FUNC_MANAGC  0x4D		/* manual AGC */
+#define S_FUNC_DIGISEL 0x4E		/* DIGI-SEL */
+#define S_FUNC_TW_PK   0x4F		/* RTTY Twin Peak filter 0= off 1 = on */
+#define S_FUNC_DIAL_LK 0x50		/* Dial lock */
+#define S_FUNC_P25SQL  0x52		/* P25 DSQL */
+#define S_FUNC_ANTRX   0x53		/* ANT-RX */
+#define S_FUNC_IF1F    0x55		/* 1st IF filter */
+#define S_FUNC_DSPF    0x56		/* DSP filter */
+#define S_FUNC_MANN    0x57		/* Manual notch width */
+#define S_FUNC_SSBT    0x58		/* SSB Tx bandwidth */
+#define S_FUNC_SUBB    0x59		/* Sub band */
+#define S_FUNC_SATM    0x5A		/* Satellite mode */
+#define S_FUNC_DSSQL   0x5B		/* D-STAR DSQL */
+#define S_FUNC_DPSQL   0x5F		/* dPMR DSQL */
+#define S_FUNC_NXSQL   0x60		/* NXDN DSQL */
+#define S_FUNC_DCSQL   0x61		/* DCR DSQL */
+#define S_FUNC_DPSCM   0x62		/* dPMR scrambler */
+#define S_FUNC_NXENC   0x63		/* NXDN encryption */
+#define S_FUNC_DCENC   0x64		/* DCR encryption */
+#define S_FUNC_IPP     0x65		/* IP+ setting */
 
 /*
  * Set Power On/Off (C_SET_PWR) subcommands
@@ -373,23 +373,23 @@
 /*
  * RIT/XIT control (C_CTL_RIT) subcommands
  */
-#define S_RIT_FREQ	0x00
-#define S_RIT	0x01	/* RIT 0 = OFF, 1 = ON */
-#define S_XIT	0x02	/* XIT (delta TX) 0 = OFF, 1 = ON */
+#define S_RIT_FREQ 0x00
+#define S_RIT      0x01	/* RIT 0 = OFF, 1 = ON */
+#define S_XIT      0x02	/* XIT (delta TX) 0 = OFF, 1 = ON */
 
 /*
  * Misc contents (C_CTL_MEM) subcommands applies to newer rigs.
  *
  * Beware the IC-7200 which is non-standard.
  */
-#define S_MEM_CNTNT		0x00	/* Memory content 2 bigendian */
-#define S_MEM_BAND_REG		0x01	/* band stacking register */
-#define S_MEM_FILT_WDTH		0x03	/* current passband filter width */
-#define S_MEM_PARM		0x05	/* rig parameters; extended parm # + param value:  should be coded */
-					/* in the rig files because they are different for each rig */
-#define S_MEM_DATA_MODE		0x06	/* data mode */
-#define S_MEM_TX_PB		0x07	/* SSB tx passband */
-#define S_MEM_FLTR_SHAPE	0x08	/* DSP filter shape 0=sharp 1=soft */
+#define S_MEM_CNTNT	     0x00	/* Memory content 2 bigendian */
+#define S_MEM_BAND_REG   0x01	/* band stacking register */
+#define S_MEM_FILT_WDTH  0x03	/* current passband filter width */
+#define S_MEM_PARM       0x05	/* rig parameters; extended parm # + param value:  should be coded */
+            					/* in the rig files because they are different for each rig */
+#define S_MEM_DATA_MODE  0x06	/* data mode */
+#define S_MEM_TX_PB      0x07	/* SSB tx passband */
+#define S_MEM_FLTR_SHAPE 0x08	/* DSP filter shape 0=sharp 1=soft */
 
 					/* Icr75c */
 #define S_MEM_CNTNT_SLCT	0x01
@@ -407,6 +407,7 @@
 #define S_MEM_BANDSCOPE     0x08    /* Simple bandscope (on/off) */
 
 /* For IC9700 and IC9100 and likely future Icoms */
+#define S_MEM_DUALMODE      0x59    /* Dualwatch mode (on/off) */
 #define S_MEM_SATMODE       0x5a    /* Satellite mode (on/off) */
 
 /* IC-R8600 and others */
@@ -428,21 +429,24 @@
 #define S_MEM_EAR 0x01		/* Earphone mode Off/On */
 #define S_MEM_REC 0x09		/* Recorder Off/On */
 
+/* IC-F8101 */
+#define S_MEM_PTT 0x37      /* PTT 0,1,2 for front/rear PTT */
+
 /*
  * Tone control (C_SET_TONE) subcommands
  */
-#define S_TONE_RPTR	0x00		/* Tone frequency setting for repeater receive */
-#define S_TONE_SQL	0x01		/* Tone frequency setting for squelch */
-#define S_TONE_DTCS	0x02		/* DTCS code and polarity for squelch */
-#define S_TONE_P25NAC	0x03		/* P25 NAC */
-#define S_TONE_DSCSQL	0x07		/* D-STAR CSQL */
-#define S_TONE_DPCOM	0x08		/* dPMR COM ID */
-#define S_TONE_DPCC	0x09		/* dPMR CC */
-#define S_TONE_NXRAN	0x0A		/* NXDN RAN */
-#define S_TONE_DCUC	0x0B		/* DCR UC */
-#define S_TONE_DPSCK	0x0C		/* dPMR scrambler key */
-#define S_TONE_NXENK	0x0D		/* NXDN encryption key */
-#define S_TONE_DCENK	0x0E		/* DCR encryption key */
+#define S_TONE_RPTR   0x00		/* Tone frequency setting for repeater receive */
+#define S_TONE_SQL    0x01		/* Tone frequency setting for squelch */
+#define S_TONE_DTCS   0x02		/* DTCS code and polarity for squelch */
+#define S_TONE_P25NAC 0x03		/* P25 NAC */
+#define S_TONE_DSCSQL 0x07		/* D-STAR CSQL */
+#define S_TONE_DPCOM  0x08		/* dPMR COM ID */
+#define S_TONE_DPCC   0x09		/* dPMR CC */
+#define S_TONE_NXRAN  0x0A		/* NXDN RAN */
+#define S_TONE_DCUC   0x0B		/* DCR UC */
+#define S_TONE_DPSCK  0x0C		/* dPMR scrambler key */
+#define S_TONE_NXENK  0x0D		/* NXDN encryption key */
+#define S_TONE_DCENK  0x0E		/* DCR encryption key */
 
 /*
  * Transceiver ID (C_RD_TRXID) subcommands

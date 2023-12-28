@@ -57,14 +57,15 @@
                RIG_LEVEL_KEYSPD|RIG_LEVEL_AF|RIG_LEVEL_AGC|\
                RIG_LEVEL_METER|RIG_LEVEL_BKINDL|RIG_LEVEL_SQL|\
                RIG_LEVEL_VOXGAIN|RIG_LEVEL_VOXDELAY|RIG_LEVEL_COMP|\
-               RIG_LEVEL_ANTIVOX|RIG_LEVEL_NR|RIG_LEVEL_NOTCHF|\
+               RIG_LEVEL_ANTIVOX|RIG_LEVEL_NR|RIG_LEVEL_NB|RIG_LEVEL_NOTCHF|\
                RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|\
-               RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER|RIG_LEVEL_TEMP_METER)
+               RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER|RIG_LEVEL_TEMP_METER|\
+               RIG_LEVEL_BAND_SELECT)
 
 #define FTDX101_FUNCS (RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_LOCK|\
                RIG_FUNC_MON|RIG_FUNC_NB|RIG_FUNC_NR|RIG_FUNC_VOX|\
                RIG_FUNC_FBKIN|RIG_FUNC_COMP|RIG_FUNC_ANF|RIG_FUNC_MN|\
-               RIG_FUNC_RIT|RIG_FUNC_XIT|RIG_FUNC_TUNER)
+               RIG_FUNC_RIT|RIG_FUNC_XIT|RIG_FUNC_TUNER|RIG_FUNC_APF)
 
 /* TBC */
 #define FTDX101_VFO_OPS (RIG_OP_TUNE|RIG_OP_CPY|RIG_OP_XCHG|\
@@ -116,19 +117,21 @@
     }
 #define FTDX101MP_RFPOWER_METER_WATTS_CAL \
     { \
-        11, \
+        13, \
         { \
-            {0,   0.0f}, \
-            {69,  10.0f}, \
-            {111, 20.0f}, \
-            {129, 30.0f}, \
-            {143, 40.0f}, \
-            {158, 50.0f}, \
-            {184, 70.0f}, \
-            {200, 80.0f}, \
-            {211, 90.0f}, \
-            {222, 100.0f}, \
-            {255, 200.0f}, \
+            {0,    0.0f}, \
+            {30,   5.0f}, \
+            {69,  20.0f}, \
+            {98,  40.0f}, \
+            {119, 60.0f}, \
+            {139, 80.0f}, \
+            {160, 100.0f}, \
+            {173, 120.0f}, \
+            {185, 140.0f}, \
+            {198, 160.0f}, \
+            {210, 180.0f}, \
+            {225, 200.0f}, \
+            {255, 210.0f}, \
         } \
     }
 

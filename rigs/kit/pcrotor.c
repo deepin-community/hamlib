@@ -19,13 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rotator.h"
 #include "parallel.h"
@@ -118,7 +114,7 @@ const struct rot_caps pcrotor_caps =
     .mfg_name =       "WA6UFQ",
     .version =        "20081013.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_UNTESTED,
+    .status =         RIG_STATUS_BETA,
     .rot_type =       ROT_TYPE_OTHER,
     .port_type =      RIG_PORT_PARALLEL,
     .write_delay =  0,

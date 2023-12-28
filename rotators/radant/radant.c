@@ -21,15 +21,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rotator.h"
 #include "serial.h"
@@ -67,7 +62,7 @@ radant_transaction(ROT *rot, const char *cmdstr, char *data, size_t data_len)
 
     rs = &rot->state;
     rig_flush(&rs->rotport);
-    retval = write_block(&rs->rotport, cmdstr, strlen(cmdstr));
+    retval = write_block(&rs->rotport, (unsigned char *) cmdstr, strlen(cmdstr));
 
     if (retval != RIG_OK)
     {
@@ -79,7 +74,8 @@ radant_transaction(ROT *rot, const char *cmdstr, char *data, size_t data_len)
         return RIG_OK;    /* don't want a reply */
     }
 
-    retval = read_string(&rs->rotport, data, data_len, "\n", 1);
+    retval = read_string(&rs->rotport, (unsigned char *) data, data_len, "\n", 1, 0,
+                         1);
 
     if (retval < 0)
     {
@@ -107,7 +103,7 @@ radant_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
     rig_debug(RIG_DEBUG_TRACE, "%s called: %f %f\n", __func__, az, el);
 
 
-    snprintf(cmdstr, sizeof(cmdstr), "Q%.1f %1.f\r", az, el);
+    SNPRINTF(cmdstr, sizeof(cmdstr), "Q%.1f %1.f\r", az, el);
 
     retval = radant_transaction(rot, cmdstr, NULL, 0);
 
@@ -128,7 +124,7 @@ radant_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
-    snprintf(cmdstr, sizeof(cmdstr), "Y\r");
+    SNPRINTF(cmdstr, sizeof(cmdstr), "Y\r");
 
     retval = radant_transaction(rot, cmdstr, ackbuf, sizeof(ackbuf));
 
@@ -184,7 +180,7 @@ const struct rot_caps radant_rot_caps =
     .mfg_name =       "Radant",
     .version =        "20210508.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_OTHER,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =  9600,

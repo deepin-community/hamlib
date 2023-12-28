@@ -25,9 +25,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -157,6 +155,7 @@ declare_proto_amp(dump_state);
 declare_proto_amp(dump_caps);
 declare_proto_amp(get_info);
 declare_proto_amp(reset);
+declare_proto_amp(set_level);
 declare_proto_amp(get_level);
 declare_proto_amp(set_powerstat);
 declare_proto_amp(get_powerstat);
@@ -172,6 +171,7 @@ struct test_table test_list[] =
     { 'F', "set_freq",      ACTION(set_freq),       ARG_IN, "Frequency(Hz)" },
     { 'f', "get_freq",      ACTION(get_freq),       ARG_OUT, "Frequency(Hz)" },
     { 'l', "get_level",     ACTION(get_level),      ARG_IN1 | ARG_OUT2, "Level", "Level Value" },
+    { 'L', "set_level",     ACTION(set_level),      ARG_IN, "Level", "Level Value" },
     { 'w', "send_cmd",      ACTION(send_cmd),       ARG_IN1 | ARG_IN_LINE | ARG_OUT2, "Cmd", "Reply" },
     { 0x8f, "dump_state",   ACTION(dump_state),     ARG_OUT },
     { '1', "dump_caps",     ACTION(dump_caps), },
@@ -232,14 +232,14 @@ void hash_add_model(int id,
 {
     struct mod_lst *s;
 
-    s = (struct mod_lst *)malloc(sizeof(struct mod_lst));
+    s = (struct mod_lst *)calloc(1, sizeof(struct mod_lst));
 
     s->id = id;
-    snprintf(s->mfg_name, sizeof(s->mfg_name), "%s", mfg_name);
-    snprintf(s->model_name, sizeof(s->model_name), "%s", model_name);
-    snprintf(s->version, sizeof(s->version), "%s", version);
-    snprintf(s->status, sizeof(s->status), "%s", status);
-    snprintf(s->macro_name, sizeof(s->macro_name), "%s", macro_name);
+    SNPRINTF(s->mfg_name, sizeof(s->mfg_name), "%s", mfg_name);
+    SNPRINTF(s->model_name, sizeof(s->model_name), "%s", model_name);
+    SNPRINTF(s->version, sizeof(s->version), "%s", version);
+    SNPRINTF(s->status, sizeof(s->status), "%s", status);
+    SNPRINTF(s->macro_name, sizeof(s->macro_name), "%s", macro_name);
 
     HASH_ADD_INT(models, id, s);    /* id: name of key field */
 }
@@ -968,7 +968,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
             /* The starting position of the source string is the first
              * character past the initial '\'.
              */
-            snprintf(cmd_name, sizeof(cmd_name), "%s", parsed_input[0] + 1);
+            SNPRINTF(cmd_name, sizeof(cmd_name), "%s", parsed_input[0] + 1);
 
             /* Sanity check as valid multiple character commands consist of
              * alphanumeric characters and the underscore ('_') character.
@@ -1476,6 +1476,7 @@ void usage_amp(FILE *fout)
         {
             nbspaces -= fprintf(fout, ", %s", test_list[i].arg4);
         }
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: nbspace left=%d\n", __func__, nbspaces);
 
         fprintf(fout, ")\n");
     }
@@ -1662,6 +1663,94 @@ declare_proto_amp(set_freq)
 
     CHKSCN1ARG(sscanf(arg1, "%"SCNfreq, &freq));
     return amp_set_freq(amp, freq);
+}
+
+
+/*
+ * RIG_CONF_ extparm's type:
+ *   NUMERIC: val.f
+ *   COMBO: val.i, starting from 0
+ *   STRING: val.s
+ *   CHECKBUTTON: val.i 0/1
+ *
+ * 'L'
+ */
+declare_proto_amp(set_level)
+{
+    setting_t level;
+    value_t val;
+
+    if (!strcmp(arg1, "?"))
+    {
+        char s[SPRINTF_MAX_SIZE];
+        rig_sprintf_level(s, sizeof(s), amp->state.has_set_level);
+        fputs(s, fout);
+
+        if (amp->caps->set_ext_level)
+        {
+            sprintf_level_ext(s, sizeof(s), amp->caps->extlevels);
+            fputs(s, fout);
+        }
+
+        fputc('\n', fout);
+        return (RIG_OK);
+    }
+
+    level = rig_parse_level(arg1);
+
+    // some Java apps send comma in international setups so substitute period
+    char *p = strchr(arg2, ',');
+
+    if (p) { *p = '.'; }
+
+    if (!amp_has_set_level(amp, level))
+    {
+        const struct confparams *cfp;
+
+        cfp = amp_ext_lookup(amp, arg1);
+
+        if (!cfp)
+        {
+            return (-RIG_ENAVAIL);   /* no such parameter */
+        }
+
+        switch (cfp->type)
+        {
+        case RIG_CONF_BUTTON:
+            /* arg is ignored */
+            val.i = 0; // avoid passing uninitialized data
+            break;
+
+        case RIG_CONF_CHECKBUTTON:
+        case RIG_CONF_COMBO:
+            CHKSCN1ARG(sscanf(arg2, "%d", &val.i));
+            break;
+
+        case RIG_CONF_NUMERIC:
+            CHKSCN1ARG(sscanf(arg2, "%f", &val.f));
+            break;
+
+        case RIG_CONF_STRING:
+            val.cs = arg2;
+            break;
+
+        default:
+            return (-RIG_ECONF);
+        }
+
+        return (amp_set_ext_level(amp, cfp->token, val));
+    }
+
+    if (RIG_LEVEL_IS_FLOAT(level))
+    {
+        CHKSCN1ARG(sscanf(arg2, "%f", &val.f));
+    }
+    else
+    {
+        CHKSCN1ARG(sscanf(arg2, "%d", &val.i));
+    }
+
+    return (amp_set_level(amp, level, val));
 }
 
 /* 'l' */
@@ -1890,8 +1979,8 @@ declare_proto_amp(send_cmd)
     struct amp_state *rs;
     int backend_num, cmd_len;
 #define BUFSZ 128
-    char bufcmd[BUFSZ];
-    char buf[BUFSZ];
+    unsigned char bufcmd[BUFSZ];
+    unsigned char buf[BUFSZ];
     char eom_buf[4] = { 0xa, 0xd, 0, 0 };
 
     /*
@@ -1921,10 +2010,10 @@ declare_proto_amp(send_cmd)
     else
     {
         /* text protocol */
-        strncpy(bufcmd, arg1, BUFSZ);
+        strncpy((char *) bufcmd, arg1, BUFSZ);
         bufcmd[BUFSZ - 2] = '\0';
 
-        cmd_len = strlen(bufcmd);
+        cmd_len = strlen((char *) bufcmd);
 
         /* Automatic termination char */
         if (send_cmd_term != 0)
@@ -1957,7 +2046,7 @@ declare_proto_amp(send_cmd)
          * assumes CR or LF is end of line char
          * for all ascii protocols
          */
-        retval = read_string(&rs->ampport, buf, BUFSZ, eom_buf, strlen(eom_buf));
+        retval = read_string(&rs->ampport, buf, BUFSZ, eom_buf, strlen(eom_buf), 0, 1);
 
         if (retval < 0)
         {

@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
@@ -74,7 +71,7 @@ const struct rig_caps trc80_caps =
     .mfg_name =  "Kenwood",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -96,7 +93,10 @@ const struct rig_caps trc80_caps =
     .has_set_level =  RIG_LEVEL_SET(TRC80_LEVEL_ALL),
     .has_get_parm =  TRC80_PARMS,
     .has_set_parm =  RIG_LEVEL_SET(TRC80_PARMS),    /* FIXME: parms */
-    .level_gran =  {},                 /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  {},
     .preamp =   { RIG_DBLST_END, },
     .attenuator =   { RIG_DBLST_END, },
@@ -178,6 +178,7 @@ const struct rig_caps trc80_caps =
     .get_powerstat =  kenwood_get_powerstat,
     .get_info =  kenwood_get_info,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

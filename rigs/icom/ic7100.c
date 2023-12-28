@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -32,6 +30,7 @@
 #include "idx_builtin.h"
 #include "bandplan.h"
 #include "token.h"
+#include "misc.h"
 
 
 #define IC7100_MODES (RIG_MODE_SSB|RIG_MODE_CW|RIG_MODE_CWR|\
@@ -195,19 +194,119 @@ static const struct icom_priv_caps ic7100_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .extcmds = ic7100_extcmds,
     .antack_len = 2,
     .ant_count = 2
 };
 
+// if hour < 0 then only date will be set
+int ic7100_set_clock(RIG *rig, int year, int month, int day, int hour, int min,
+                     int sec, double msec, int utc_offset)
+{
+    int cmd = 0x1a;
+    int subcmd =  0x05;
+    int retval = RIG_OK;
+    unsigned char prmbuf[MAXFRAMELEN];
+
+    if (year >= 0)
+    {
+        prmbuf[0] = 0x01;
+        prmbuf[1] = 0x20;
+        to_bcd(&prmbuf[2], year / 100, 2);
+        to_bcd(&prmbuf[3], year % 100, 2);
+        to_bcd(&prmbuf[4], month, 2);
+        to_bcd(&prmbuf[5], day, 2);
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 6, NULL, NULL);
+
+        if (retval != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\b", __func__, __LINE__, rigerror(retval));
+        }
+    }
+
+    if (hour >= 0)
+    {
+        prmbuf[0] = 0x01;
+        prmbuf[1] = 0x21;
+        to_bcd(&prmbuf[2], hour, 2);
+        to_bcd(&prmbuf[3], min, 2);
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 4, NULL, NULL);
+
+        if (retval != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\b", __func__, __LINE__, rigerror(retval));
+        }
+
+        prmbuf[0] = 0x01;
+        prmbuf[1] = 0x23;
+        rig_debug(RIG_DEBUG_ERR, "%s: utc_offset=%d\n", __func__, utc_offset);
+        to_bcd(&prmbuf[2], abs(utc_offset) / 100, 2);
+        to_bcd(&prmbuf[3], abs(utc_offset) % 100, 2);
+        to_bcd(&prmbuf[4], utc_offset >= 0 ? 0 : 1, 2);
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 5, NULL, NULL);
+
+        if (retval != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\b", __func__, __LINE__, rigerror(retval));
+        }
+    }
+
+    return retval;
+}
+
+int ic7100_get_clock(RIG *rig, int *year, int *month, int *day, int *hour,
+                     int *min, int *sec, double *msec, int *utc_offset)
+{
+    int cmd = 0x1a;
+    int subcmd =  0x05;
+    int retval = RIG_OK;
+    int resplen;
+    unsigned char prmbuf[MAXFRAMELEN];
+    unsigned char respbuf[MAXFRAMELEN];
+
+    prmbuf[0] = 0x01;
+    prmbuf[1] = 0x20;
+    resplen = sizeof(respbuf);
+    retval = icom_transaction(rig, cmd, subcmd, prmbuf, 2, respbuf, &resplen);
+    *year = from_bcd(&respbuf[4], 2) * 100 + from_bcd(&respbuf[5], 2);
+    *month = from_bcd(&respbuf[6], 2);
+    *day = from_bcd(&respbuf[7], 2);
+
+    if (hour != NULL)
+    {
+        prmbuf[0] = 0x01;
+        prmbuf[1] = 0x21;
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 2, respbuf, &resplen);
+        *hour = from_bcd(&respbuf[4], 2);
+        *min = from_bcd(&respbuf[5], 2);
+        *sec = 0;
+        *msec = 0;
+
+        prmbuf[0] = 0x01;
+        prmbuf[1] = 0x23;
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 2, respbuf, &resplen);
+        *utc_offset = from_bcd(&respbuf[4], 2) * 100;
+        *utc_offset += from_bcd(&respbuf[5], 2);
+
+        if (respbuf[6] != 0x00) { *utc_offset *= -1; }
+
+        //rig_debug(RIG_DEBUG_VERBOSE,
+        //          "%s: %02d-%02d-%02dT%02d:%02d:%06.3lf%s%04d\n'",
+        //          __func__, *year, *month, *day, *hour, *min, *sec + *msec / 1000,
+        //          *utc_offset >= 0 ? "+" : "-", (unsigned)abs(*utc_offset));
+    }
+
+    return retval;
+}
+
 const struct rig_caps ic7100_caps =
 {
     RIG_MODEL(RIG_MODEL_IC7100),
     .model_name = "IC-7100",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".1",
+    .version =  BACKEND_VER ".3",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -230,7 +329,9 @@ const struct rig_caps ic7100_caps =
     .has_set_level =  RIG_LEVEL_SET(IC7100_LEVEL_ALL),
     .has_get_parm =  IC7100_PARM_ALL,
     .has_set_parm =  IC7100_PARM_ALL,
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
@@ -360,7 +461,7 @@ const struct rig_caps ic7100_caps =
     .get_mode =  icom_get_mode_with_data,
     .set_mode =  icom_set_mode_with_data,
 
-    .get_vfo =  NULL,
+    .get_vfo =  icom_get_vfo,
     .set_vfo =  icom_set_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
@@ -407,5 +508,8 @@ const struct rig_caps ic7100_caps =
     .get_powerstat = icom_get_powerstat,
     .send_morse = icom_send_morse,
     .stop_morse = icom_stop_morse,
-    .wait_morse = rig_wait_morse
+    .wait_morse = rig_wait_morse,
+    .set_clock = ic7100_set_clock,
+    .get_clock = ic7100_get_clock,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

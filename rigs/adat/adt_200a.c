@@ -22,9 +22,7 @@
 //   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 // ---------------------------------------------------------------------------
 //    ADT-200A INCLUDES
@@ -60,7 +58,7 @@ const struct rig_caps adt_200a_caps =
     .mfg_name           =  "ADAT www.adat.ch",
     .version            =  BACKEND_VER ".0",
     .copyright          =  "Frank Goenninger, DG1SBG. License: Creative Commons",
-    .status             =  RIG_STATUS_BETA,
+    .status             =  RIG_STATUS_STABLE,
     .rig_type           =  RIG_TYPE_TRANSCEIVER,
     .ptt_type           =  RIG_PTT_RIG,
     .dcd_type           =  RIG_DCD_NONE,
@@ -172,6 +170,7 @@ const struct rig_caps adt_200a_caps =
         { RIG_MODE_FM, Hz(12000) },
         RIG_FLT_END,
     },
+    .str_cal = ADT_200A_STR_CAL,
 
     // .cfgparams          =  adt_200a_cfg_params,
 
@@ -206,7 +205,8 @@ const struct rig_caps adt_200a_caps =
     .power2mW           =  adat_power2mW,
     .mW2power           =  adat_mW2power,
 
-    .get_powerstat      =  adat_get_powerstat
+    .get_powerstat      =  adat_get_powerstat,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 // ---------------------------------------------------------------------------

@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "icom.h"
@@ -63,7 +60,7 @@ const struct rig_caps icr6_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER | RIG_FLAG_HANDHELD,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -122,6 +119,8 @@ const struct rig_caps icr6_caps =
     .tuning_steps =     {
         {ICR6_MODES, Hz(5000)},
         {ICR6_MODES, Hz(6250)},
+        {ICR6_MODES, Hz(8330)}, // Air band only
+        {ICR6_MODES, Hz(9000)}, // AM broadcast band only
         {ICR6_MODES, Hz(10000)},
         {ICR6_MODES, Hz(12500)},
         {ICR6_MODES, kHz(15)},
@@ -132,10 +131,6 @@ const struct rig_caps icr6_caps =
         {ICR6_MODES, kHz(100)},
         {ICR6_MODES, kHz(125)},
         {ICR6_MODES, kHz(200)},
-        /* Air band only */
-        {ICR6_MODES, Hz(8330)},
-        /* AM broadcast band only */
-        {ICR6_MODES, Hz(9000)},
         RIG_TS_END,
     },
 
@@ -173,4 +168,5 @@ const struct rig_caps icr6_caps =
     .get_ctcss_sql =  icom_get_ctcss_sql,
     .set_dcs_sql =  icom_set_dcs_sql,
     .get_dcs_sql =  icom_get_dcs_sql,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

@@ -20,11 +20,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "idx_builtin.h"
@@ -85,9 +82,9 @@ const struct rig_caps id31_caps =
     RIG_MODEL(RIG_MODEL_ID31),
     .model_name = "ID-31",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_ALPHA,
     .rig_type =  RIG_TYPE_HANDHELD,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -154,8 +151,10 @@ const struct rig_caps id31_caps =
 
     .tuning_steps =     {
         // Rem: no support for changing tuning step
+        {RIG_MODE_ALL, 1},
         RIG_TS_END,
     },
+
     /* mode/filter list, remember: order matters! */
     .filters =  {
         {RIG_MODE_FM, kHz(12)},
@@ -180,7 +179,7 @@ const struct rig_caps id31_caps =
     .get_mode =  icom_get_mode,
 
     .set_powerstat = icom_set_powerstat,
-    .get_powerstat = icom_get_powerstat,
+//    .get_powerstat = icom_get_powerstat, // not capable
     .decode_event =  icom_decode_event,
 
     .set_func =  icom_set_func,
@@ -207,4 +206,5 @@ const struct rig_caps id31_caps =
     .get_ctcss_sql =  icom_get_ctcss_sql,
     .set_dcs_sql =  icom_set_dcs_sql,
     .get_dcs_sql =  icom_get_dcs_sql,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

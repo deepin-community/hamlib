@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include "indi_wrapper.h"
 
@@ -35,7 +33,7 @@ const struct rot_caps indi_rot_caps =
     .mfg_name =         "INDI",
     .version =          "0.1",
     .copyright =        "LGPL",
-    .status =           RIG_STATUS_ALPHA,
+    .status =           RIG_STATUS_STABLE,
     .rot_type =         ROT_TYPE_OTHER,
     .port_type =        RIG_PORT_NONE,
     .write_delay =      0,

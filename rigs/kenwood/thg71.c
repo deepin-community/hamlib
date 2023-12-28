@@ -19,14 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -92,7 +89,7 @@ const struct rig_caps thg71_caps =
     .mfg_name =  "Kenwood",
     .version =  TH_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_HANDHELD,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -111,11 +108,9 @@ const struct rig_caps thg71_caps =
     .has_set_func =  THG71_FUNC_ALL,
     .has_get_level =  THG71_LEVEL_ALL,
     .has_set_level =  RIG_LEVEL_SET(THG71_LEVEL_ALL),
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_RFPOWER] = { .min = { .i = 3 }, .max = { .i = 0 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
     .parm_gran =  {},
     .ctcss_list =  kenwood38_ctcss_list,
@@ -206,6 +201,7 @@ const struct rig_caps thg71_caps =
     .set_ptt = th_set_ptt,
     .get_dcd = th_get_dcd,
     .decode_event =  thg71_decode_event,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -411,11 +407,11 @@ int thg71_set_vfo(RIG *rig, vfo_t vfo)
     {
     case RIG_VFO_A:
     case RIG_VFO_VFO:
-        sprintf(vfobuf, "VMC 0,0");
+        SNPRINTF(vfobuf, sizeof(vfobuf), "VMC 0,0");
         break;
 
     case RIG_VFO_MEM:
-        sprintf(vfobuf, "VMC 0,2");
+        SNPRINTF(vfobuf, sizeof(vfobuf), "VMC 0,2");
         break;
 
     default:

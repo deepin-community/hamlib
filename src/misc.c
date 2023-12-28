@@ -28,15 +28,12 @@
  * \brief Miscellaneous utility routines
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <fcntl.h>   /* File control definitions */
 #include <errno.h>   /* Error number definitions */
 
@@ -57,6 +54,13 @@
 #include "misc.h"
 #include "serial.h"
 #include "network.h"
+
+#if defined(_WIN32)
+#  include <time.h>
+#  ifndef localtime_r
+#    define localtime_r(T,Tm) (localtime_s(Tm,T) ? NULL : Tm)
+#  endif
+#endif
 
 #ifdef __APPLE__
 
@@ -288,6 +292,34 @@ unsigned long long HAMLIB_API from_bcd_be(const unsigned char bcd_data[],
     return f;
 }
 
+size_t HAMLIB_API to_hex(size_t source_length, const unsigned char *source_data,
+                         size_t dest_length, char *dest_data)
+{
+    size_t i;
+    size_t length = source_length;
+    const unsigned char *source = source_data;
+    char *dest = dest_data;
+
+    if (source_length == 0 || dest_length == 0)
+    {
+        return 0;
+    }
+
+    if (source_length * 2 > dest_length)
+    {
+        length = dest_length / 2 - 1;
+    }
+
+    for (i = 0; i < length; i++)
+    {
+        SNPRINTF(dest, dest_length - 2 * i, "%02X", source[0]);
+        source++;
+        dest += 2;
+    }
+
+    return length;
+}
+
 /**
  * \brief Convert duration of one morse code dot (element) to milliseconds at the given speed.
  * \param wpm morse code speed in words per minute
@@ -347,11 +379,12 @@ int millis_to_dot10ths(int millis, int wpm)
  * pretty print frequencies
  * str must be long enough. max can be as long as 17 chars
  */
-int HAMLIB_API sprintf_freq(char *str, int nlen, freq_t freq)
+int HAMLIB_API sprintf_freq(char *str, int str_len, freq_t freq)
 {
     double f;
     char *hz;
     int decplaces = 10;
+    int retval;
 
     // too verbose
     //rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -380,7 +413,9 @@ int HAMLIB_API sprintf_freq(char *str, int nlen, freq_t freq)
         decplaces = 1;
     }
 
-    return sprintf(str, "%.*f %s", decplaces, f, hz);
+    SNPRINTF(str, str_len, "%.*f %s", decplaces, f, hz);
+    retval = strlen(str);
+    return retval;
 }
 
 
@@ -420,17 +455,23 @@ static const struct
 } mode_str[] =
 {
     { RIG_MODE_AM, "AM" },
+    { RIG_MODE_PKTAM, "AM-D" },
     { RIG_MODE_CW, "CW" },
     { RIG_MODE_USB, "USB" },
     { RIG_MODE_LSB, "LSB" },
     { RIG_MODE_RTTY, "RTTY" },
     { RIG_MODE_FM, "FM" },
+    { RIG_MODE_PKTFM, "FM-D" },
     { RIG_MODE_WFM, "WFM" },
     { RIG_MODE_CWR, "CWR" },
+    { RIG_MODE_CWR, "CW-R" },
     { RIG_MODE_RTTYR, "RTTYR" },
+    { RIG_MODE_RTTYR, "RTTY-R" },
     { RIG_MODE_AMS, "AMS" },
     { RIG_MODE_PKTLSB, "PKTLSB" },
     { RIG_MODE_PKTUSB, "PKTUSB" },
+    { RIG_MODE_PKTLSB, "LSB-D" },
+    { RIG_MODE_PKTUSB, "USB-D" },
     { RIG_MODE_PKTFM, "PKTFM" },
     { RIG_MODE_PKTFMN, "PKTFMN" },
     { RIG_MODE_ECSSUSB, "ECSSUSB" },
@@ -454,6 +495,9 @@ static const struct
     { RIG_MODE_C4FM, "C4FM"},
     { RIG_MODE_SPEC, "SPEC"},
     { RIG_MODE_CWN, "CWN"},
+    { RIG_MODE_IQ, "IQ"},
+    { RIG_MODE_ISBUSB, "ISBUSB"},
+    { RIG_MODE_ISBLSB, "ISBLSB"},
     { RIG_MODE_NONE, "" },
 };
 
@@ -479,6 +523,7 @@ rmode_t HAMLIB_API rig_parse_mode(const char *s)
         }
     }
 
+    rig_debug(RIG_DEBUG_WARN, "%s: mode '%s' not found\n", __func__, s);
     return RIG_MODE_NONE;
 }
 
@@ -531,7 +576,7 @@ int HAMLIB_API rig_strrmodes(rmode_t modes, char *buf, int buflen)
 
     if (modes == RIG_MODE_NONE)
     {
-        snprintf(buf, buflen, "NONE");
+        SNPRINTF(buf, buflen, "NONE");
         return RIG_OK;
     }
 
@@ -541,8 +586,8 @@ int HAMLIB_API rig_strrmodes(rmode_t modes, char *buf, int buflen)
         {
             char modebuf[16];
 
-            if (strlen(buf) == 0) { snprintf(modebuf, sizeof(modebuf), "%s", mode_str[i].str); }
-            else { snprintf(modebuf, sizeof(modebuf), " %s", mode_str[i].str); }
+            if (strlen(buf) == 0) { SNPRINTF(modebuf, sizeof(modebuf), "%s", mode_str[i].str); }
+            else { SNPRINTF(modebuf, sizeof(modebuf), " %s", mode_str[i].str); }
 
             strncat(buf, modebuf, buflen - strlen(buf) - 1);
 
@@ -577,7 +622,9 @@ static const struct
     { RIG_VFO_SUB_B, "SubB" },
     { RIG_VFO_SUB_C, "SubC" },
     { RIG_VFO_NONE, "None" },
-    { 0xffffff, "" },
+    { RIG_VFO_OTHER, "otherVFO" },
+    { RIG_VFO_ALL, "AllVFOs" },
+    { 0xffffffff, "" },
 };
 
 
@@ -598,10 +645,14 @@ vfo_t HAMLIB_API rig_parse_vfo(const char *s)
     {
         if (!strcmp(s, vfo_str[i].str))
         {
+            rig_debug(RIG_DEBUG_CACHE, "%s: str='%s' vfo='%s'\n", __func__, vfo_str[i].str,
+                      rig_strvfo(vfo_str[i].vfo));
             return vfo_str[i].vfo;
         }
     }
 
+    rig_debug(RIG_DEBUG_ERR, "%s: '%s' not found so vfo='%s'\n", __func__, s,
+              rig_strvfo(RIG_VFO_NONE));
     return RIG_VFO_NONE;
 }
 
@@ -683,6 +734,9 @@ static const struct
     { RIG_FUNC_TRANSCEIVE, "TRANSCEIVE" },
     { RIG_FUNC_SPECTRUM, "SPECTRUM" },
     { RIG_FUNC_SPECTRUM_HOLD, "SPECTRUM_HOLD" },
+    { RIG_FUNC_SEND_MORSE, "SEND_MORSE" },
+    { RIG_FUNC_SEND_VOICE_MEM, "SEND_VOICE_MEM" },
+    { RIG_FUNC_OVF_STATUS, "OVF_STATUS" },
     { RIG_FUNC_NONE, "" },
 };
 
@@ -871,6 +925,9 @@ static const struct
     { RIG_LEVEL_SPECTRUM_AVG, "SPECTRUM_AVG" },
     { RIG_LEVEL_SPECTRUM_ATT, "SPECTRUM_ATT" },
     { RIG_LEVEL_TEMP_METER, "TEMP_METER" },
+    { RIG_LEVEL_BAND_SELECT, "BAND_SELECT" },
+    { RIG_LEVEL_USB_AF, "USB_AF" },
+    { RIG_LEVEL_AGC_TIME, "AGC_TIME" },
     { RIG_LEVEL_NONE, "" },
 };
 
@@ -1225,6 +1282,9 @@ static const struct
     { RIG_AGC_USER, "USER" },
     { RIG_AGC_MEDIUM, "MEDIUM" },
     { RIG_AGC_AUTO, "AUTO" },
+    { RIG_AGC_LONG, "LONG" },
+    { RIG_AGC_ON, "ON" },
+    { RIG_AGC_NONE, "NONE" },
     { -1, "" },
 };
 
@@ -1251,6 +1311,77 @@ const char *HAMLIB_API rig_stragclevel(enum agc_level_e level)
     }
 
     return "";
+}
+
+/**
+ * \brief Convert a enum agc_level_e to value
+ * \param integer...
+ * \return agc_level_e value
+ */
+value_t rig_valueagclevel(enum agc_level_e agcLevel)
+{
+    value_t value;
+
+    if (agcLevel == RIG_AGC_OFF) { value.i = 0; }
+    else if (agcLevel == RIG_AGC_SUPERFAST) { value.i = 1; }
+    else if (agcLevel == RIG_AGC_FAST) { value.i = 2; }
+    else if (agcLevel == RIG_AGC_SLOW) { value.i = 3; }
+    else if (agcLevel == RIG_AGC_USER) { value.i = 4; }
+    else if (agcLevel == RIG_AGC_MEDIUM) { value.i = 5; }
+    else { value.i = 6; } //RIG_AGC_AUTO
+
+    return value;
+}
+
+/**
+ * \brief Convert a value to agc_level_e -- constrains the range
+ * \param integer...
+ * \return agc_level_e
+ */
+enum agc_level_e rig_levelagcvalue(int agcValue)
+{
+    enum agc_level_e agcLevel;
+
+    switch (agcValue)
+    {
+    case 0: agcLevel = RIG_AGC_OFF; break;
+
+    case 1: agcLevel = RIG_AGC_SUPERFAST; break;
+
+    case 2: agcLevel = RIG_AGC_FAST; break;
+
+    case 3: agcLevel = RIG_AGC_SLOW; break;
+
+    case 4: agcLevel = RIG_AGC_USER; break;
+
+    case 5: agcLevel = RIG_AGC_MEDIUM; break;
+
+    case 6: agcLevel = RIG_AGC_AUTO; break;
+
+    default: agcLevel = RIG_AGC_AUTO; break;
+    }
+
+    return agcLevel;
+}
+
+/**
+ * \brief Convert AGC string... to agc_level_e
+ * \param mode AGC string...
+ * \return agc_level_e
+ */
+enum agc_level_e rig_levelagcstr(char *agcString)
+{
+    enum agc_level_e agcLevel;
+
+    if (strcmp(agcString, "OFF") == 0) { agcLevel = RIG_AGC_OFF; }
+    else if (strcmp(agcString, "SUPERFAST") == 0) { agcLevel = RIG_AGC_SUPERFAST; }
+    else if (strcmp(agcString, "FAST") == 0) { agcLevel = RIG_AGC_FAST; }
+    else if (strcmp(agcString, "SLOW") == 0) { agcLevel = RIG_AGC_SLOW; }
+    else if (strcmp(agcString, "USER") == 0) { agcLevel = RIG_AGC_USER; }
+    else if (strcmp(agcString, "MEDIUM") == 0) { agcLevel = RIG_AGC_MEDIUM; }
+    else { agcLevel = RIG_AGC_AUTO; }
+
+    return agcLevel;
 }
 
 
@@ -1723,21 +1854,64 @@ int HAMLIB_API rig_set_cache_timeout_ms(RIG *rig, hamlib_cache_t selection,
     return RIG_OK;
 }
 
-// we're mappping our VFO here to work with either VFO A/B rigs or Main/Sub
+static char *funcname = "Unknown";
+static int linenum = 0;
+
+#undef vfo_fixup
+vfo_t HAMLIB_API vfo_fixup2a(RIG *rig, vfo_t vfo, split_t split,
+                             const char *func, int line)
+{
+    funcname = (char *)func;
+    linenum = (int)line;
+    return vfo_fixup(rig, vfo, split);
+}
+
+// we're mapping our VFO here to work with either VFO A/B rigs or Main/Sub
 // Hamlib uses VFO_A  and VFO_B as TX/RX as of 2021-04-13
 // So we map these to Main/Sub as required
 vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo, split_t split)
 {
-    rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s, vfo_curr=%s\n", __func__,
-              rig_strvfo(vfo), rig_strvfo(rig->state.current_vfo));
+    rig_debug(RIG_DEBUG_TRACE, "%s:(from %s:%d) vfo=%s, vfo_curr=%s, split=%d\n",
+              __func__, funcname, linenum,
+              rig_strvfo(vfo), rig_strvfo(rig->state.current_vfo), split);
 
-    if (vfo == RIG_VFO_CURR)
+    if (vfo == RIG_VFO_NONE) { vfo = RIG_VFO_A; }
+
+    if (vfo == RIG_VFO_CURR || vfo == RIG_VFO_VFO)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: Leaving currVFO alone\n", __func__);
         return vfo;  // don't modify vfo for RIG_VFO_CURR
     }
 
-    if (vfo == RIG_VFO_RX || vfo == RIG_VFO_A || vfo == RIG_VFO_MAIN)
+    if (vfo == RIG_VFO_OTHER)
+    {
+        switch (rig->state.current_vfo)
+        {
+        case RIG_VFO_A:
+            return RIG_VFO_B;
+
+        case RIG_VFO_MAIN:
+            return RIG_VFO_SUB;
+
+        case RIG_VFO_B:
+            return RIG_VFO_A;
+
+        case RIG_VFO_SUB:
+            return RIG_VFO_MAIN;
+
+        case RIG_VFO_SUB_A:
+            return RIG_VFO_SUB_B;
+
+        case RIG_VFO_SUB_B:
+            return RIG_VFO_SUB_A;
+        }
+    }
+
+    if (vfo == RIG_VFO_RX)
+    {
+        vfo = rig->state.rx_vfo;
+    }
+    else if (vfo == RIG_VFO_A || vfo == RIG_VFO_MAIN)
     {
         vfo = RIG_VFO_A; // default to mapping VFO_MAIN to VFO_A
 
@@ -1745,7 +1919,6 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo, split_t split)
 
         if (VFO_HAS_MAIN_SUB_A_B_ONLY) { vfo = RIG_VFO_MAIN; }
     }
-
     else if (vfo == RIG_VFO_TX)
     {
 #if 0
@@ -1767,7 +1940,10 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo, split_t split)
 
         int satmode = rig->state.cache.satmode;
 
-        if (split && vfo == RIG_VFO_TX) { vfo = RIG_VFO_B; }
+        rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): split=%d, vfo==%s tx_vfo=%s\n", __func__,
+                  __LINE__, split, rig_strvfo(vfo), rig_strvfo(rig->state.tx_vfo));
+
+        //if (vfo == RIG_VFO_TX) { vfo = rig->state.tx_vfo; RETURNFUNC(RIG_OK); }
 
         if (VFO_HAS_MAIN_SUB_ONLY && !split && !satmode && vfo != RIG_VFO_B) { vfo = RIG_VFO_MAIN; }
 
@@ -1777,13 +1953,16 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo, split_t split)
 
         else if (VFO_HAS_MAIN_SUB_A_B_ONLY && satmode) { vfo = RIG_VFO_SUB; }
 
+        else if (VFO_HAS_A_B_ONLY) { vfo = split ? RIG_VFO_B : RIG_VFO_A; }
+
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: RIG_VFO_TX changed to %s, split=%d, satmode=%d\n", __func__,
                   rig_strvfo(vfo), split, satmode);
     }
-    else if (vfo == RIG_VFO_B)
-
+    else if (vfo == RIG_VFO_B || vfo == RIG_VFO_SUB)
     {
+        vfo = RIG_VFO_B;  // default to VFO_B
+
         if (VFO_HAS_MAIN_SUB_ONLY) { vfo = RIG_VFO_SUB; }
 
         if (VFO_HAS_MAIN_SUB_A_B_ONLY) { vfo = RIG_VFO_SUB; }
@@ -1794,7 +1973,8 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo, split_t split)
     return vfo;
 }
 
-int HAMLIB_API parse_hoststr(char *hoststr, char host[256], char port[6])
+int HAMLIB_API parse_hoststr(char *hoststr, int hoststr_len, char host[256],
+                             char port[6])
 {
     unsigned int net1, net2, net3, net4, net5, net6, net7, net8;
     char dummy[6], link[32], *p;
@@ -1810,8 +1990,8 @@ int HAMLIB_API parse_hoststr(char *hoststr, char host[256], char port[6])
 
     if (strncasecmp(hoststr, "com", 3) == 0) { return -1; }
 
-    // escaped COM port like \\.\COM3
-    if (strstr(hoststr, "\\\\.\\")) { return -1; }
+    // escaped COM port like \\.\COM3 or \.\COM3
+    if (strstr(hoststr, "\\.\\")) { return -1; }
 
     // Now let's try and parse a host:port thing
     // bracketed IPV6 with optional port
@@ -1896,7 +2076,7 @@ int HAMLIB_API parse_hoststr(char *hoststr, char host[256], char port[6])
     if (sscanf(hoststr, ":%5[0-9]%1s", port,
                dummy) == 1) // just a port if you please
     {
-        sprintf(hoststr, "%s:%s\n", "localhost", port);
+        SNPRINTF(hoststr, hoststr_len, "%s:%s\n", "localhost", port);
         rig_debug(RIG_DEBUG_VERBOSE, "%s: hoststr=%s\n", __func__, hoststr);
         return RIG_OK;
     }
@@ -1915,9 +2095,20 @@ int HAMLIB_API parse_hoststr(char *hoststr, char host[256], char port[6])
 //#define RIG_FLUSH_REMOVE
 int HAMLIB_API rig_flush(hamlib_port_t *port)
 {
+    // Data should never be flushed when using async I/O
+    if (port->asyncio)
+    {
+        return RIG_OK;
+    }
+
 #ifndef RIG_FLUSH_REMOVE
     rig_debug(RIG_DEBUG_TRACE, "%s: called for %s device\n", __func__,
               port->type.rig == RIG_PORT_SERIAL ? "serial" : "network");
+
+    if (port->type.rig == RIG_PORT_NONE)
+    {
+        return RIG_OK;
+    }
 
     if (port->type.rig == RIG_PORT_NETWORK
             || port->type.rig == RIG_PORT_UDP_NETWORK)
@@ -2186,6 +2377,9 @@ void *HAMLIB_API rig_get_function_ptr(rig_model_t rig_model,
     case RIG_FUNCTION_GET_CONF:
         return caps->get_conf;
 
+    case RIG_FUNCTION_GET_CONF2:
+        return caps->get_conf2;
+
     case RIG_FUNCTION_SEND_DTMF:
         return caps->send_dtmf;
 
@@ -2249,6 +2443,15 @@ void *HAMLIB_API rig_get_function_ptr(rig_model_t rig_model,
     case RIG_FUNCTION_SET_VFO_OPT:
         return caps->set_vfo_opt;
 
+    case RIG_FUNCTION_READ_FRAME_DIRECT:
+        return caps->read_frame_direct;
+
+    case RIG_FUNCTION_IS_ASYNC_FRAME:
+        return caps->is_async_frame;
+
+    case RIG_FUNCTION_PROCESS_ASYNC_FRAME:
+        return caps->process_async_frame;
+
     default:
         rig_debug(RIG_DEBUG_ERR, "Unknown function?? function=%d\n", rig_function);
     }
@@ -2267,6 +2470,7 @@ long long HAMLIB_API rig_get_caps_int(rig_model_t rig_model,
                                       enum rig_caps_int_e rig_caps)
 {
     const struct rig_caps *caps = rig_get_caps(rig_model);
+    //rig_debug(RIG_DEBUG_TRACE, "%s: getting rig_caps=%u\n", __func__, rig_caps);
 
     switch (rig_caps)
     {
@@ -2277,6 +2481,7 @@ long long HAMLIB_API rig_get_caps_int(rig_model_t rig_model,
         return caps->rig_model;
 
     case RIG_CAPS_PTT_TYPE:
+        //rig_debug(RIG_DEBUG_TRACE, "%s: return %u\n", __func__, caps->ptt_type);
         return caps->ptt_type;
 
     case RIG_CAPS_PORT_TYPE:
@@ -2287,7 +2492,7 @@ long long HAMLIB_API rig_get_caps_int(rig_model_t rig_model,
 
     default:
         //rig_debug(RIG_DEBUG_ERR, "%s: Unknown rig_caps value=%lld\n", __func__, rig_caps);
-        RETURNFUNC(-RIG_EINVAL);
+        return (-RIG_EINVAL);
     }
 }
 
@@ -2326,13 +2531,14 @@ void errmsg(int err, char *s, const char *func, const char *file, int line)
 uint32_t CRC32_function(uint8_t *buf, uint32_t len)
 {
 
-    uint32_t val, crc;
+    uint32_t crc;
     uint8_t i;
 
     crc = 0xFFFFFFFF;
 
     while (len--)
     {
+        uint32_t val;
         val = (crc^*buf++) & 0xFF;
 
         for (i = 0; i < 8; i++)
@@ -2368,21 +2574,44 @@ static struct tm *gmtime_r(const time_t *t, struct tm *r)
 #endif // _WIN32
 
 //! @cond Doxygen_Suppress
-char *date_strget(char *buf, int buflen)
+char *date_strget(char *buf, int buflen, int localtime)
 {
-    char tmp[16];
+    char tmpbuf[64];
     struct tm *mytm;
     time_t t;
     struct timeval tv;
     struct tm result;
+    int mytimezone;
+
     t = time(NULL);
-    mytm = gmtime_r(&t, &result);
-    strftime(buf, buflen, "%Y-%m-%d:%H:%M:%S.", mytm);
+
+    if (localtime)
+    {
+        mytm = localtime_r(&t, &result);
+        mytimezone = timezone;
+    }
+    else
+    {
+        mytm = gmtime_r(&t, &result);
+        mytimezone = 0;
+    }
+
+    strftime(buf, buflen, "%Y-%m-%dT%H:%M:%S.", mytm);
     gettimeofday(&tv, NULL);
-    sprintf(tmp, "%06ld", (long)tv.tv_usec);
-    strcat(buf, tmp);
+    SNPRINTF(tmpbuf, sizeof(tmpbuf), "%06ld", (long)tv.tv_usec);
+    strcat(buf, tmpbuf);
+    SNPRINTF(tmpbuf, sizeof(tmpbuf), "%s%04d", mytimezone >= 0 ? "-" : "+",
+             ((int)abs(mytimezone) / 3600) * 100);
+    strcat(buf, tmpbuf);
     return buf;
 }
+
+const char *spaces()
+{
+    static char *s = "                     ";
+    return s;
+}
+
 
 
 //! @endcond

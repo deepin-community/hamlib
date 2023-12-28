@@ -19,14 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <stdbool.h>
 
 #include "hamlib/rig.h"
@@ -60,14 +56,16 @@ struct dra818_priv
 static int dra818_response(RIG *rig, const char *expected)
 {
     char response[80];
-    int r = read_string(&rig->state.rigport, response, sizeof(response), "\n", 1);
+    int r = read_string(&rig->state.rigport, (unsigned char *) response,
+                        sizeof(response),
+                        "\n", 1, 0, 1);
 
     if (r != strlen(expected))
     {
         return -RIG_EIO;
     }
 
-    if (strcmp(expected, response))
+    if (strcmp(expected, response) != 0)
     {
         rig_debug(RIG_DEBUG_VERBOSE, "dra818: response: %s\n", response);
         return -RIG_ERJCTED;
@@ -76,11 +74,12 @@ static int dra818_response(RIG *rig, const char *expected)
     return RIG_OK;
 }
 
-static void dra818_subaudio(RIG *rig, char *subaudio, tone_t tone, tone_t code)
+static void dra818_subaudio(RIG *rig, char *subaudio, int subaudio_len,
+                            tone_t tone, tone_t code)
 {
     if (code)
     {
-        sprintf(subaudio, "%03uI", code);
+        SNPRINTF(subaudio, subaudio_len, "%03uI", code % 10000);
         return;
     }
     else if (tone)
@@ -91,7 +90,7 @@ static void dra818_subaudio(RIG *rig, char *subaudio, tone_t tone, tone_t code)
         {
             if (rig->caps->ctcss_list[i] == tone)
             {
-                sprintf(subaudio, "%04d", i + 1);
+                SNPRINTF(subaudio, subaudio_len, "%04d", (i + 1) % 10000);
                 return;
             }
         }
@@ -107,18 +106,19 @@ static int dra818_setgroup(RIG *rig)
 {
     struct dra818_priv *priv = rig->state.priv;
     char cmd[80];
-    char subtx[5] = { 0 };
-    char subrx[5] = { 0 };
+    char subtx[8] = { 0 };
+    char subrx[8] = { 0 };
 
-    dra818_subaudio(rig, subtx, priv->ctcss_tone, priv->dcs_code);
-    dra818_subaudio(rig, subrx, priv->ctcss_sql, priv->dcs_sql);
+    dra818_subaudio(rig, subtx, sizeof(subtx), priv->ctcss_tone, priv->dcs_code);
+    dra818_subaudio(rig, subrx, sizeof(subrx), priv->ctcss_sql, priv->dcs_sql);
 
-    sprintf(cmd, "AT+DMOSETGROUP=%1d,%03d.%04d,%03d.%04d,%4s,%1d,%4s\r\n",
-            priv->bw == 12500 ? 0 : 1,
-            (int)(priv->tx_freq / 1000000), (int)((priv->tx_freq % 1000000) / 100),
-            (int)(priv->rx_freq / 1000000), (int)((priv->rx_freq % 1000000) / 100),
-            subtx, priv->sql, subrx);
-    write_block(&rig->state.rigport, cmd, strlen(cmd));
+    SNPRINTF(cmd, sizeof(cmd),
+             "AT+DMOSETGROUP=%1d,%03d.%04d,%03d.%04d,%4s,%1d,%4s\r\n",
+             priv->bw == 12500 ? 0 : 1,
+             (int)(priv->tx_freq / 1000000), (int)((priv->tx_freq % 1000000) / 100),
+             (int)(priv->rx_freq / 1000000), (int)((priv->rx_freq % 1000000) / 100),
+             subtx, priv->sql, subrx);
+    write_block(&rig->state.rigport, (unsigned char *) cmd, strlen(cmd));
 
     return dra818_response(rig, dra818_setgroup_res);
 }
@@ -128,9 +128,8 @@ static int dra818_setvolume(RIG *rig)
     struct dra818_priv *priv = rig->state.priv;
     char cmd[80];
 
-    sprintf(cmd, "AT+DMOSETVOLUME=%1d\r\n",
-            priv->vol);
-    write_block(&rig->state.rigport, cmd, strlen(cmd));
+    SNPRINTF(cmd, sizeof(cmd), "AT+DMOSETVOLUME=%1d\r\n", priv->vol);
+    write_block(&rig->state.rigport, (unsigned char *) cmd, strlen(cmd));
 
     return dra818_response(rig, dra818_setvolume_res);
 }
@@ -191,7 +190,7 @@ int dra818_open(RIG *rig)
 
     for (i = 0; i < 3; i++)
     {
-        write_block(&rig->state.rigport, dra818_handshake_cmd,
+        write_block(&rig->state.rigport, (unsigned char *) dra818_handshake_cmd,
                     strlen(dra818_handshake_cmd));
 
         r = dra818_response(rig, dra818_handshake_res);
@@ -290,11 +289,13 @@ int dra818_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
     char response[8];
     int r;
 
-    sprintf(cmd, "S+%03d.%04d\r\n",
-            (int)(priv->rx_freq / 1000000), (int)((priv->rx_freq % 1000000) / 100));
-    write_block(&rig->state.rigport, cmd, strlen(cmd));
+    SNPRINTF(cmd, sizeof(cmd), "S+%03d.%04d\r\n",
+             (int)(priv->rx_freq / 1000000), (int)((priv->rx_freq % 1000000) / 100));
+    write_block(&rig->state.rigport, (unsigned char *) cmd, strlen(cmd));
 
-    r = read_string(&rig->state.rigport, response, sizeof(response), "\n", 1);
+    r = read_string(&rig->state.rigport, (unsigned char *) response,
+                    sizeof(response),
+                    "\n", 1, 0, 1);
 
     if (r != 5)
     {
@@ -529,7 +530,7 @@ const struct rig_caps dra818u_caps =
     .mfg_name =     "Dorji",
     .version =      "20191209.0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_UNTESTED,
+    .status =       RIG_STATUS_ALPHA,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
     .ptt_type =     RIG_PTT_NONE,
     .dcd_type =     RIG_DCD_RIG,
@@ -623,6 +624,7 @@ const struct rig_caps dra818u_caps =
     .get_ctcss_tone =       dra818_get_ctcss_tone,
     .get_dcs_sql =          dra818_get_dcs_sql,
     .get_ctcss_sql =        dra818_get_ctcss_sql,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 const struct rig_caps dra818v_caps =
@@ -632,7 +634,7 @@ const struct rig_caps dra818v_caps =
     .mfg_name =     "Dorji",
     .version =      "20191209.0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_UNTESTED,
+    .status =       RIG_STATUS_ALPHA,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
     .ptt_type =     RIG_PTT_NONE,
     .dcd_type =     RIG_DCD_RIG,
@@ -726,5 +728,6 @@ const struct rig_caps dra818v_caps =
     .get_ctcss_tone =       dra818_get_ctcss_tone,
     .get_dcs_sql =          dra818_get_dcs_sql,
     .get_ctcss_sql =        dra818_get_ctcss_sql,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

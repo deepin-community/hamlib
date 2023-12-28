@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -77,7 +75,7 @@ const struct rig_caps xk2100_caps =
     .mfg_name = "Rohde&Schwarz",
     .version = BACKEND_VER ".0",
     .copyright = "LGPL",
-    .status = RIG_STATUS_BETA,
+    .status = RIG_STATUS_STABLE,
     .rig_type = RIG_TYPE_TRANSCEIVER,
     .ptt_type = RIG_PTT_RIG,
     // Need to set RTS on for some reason
@@ -138,6 +136,12 @@ const struct rig_caps xk2100_caps =
     },
     .tx_range_list2 = {RIG_FRNG_END,},
 
+    .tuning_steps =     {
+        // Rem: no support for changing tuning step
+        {RIG_MODE_ALL, 1},
+        RIG_TS_END,
+    },
+
     /*
     .tuning_steps =  {
          {XK2100_MODES,1},
@@ -185,6 +189,7 @@ const struct rig_caps xk2100_caps =
     .set_channel = gp2000_set_channel,
     .get_channel = gp2000_get_channel,
 #endif
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

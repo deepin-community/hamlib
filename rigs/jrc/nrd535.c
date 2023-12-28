@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -98,7 +96,7 @@ const struct rig_caps nrd535_caps =
     RIG_MODEL(RIG_MODEL_NRD535),
     .model_name = "NRD-535D",
     .mfg_name =  "JRC",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
@@ -112,8 +110,8 @@ const struct rig_caps nrd535_caps =
     .serial_parity =  RIG_PARITY_NONE,
     .serial_handshake =  RIG_HANDSHAKE_NONE,
     .write_delay =  0,
-    .post_write_delay =  20,
-    .timeout =  200,
+    .post_write_delay =  21,
+    .timeout =  250,
     .retry =  3,
 
     .has_get_func =  NRD535_FUNC,
@@ -209,7 +207,7 @@ const struct rig_caps nrd535_caps =
     .set_powerstat =  jrc_set_powerstat,
     .get_powerstat =  jrc_get_powerstat,
     .decode_event =  jrc_decode_event,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

@@ -22,13 +22,7 @@
  */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
+#include <hamlib/config.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -64,7 +58,7 @@ const struct rig_caps frg8800_caps =
     .mfg_name =           "Yaesu",
     .version =            "20160409.0",
     .copyright =          "LGPL",
-    .status =             RIG_STATUS_UNTESTED,
+    .status =             RIG_STATUS_ALPHA,
     .rig_type =           RIG_TYPE_RECEIVER,
     .ptt_type =           RIG_PTT_NONE,
     .dcd_type =           RIG_DCD_NONE,
@@ -81,10 +75,14 @@ const struct rig_caps frg8800_caps =
     .retry =              0,
     .has_get_func =       RIG_FUNC_NONE,
     .has_set_func =       RIG_FUNC_NONE,
-    .has_get_level =      RIG_LEVEL_NONE,
-    .has_set_level =      RIG_LEVEL_NONE,
+    .has_get_level =      RIG_LEVEL_BAND_SELECT,
+    .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .vfo_ops =        RIG_OP_NONE,
     .preamp =             { RIG_DBLST_END, },
     .attenuator =         { RIG_DBLST_END, },
@@ -141,6 +139,7 @@ const struct rig_caps frg8800_caps =
     .set_mode =           frg8800_set_mode,
 
     .set_powerstat =  frg8800_set_powerstat,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -163,7 +162,7 @@ int frg8800_open(RIG *rig)
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
     /* send Ext Cntl ON: Activate CAT */
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 
 }
 
@@ -174,7 +173,7 @@ int frg8800_close(RIG *rig)
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
     /* send Ext Cntl OFF: Deactivate CAT */
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 
 }
 
@@ -192,7 +191,7 @@ int frg8800_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     cmd[0] = (cmd[0] & 0xf0) | (1 << ((((long long)freq) % 100) / 25));
 
     /* Frequency set */
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 }
 
 
@@ -235,7 +234,7 @@ int frg8800_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     cmd[3] = md;
 
     /* Mode set */
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 }
 
 
@@ -249,6 +248,6 @@ int frg8800_set_powerstat(RIG *rig, powerstat_t status)
     cmd[3] = status == RIG_POWER_OFF ? 0xff : 0xfe;
 
     /* Frequency set */
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 }
 

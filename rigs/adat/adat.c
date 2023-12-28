@@ -21,9 +21,7 @@
 //   License along with this library; if not, write to the Free Software
 //   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 // ---------------------------------------------------------------------------
 //    SYSTEM INCLUDES
@@ -33,9 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <math.h>
 #include <ctype.h>
-#include <time.h>
 
 // ---------------------------------------------------------------------------
 //    HAMLIB INCLUDES
@@ -1266,7 +1262,8 @@ int adat_send(RIG  *pRig,
 
     rig_flush(&pRigState->rigport);
 
-    nRC = write_block(&pRigState->rigport, pcData, strlen(pcData));
+    nRC = write_block(&pRigState->rigport, (unsigned char *) pcData,
+                      strlen(pcData));
 
     rig_debug(RIG_DEBUG_TRACE,
               "*** ADAT: %d %s (%s:%d): EXIT. Return Code = %d\n",
@@ -1294,7 +1291,8 @@ int adat_receive(RIG  *pRig,
               "*** ADAT: %d %s (%s:%d): ENTRY. Params: pRig = %p\n",
               gFnLevel, __func__, __FILE__, __LINE__, pRig);
 
-    nRC = read_string(&pRigState->rigport, pcData, ADAT_RESPSZ, ADAT_EOL, 1);
+    nRC = read_string(&pRigState->rigport, (unsigned char *) pcData, ADAT_RESPSZ,
+                      ADAT_EOL, 1, 0, 1);
 
     if (nRC > 0)
     {
@@ -2134,7 +2132,7 @@ int adat_cmd_fn_set_mode(RIG *pRig)
 
             memset(acBuf, 0, ADAT_BUFSZ + 1);
 
-            snprintf(acBuf, ADAT_BUFSZ, "%s%02d%s",
+            SNPRINTF(acBuf, sizeof(acBuf), "%s%02d%s",
                      ADAT_CMD_DEF_STRING_SET_MODE,
                      (int) pPriv->nADATMode,
                      ADAT_EOM);
@@ -2250,7 +2248,7 @@ int adat_cmd_fn_set_freq(RIG *pRig)
 
         memset(acBuf, 0, ADAT_BUFSZ + 1);
 
-        snprintf(acBuf, ADAT_BUFSZ, "%s%d%s",
+        SNPRINTF(acBuf, sizeof(acBuf), "%s%d%s",
                  ADAT_CMD_DEF_STRING_SET_FREQ,
                  (int) pPriv->nFreq,
                  ADAT_EOM);
@@ -2305,7 +2303,7 @@ int adat_cmd_fn_set_vfo(RIG *pRig)
 
         memset(acBuf, 0, ADAT_BUFSZ + 1);
 
-        snprintf(acBuf, ADAT_BUFSZ, ADAT_CMD_DEF_STRING_SWITCH_ON_VFO,
+        SNPRINTF(acBuf, ADAT_BUFSZ, ADAT_CMD_DEF_STRING_SWITCH_ON_VFO,
                  (int) pPriv->nCurrentVFO,
                  ADAT_EOM);
 
@@ -2318,7 +2316,7 @@ int adat_cmd_fn_set_vfo(RIG *pRig)
             if (nRC == RIG_OK)
             {
                 memset(acBuf, 0, ADAT_BUFSZ + 1);
-                snprintf(acBuf, ADAT_BUFSZ,
+                SNPRINTF(acBuf, ADAT_BUFSZ,
                          ADAT_CMD_DEF_STRING_SET_VFO_AS_MAIN_VFO,
                          (int) pPriv->nCurrentVFO,
                          ADAT_EOM);
@@ -2452,7 +2450,7 @@ int adat_cmd_fn_set_ptt(RIG *pRig)
 
         if (nRC == RIG_OK)
         {
-            snprintf(acBuf, ADAT_BUFSZ, ADAT_CMD_DEF_STRING_SET_PTT,
+            SNPRINTF(acBuf, ADAT_BUFSZ, ADAT_CMD_DEF_STRING_SET_PTT,
                      pcPTTStr,
                      ADAT_EOM);
 
@@ -2930,7 +2928,7 @@ const char *adat_get_info(RIG *pRig)
         {
             adat_priv_data_ptr pPriv = (adat_priv_data_ptr) pRig->state.priv;
 
-            snprintf(acBuf, 512,
+            SNPRINTF(acBuf, sizeof(acBuf),
                      "ADAT ADT-200A, Callsign: %s, S/N: %s, ID Code: %s, Options: %s, FW: %s, GUI FW: %s, HW: %s",
                      pPriv->pcCallsign,
                      pPriv->pcSerialNr,
@@ -3684,7 +3682,6 @@ DECLARE_INITRIG_BACKEND(adat)
 // ---------------------------------------------------------------------------
 // proberig_adat
 // ---------------------------------------------------------------------------
-// Status: UNTESTED
 DECLARE_PROBERIG_BACKEND(adat)
 {
     int nRC = RIG_OK;
@@ -3706,7 +3703,7 @@ DECLARE_PROBERIG_BACKEND(adat)
     }
 
     port->write_delay = port->post_write_delay = 10;
-    port->parm.serial.stop_bits = 0;
+    port->parm.serial.stop_bits = 2;
     port->retry = 1;
 
 
@@ -3724,9 +3721,10 @@ DECLARE_PROBERIG_BACKEND(adat)
         memset(acBuf, 0, ADAT_RESPSZ + 1);
 
         nRC = write_block(port,
-                          ADAT_CMD_DEF_STRING_GET_ID_CODE,
+                          (unsigned char *)ADAT_CMD_DEF_STRING_GET_ID_CODE,
                           strlen(ADAT_CMD_DEF_STRING_GET_ID_CODE));
-        nRead = read_string(port, acBuf, ADAT_RESPSZ, ADAT_EOM, 1);
+        nRead = read_string(port, (unsigned char *) acBuf, ADAT_RESPSZ,
+                            ADAT_EOM, 1, 0, 1);
         close(port->fd);
 
         if ((nRC != RIG_OK || nRead < 0))

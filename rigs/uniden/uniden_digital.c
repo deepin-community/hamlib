@@ -19,15 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -110,7 +105,7 @@ uniden_digital_transaction(RIG *rig, const char *cmdstr, int cmd_len,
     size_t reply_len = BUFSZ;
 
     rs = &rig->state;
-    rs->hold_decode = 1;
+    rs->transaction_active = 1;
 
 transaction_write:
 
@@ -118,7 +113,7 @@ transaction_write:
 
     if (cmdstr)
     {
-        retval = write_block(&rs->rigport, cmdstr, strlen(cmdstr));
+        retval = write_block(&rs->rigport, (unsigned char *) cmdstr, strlen(cmdstr));
 
         if (retval != RIG_OK)
         {
@@ -138,7 +133,8 @@ transaction_write:
     }
 
     memset(data, 0, *datasize);
-    retval = read_string(&rs->rigport, data, *datasize, EOM, strlen(EOM));
+    retval = read_string(&rs->rigport, (unsigned char *) data, *datasize, EOM,
+                         strlen(EOM), 0, 1);
 
     if (retval < 0)
     {
@@ -262,7 +258,7 @@ transaction_write:
 
     retval = RIG_OK;
 transaction_quit:
-    rs->hold_decode = 0;
+    rs->transaction_active = 0;
     return retval;
 }
 
@@ -384,15 +380,14 @@ int uniden_digital_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
 #if 0
     char freqbuf[BUFSZ];
-    size_t freq_len = BUFSZ;
 
     /* freq in hundreds of Hz */
     freq /= 100;
 
     /* exactly 8 digits */
-    freq_len = sprintf(freqbuf, "RF%08u" EOM, (unsigned)freq);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "RF%08u" EOM, (unsigned)freq);
 
-    return uniden_transaction(rig, freqbuf, freq_len, NULL, NULL, NULL);
+    return uniden_transaction(rig, freqbuf, strlen(freqbuf), NULL, NULL, NULL);
 #else
     return -RIG_ENIMPL;
 #endif

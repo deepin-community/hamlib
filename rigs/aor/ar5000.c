@@ -20,9 +20,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -81,7 +79,8 @@
 }
 
 
-static int format5k_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width);
+static int format5k_mode(RIG *rig, char *buf, int buf_len, rmode_t mode,
+                         pbwidth_t width);
 static int parse5k_aor_mode(RIG *rig, char aormode, char aorwidth,
                             rmode_t *mode, pbwidth_t *width);
 
@@ -109,7 +108,7 @@ const struct rig_caps ar5000_caps =
     .mfg_name =  "AOR",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_SCANNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -236,6 +235,7 @@ const struct rig_caps ar5000_caps =
     .get_channel = aor_get_channel,
 
     .get_chan_all_cb = aor_get_chan_all_cb,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -254,7 +254,7 @@ const struct rig_caps ar5000a_caps =
     .mfg_name =  "AOR",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_SCANNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -400,7 +400,8 @@ const struct rig_caps ar5000a_caps =
 #define AR5K_SAL '6'
 #define AR5K_SAH '7'
 
-int format5k_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width)
+int format5k_mode(RIG *rig, char *buf, int buf_len, rmode_t mode,
+                  pbwidth_t width)
 {
     int aormode;
 
@@ -460,11 +461,13 @@ int format5k_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width)
             return -RIG_EINVAL;
         }
 
-        return sprintf(buf, "MD%c BW%c", aormode, aorwidth);
+        SNPRINTF(buf, buf_len, "MD%c BW%c", aormode, aorwidth);
+        return strlen(buf);
     }
     else
     {
-        return sprintf(buf, "MD%c", aormode);
+        SNPRINTF(buf,  buf_len, "MD%c", aormode);
+        return strlen(buf);
     }
 }
 

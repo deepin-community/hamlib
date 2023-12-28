@@ -1,4 +1,4 @@
-/* include/config.h.in.  Generated from configure.ac by autoheader.  */
+/* include/hamlib/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Frontend ABI age */
 #undef ABI_AGE
@@ -164,6 +164,9 @@
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #undef HAVE_NETINET_IN_H
 
+/* Define if parallel devices are to be built */
+#undef HAVE_PARALLEL
+
 /* Define to 1 if you have the `pow' function. */
 #undef HAVE_POW
 
@@ -320,6 +323,9 @@
 /* Define to 1 if you have the `usleep' function. */
 #undef HAVE_USLEEP
 
+/* Define if usrp is available */
+#undef HAVE_USRP
+
 /* Define to 1 if you have the <values.h> header file. */
 #undef HAVE_VALUES_H
 
@@ -340,6 +346,9 @@
 
 /* Define to 1 if you have the <wspiapi.h> header file. */
 #undef HAVE_WSPIAPI_H
+
+/* Define if libxml2 is available */
+#undef HAVE_XML2
 
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR

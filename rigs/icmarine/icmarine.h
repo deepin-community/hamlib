@@ -26,10 +26,6 @@
 #include "cal.h"
 #include "tones.h"
 
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-
 #define BACKEND_VER "20181007"
 
 struct icmarine_priv_caps {
@@ -69,6 +65,7 @@ int icmarine_set_parm(RIG *rig, setting_t parm, value_t val);
 int icmarine_get_parm(RIG *rig, setting_t parm, value_t *val);
 int icmarine_set_conf(RIG *rig, token_t token, const char *val);
 int icmarine_get_conf(RIG *rig, token_t token, char *val);
+int icmarine_get_conf2(RIG *rig, token_t token, char *val, int val_len);
 
 extern const struct rig_caps icm700pro_caps;
 extern const struct rig_caps icm710_caps;

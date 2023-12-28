@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -76,7 +74,7 @@ const struct rig_caps ar3000a_caps =
     .mfg_name =  "AOR",
     .version =  "20061007.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_SCANNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -162,7 +160,7 @@ const struct rig_caps ar3000a_caps =
 
     .set_level = ar3k_set_level,
     .get_level = ar3k_get_level,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -198,7 +196,7 @@ static int ar3k_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rig_flush(&rs->rigport);
 
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(&rs->rigport, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -211,7 +209,8 @@ static int ar3k_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
         return RIG_OK;
     }
 
-    retval = read_string(&rs->rigport, data, BUFSZ, EOM, strlen(EOM));
+    retval = read_string(&rs->rigport, (unsigned char *) data, BUFSZ,
+                         EOM, strlen(EOM), 0, 1);
 
     if (retval == -RIG_ETIMEOUT)
     {
@@ -235,7 +234,7 @@ static int ar3k_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 int ar3k_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[BUFSZ];
-    int freq_len, retval;
+    int retval;
     unsigned lowhz;
 
     /*
@@ -260,9 +259,9 @@ int ar3k_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     freq = freq * 100 + lowhz;
 
-    freq_len = sprintf(freqbuf, "%04.5f" EOM, ((double)freq) / MHz(1));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "%04.5f" EOM, ((double)freq) / MHz(1));
 
-    retval = ar3k_transaction(rig, freqbuf, freq_len, NULL, NULL);
+    retval = ar3k_transaction(rig, freqbuf, strlen(freqbuf), NULL, NULL);
 
     if (retval != RIG_OK)
     {
@@ -313,7 +312,7 @@ int ar3k_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 int ar3k_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     char mdbuf[BUFSZ];
-    int mdbuf_len, aormode, retval;
+    int aormode, retval;
 
     switch (mode)
     {
@@ -335,8 +334,8 @@ int ar3k_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    mdbuf_len = sprintf(mdbuf, "%c" EOM, aormode);
-    retval = ar3k_transaction(rig, mdbuf, mdbuf_len, NULL, NULL);
+    SNPRINTF(mdbuf, sizeof(mdbuf), "%c" EOM, aormode);
+    retval = ar3k_transaction(rig, mdbuf, strlen(mdbuf), NULL, NULL);
 
     return retval;
 }
@@ -403,7 +402,7 @@ int ar3k_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 int ar3k_set_ts(RIG *rig, vfo_t vfo, shortfreq_t ts)
 {
     char freqbuf[BUFSZ];
-    int freq_len, retval;
+    int retval;
     int lowhz;
 
     /*
@@ -428,9 +427,9 @@ int ar3k_set_ts(RIG *rig, vfo_t vfo, shortfreq_t ts)
 
     ts = ts * 100 + lowhz;
 
-    freq_len = sprintf(freqbuf, "%03.2fS" EOM, ((double)ts) / kHz(1));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "%03.2fS" EOM, ((double)ts) / kHz(1));
 
-    retval = ar3k_transaction(rig, freqbuf, freq_len, NULL, NULL);
+    retval = ar3k_transaction(rig, freqbuf, strlen(freqbuf), NULL, NULL);
 
     if (retval != RIG_OK)
     {
@@ -478,10 +477,10 @@ int ar3k_get_ts(RIG *rig, vfo_t vfo, shortfreq_t *ts)
 int ar3k_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
     char cmdbuf[BUFSZ];
-    int cmd_len, retval;
+    int retval;
 
-    cmd_len = sprintf(cmdbuf, "%02dM" EOM, ch);
-    retval = ar3k_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "%02dM" EOM, ch);
+    retval = ar3k_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     return retval;
 }
@@ -489,10 +488,10 @@ int ar3k_set_mem(RIG *rig, vfo_t vfo, int ch)
 int ar3k_set_bank(RIG *rig, vfo_t vfo, int bank)
 {
     char cmdbuf[BUFSZ];
-    int cmd_len, retval;
+    int retval;
 
-    cmd_len = sprintf(cmdbuf, "%dX" EOM, bank);
-    retval = ar3k_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "%dX" EOM, bank);
+    retval = ar3k_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     return retval;
 }

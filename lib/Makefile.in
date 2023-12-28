@@ -107,19 +107,19 @@ am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
 	$(top_srcdir)/macros/ltsugar.m4 \
 	$(top_srcdir)/macros/ltversion.m4 \
 	$(top_srcdir)/macros/lt~obsolete.m4 \
-	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/tcl.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/pkg.m4 \
+	$(top_srcdir)/macros/tcl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/include/hamlib/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 libmisc_la_DEPENDENCIES = $(LTLIBOBJS) $(am__DEPENDENCIES_1)
-am_libmisc_la_OBJECTS =
+am_libmisc_la_OBJECTS = cJSON.lo asyncpipe.lo
 libmisc_la_OBJECTS = $(am_libmisc_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -137,13 +137,14 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include/hamlib
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = $(DEPDIR)/dummy.Plo $(DEPDIR)/getaddrinfo.Plo \
 	$(DEPDIR)/getopt.Plo $(DEPDIR)/getopt_long.Plo \
 	$(DEPDIR)/gettimeofday.Plo $(DEPDIR)/termios.Plo \
-	$(DEPDIR)/usleep.Plo
+	$(DEPDIR)/usleep.Plo ./$(DEPDIR)/asyncpipe.Plo \
+	./$(DEPDIR)/cJSON.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -171,6 +172,24 @@ am__can_run_installinfo = \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
+# Read a list of newline-separated strings from the standard input,
+# and print each of them once, without duplicates.  Input order is
+# *not* preserved.
+am__uniquify_input = $(AWK) '\
+  BEGIN { nonempty = 0; } \
+  { items[$$0] = 1; nonempty = 1; } \
+  END { if (nonempty) { for (i in items) print i; }; } \
+'
+# Make sure the list of sources is unique.  This is necessary because,
+# e.g., the same source file might be shared among _SOURCES variables
+# for different programs/libraries.
+am__define_uniq_tagged_files = \
+  list='$(am__tagged_files)'; \
+  unique=`for i in $$list; do \
+    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
+  done | $(am__uniquify_input)`
+ETAGS = etags
+CTAGS = ctags
 am__DIST_COMMON = $(srcdir)/Makefile.in \
 	$(top_srcdir)/build-aux/depcomp dummy.c getaddrinfo.c getopt.c \
 	getopt_long.c gettimeofday.c termios.c usleep.c
@@ -278,6 +297,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL_INC_DIR = @PERL_INC_DIR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -288,6 +310,7 @@ PYTHON_EXTRA_LDFLAGS = @PYTHON_EXTRA_LDFLAGS@
 PYTHON_EXTRA_LIBS = @PYTHON_EXTRA_LIBS@
 PYTHON_LIBS = @PYTHON_LIBS@
 PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PLATFORM_SITE_PKG = @PYTHON_PLATFORM_SITE_PKG@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_SITE_PKG = @PYTHON_SITE_PKG@
 PYTHON_VERSION = @PYTHON_VERSION@
@@ -304,12 +327,16 @@ STRIP = @STRIP@
 SWIG = @SWIG@
 SWIG_LIB = @SWIG_LIB@
 TCL_BIN_DIR = @TCL_BIN_DIR@
+TCL_CFLAGS = @TCL_CFLAGS@
 TCL_INCLUDE_SPEC = @TCL_INCLUDE_SPEC@
+TCL_LIBS = @TCL_LIBS@
 TCL_LIB_FILE = @TCL_LIB_FILE@
 TCL_LIB_SPEC = @TCL_LIB_SPEC@
 TCL_SHLIB_SUFFIX = @TCL_SHLIB_SUFFIX@
 TCL_SRC_DIR = @TCL_SRC_DIR@
 TCL_VERSION = @TCL_VERSION@
+USRP_CFLAGS = @USRP_CFLAGS@
+USRP_LIBS = @USRP_LIBS@
 VERSION = @VERSION@
 WINEXELDFLAGS = @WINEXELDFLAGS@
 WINLDFLAGS = @WINLDFLAGS@
@@ -381,7 +408,7 @@ EXTRA_DIST = getopt.c getopt.h getopt_long.c usleep.c \
 	termios.c win32termios.h gettimeofday.c getaddrinfo.c
 
 noinst_LTLIBRARIES = libmisc.la
-libmisc_la_SOURCES = 
+libmisc_la_SOURCES = cJSON.c cJSON.h asyncpipe.c asyncpipe.h
 libmisc_la_LIBADD = $(LTLIBOBJS) $(NET_LIBS)
 all: all-am
 
@@ -444,6 +471,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/gettimeofday.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/termios.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/usleep.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/asyncpipe.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cJSON.Plo@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -480,12 +509,58 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
-tags TAGS:
 
-ctags CTAGS:
+ID: $(am__tagged_files)
+	$(am__define_uniq_tagged_files); mkid -fID $$unique
+tags: tags-am
+TAGS: tags
 
-cscope cscopelist:
+tags-am: $(TAGS_DEPENDENCIES) $(am__tagged_files)
+	set x; \
+	here=`pwd`; \
+	$(am__define_uniq_tagged_files); \
+	shift; \
+	if test -z "$(ETAGS_ARGS)$$*$$unique"; then :; else \
+	  test -n "$$unique" || unique=$$empty_fix; \
+	  if test $$# -gt 0; then \
+	    $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
+	      "$$@" $$unique; \
+	  else \
+	    $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
+	      $$unique; \
+	  fi; \
+	fi
+ctags: ctags-am
 
+CTAGS: ctags
+ctags-am: $(TAGS_DEPENDENCIES) $(am__tagged_files)
+	$(am__define_uniq_tagged_files); \
+	test -z "$(CTAGS_ARGS)$$unique" \
+	  || $(CTAGS) $(CTAGSFLAGS) $(AM_CTAGSFLAGS) $(CTAGS_ARGS) \
+	     $$unique
+
+GTAGS:
+	here=`$(am__cd) $(top_builddir) && pwd` \
+	  && $(am__cd) $(top_srcdir) \
+	  && gtags -i $(GTAGS_ARGS) "$$here"
+cscopelist: cscopelist-am
+
+cscopelist-am: $(am__tagged_files)
+	list='$(am__tagged_files)'; \
+	case "$(srcdir)" in \
+	  [\\/]* | ?:[\\/]*) sdir="$(srcdir)" ;; \
+	  *) sdir=$(subdir)/$(srcdir) ;; \
+	esac; \
+	for i in $$list; do \
+	  if test -f "$$i"; then \
+	    echo "$(subdir)/$$i"; \
+	  else \
+	    echo "$$sdir/$$i"; \
+	  fi; \
+	done >> $(top_builddir)/cscope.files
+
+distclean-tags:
+	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
 
 distdir: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) distdir-am
@@ -567,8 +642,11 @@ distclean: distclean-am
 	-rm -f $(DEPDIR)/gettimeofday.Plo
 	-rm -f $(DEPDIR)/termios.Plo
 	-rm -f $(DEPDIR)/usleep.Plo
+	-rm -f ./$(DEPDIR)/asyncpipe.Plo
+	-rm -f ./$(DEPDIR)/cJSON.Plo
 	-rm -f Makefile
-distclean-am: clean-am distclean-compile distclean-generic
+distclean-am: clean-am distclean-compile distclean-generic \
+	distclean-tags
 
 dvi: dvi-am
 
@@ -618,6 +696,8 @@ maintainer-clean: maintainer-clean-am
 	-rm -f $(DEPDIR)/gettimeofday.Plo
 	-rm -f $(DEPDIR)/termios.Plo
 	-rm -f $(DEPDIR)/usleep.Plo
+	-rm -f ./$(DEPDIR)/asyncpipe.Plo
+	-rm -f ./$(DEPDIR)/cJSON.Plo
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -638,18 +718,19 @@ uninstall-am:
 
 .MAKE: install-am install-strip
 
-.PHONY: all all-am am--depfiles check check-am clean clean-generic \
-	clean-libtool clean-noinstLTLIBRARIES cscopelist-am ctags-am \
-	distclean distclean-compile distclean-generic \
-	distclean-libtool distdir dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags-am uninstall uninstall-am
+.PHONY: CTAGS GTAGS TAGS all all-am am--depfiles check check-am clean \
+	clean-generic clean-libtool clean-noinstLTLIBRARIES \
+	cscopelist-am ctags ctags-am distclean distclean-compile \
+	distclean-generic distclean-libtool distclean-tags distdir dvi \
+	dvi-am html html-am info info-am install install-am \
+	install-data install-data-am install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-info install-info-am install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags tags-am uninstall uninstall-am
 
 .PRECIOUS: Makefile
 

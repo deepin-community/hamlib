@@ -22,9 +22,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -572,11 +570,11 @@ int main(int argc, char *argv[])
      */
     do
     {
-        arg = malloc(sizeof(struct handle_data));
+        arg = calloc(1, sizeof(struct handle_data));
 
         if (!arg)
         {
-            rig_debug(RIG_DEBUG_ERR, "malloc: %s\n", strerror(errno));
+            rig_debug(RIG_DEBUG_ERR, "calloc: %s\n", strerror(errno));
             exit(1);
         }
 
@@ -598,7 +596,7 @@ int main(int argc, char *argv[])
                                    sizeof(host),
                                    serv,
                                    sizeof(serv),
-                                   NI_NOFQDN))
+                                   NI_NUMERICHOST | NI_NUMERICSERV))
                 < 0)
         {
 
@@ -664,6 +662,9 @@ void *handle_socket(void *arg)
     }
 
     fsockin = _fdopen(sock_osfhandle,  "rb");
+#elif defined(ANDROID) || defined(__ANDROID__)
+    // fdsan does not allow fdopen the same fd twice in Android
+    fsockin = fdopen(dup(handle_data_arg->sock), "rb");
 #else
     fsockin = fdopen(handle_data_arg->sock, "rb");
 #endif
@@ -676,6 +677,9 @@ void *handle_socket(void *arg)
 
 #ifdef __MINGW32__
     fsockout = _fdopen(sock_osfhandle, "wb");
+#elif defined(ANDROID) || defined(__ANDROID__)
+    // fdsan does not allow fdopen the same fd twice in Android
+    fsockout = fdopen(dup(handle_data_arg->sock), "wb");
 #else
     fsockout = fdopen(handle_data_arg->sock, "wb");
 #endif
@@ -705,7 +709,7 @@ void *handle_socket(void *arg)
                                sizeof(host),
                                serv,
                                sizeof(serv),
-                               NI_NOFQDN))
+                               NI_NUMERICHOST | NI_NUMERICSERV))
             < 0)
     {
 

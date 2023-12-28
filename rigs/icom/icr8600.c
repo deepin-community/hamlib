@@ -21,9 +21,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include "hamlib/rig.h"
 #include "idx_builtin.h"
@@ -39,13 +37,13 @@
 
 #define ICR8600_FUNC_ALL (RIG_FUNC_NB|RIG_FUNC_ANF|RIG_FUNC_MN|RIG_FUNC_AFC|\
     RIG_FUNC_NR|RIG_FUNC_AIP|RIG_FUNC_LOCK|RIG_FUNC_VSC|RIG_FUNC_RESUME|RIG_FUNC_TSQL|\
-    RIG_FUNC_CSQL|RIG_FUNC_DSQL|RIG_FUNC_TRANSCEIVE|RIG_FUNC_SPECTRUM|RIG_FUNC_SPECTRUM_HOLD)
+    RIG_FUNC_CSQL|RIG_FUNC_DSQL|RIG_FUNC_TRANSCEIVE|RIG_FUNC_SPECTRUM|RIG_FUNC_SPECTRUM_HOLD|RIG_FUNC_OVF_STATUS)
 
 #define ICR8600_LEVEL_ALL (RIG_LEVEL_ATT|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_SQL|\
     RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_PREAMP|\
     RIG_LEVEL_AGC|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|RIG_LEVEL_SPECTRUM_MODE|RIG_LEVEL_SPECTRUM_SPAN|\
     RIG_LEVEL_SPECTRUM_SPEED|RIG_LEVEL_SPECTRUM_REF|RIG_LEVEL_SPECTRUM_AVG|\
-    RIG_LEVEL_SPECTRUM_EDGE_LOW|RIG_LEVEL_SPECTRUM_EDGE_HIGH)
+    RIG_LEVEL_SPECTRUM_EDGE_LOW|RIG_LEVEL_SPECTRUM_EDGE_HIGH|RIG_LEVEL_USB_AF)
 
 #define ICR8600_PARM_ALL (RIG_PARM_BACKLIGHT|RIG_PARM_BEEP|RIG_PARM_TIME|RIG_PARM_KEYLIGHT)
 
@@ -72,6 +70,7 @@ struct cmdparams icr8600_extcmds[] =
     { {.s = RIG_PARM_TIME}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x32}, CMD_DAT_TIM, 2 },
     { {.s = RIG_FUNC_TRANSCEIVE}, CMD_PARAM_TYPE_FUNC, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x92}, CMD_DAT_BOL, 1 },
     { {.s = RIG_LEVEL_SPECTRUM_AVG}, CMD_PARAM_TYPE_LEVEL, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x40}, CMD_DAT_INT, 1 },
+    { {.s = RIG_LEVEL_USB_AF}, CMD_PARAM_TYPE_LEVEL, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x81}, CMD_DAT_LVL, 2 },
     { {.s = RIG_PARM_NONE} }
 };
 
@@ -108,7 +107,7 @@ static struct icom_priv_caps icr8600_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .spectrum_scope_caps = {
         .spectrum_line_length = 475,
@@ -133,9 +132,9 @@ const struct rig_caps icr8600_caps =
     RIG_MODEL(RIG_MODEL_ICR8600),
     .model_name = "IC-R8600",
     .mfg_name = "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".3",
     .copyright = "LGPL",
-    .status = RIG_STATUS_ALPHA,
+    .status = RIG_STATUS_BETA,
     .rig_type = RIG_TYPE_RECEIVER,
     .ptt_type = RIG_PTT_NONE,
     .dcd_type = RIG_DCD_RIG,
@@ -156,12 +155,12 @@ const struct rig_caps icr8600_caps =
     .has_set_level = RIG_LEVEL_SET(ICR8600_LEVEL_ALL),
     .has_get_parm = ICR8600_PARM_ALL,
     .has_set_parm = RIG_PARM_SET(ICR8600_PARM_ALL),
-    // cppcheck-suppress *
     .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 }, .step = {.i = 0}},
         [LVL_SPECTRUM_SPEED] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
         [LVL_SPECTRUM_REF] = {.min = {.f = -20.0f}, .max = {.f = 20.0f}, .step = {.f = 0.5f}},
         [LVL_SPECTRUM_AVG] = {.min = {.i = 0}, .max = {.i = 3}, .step = {.i = 1}},
+        [LVL_USB_AF] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f }},
     },
     .parm_gran = { [PARM_TIME] = { .min = { .i = 0 }, .max = { .i = 86399} } },
     .ext_tokens = icr8600_tokens,
@@ -286,6 +285,11 @@ const struct rig_caps icr8600_caps =
         },
     },
 
+    .async_data_supported = 1,
+    .read_frame_direct = icom_read_frame_direct,
+    .is_async_frame = icom_is_async_frame,
+    .process_async_frame = icom_process_async_frame,
+
     .cfgparams = icom_cfg_params,
 
     .set_conf = icom_set_conf,
@@ -336,4 +340,5 @@ const struct rig_caps icr8600_caps =
     .set_dcs_sql = icom_set_dcs_sql,
     .get_dcs_sql = icom_get_dcs_sql,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

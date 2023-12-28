@@ -19,14 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rig.h"
@@ -72,7 +69,7 @@ int tentec_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rig_flush(&rs->rigport);
 
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(&rs->rigport, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -85,7 +82,8 @@ int tentec_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
         return 0;
     }
 
-    retval = read_string(&rs->rigport, data, *data_len, NULL, 0);
+    retval = read_string(&rs->rigport, (unsigned char *) data, *data_len, NULL, 0,
+                         0, 1);
 
     if (retval == -RIG_ETIMEOUT)
     {
@@ -111,7 +109,7 @@ int tentec_init(RIG *rig)
 {
     struct tentec_priv_data *priv;
 
-    rig->state.priv = (struct tentec_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct tentec_priv_data *)calloc(1, sizeof(
                           struct tentec_priv_data));
 
     if (!rig->state.priv)
@@ -236,7 +234,7 @@ int tentec_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     struct tentec_priv_data *priv;
     struct rig_state *rs = &rig->state;
-    int freq_len, retval;
+    int retval;
     char freqbuf[16];
     freq_t old_freq;
 
@@ -246,12 +244,12 @@ int tentec_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     priv->freq = freq;
     tentec_tuning_factor_calc(rig);
 
-    freq_len = sprintf(freqbuf, "N%c%c%c%c%c%c" EOM,
-                       priv->ctf >> 8, priv->ctf & 0xff,
-                       priv->ftf >> 8, priv->ftf & 0xff,
-                       priv->btf >> 8, priv->btf & 0xff);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "N%c%c%c%c%c%c" EOM,
+             priv->ctf >> 8, priv->ctf & 0xff,
+             priv->ftf >> 8, priv->ftf & 0xff,
+             priv->btf >> 8, priv->btf & 0xff);
 
-    retval = write_block(&rs->rigport, freqbuf, freq_len);
+    retval = write_block(&rs->rigport, (unsigned char *) freqbuf, strlen(freqbuf));
 
     if (retval != RIG_OK)
     {
@@ -286,7 +284,7 @@ int tentec_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     char ttmode;
     rmode_t saved_mode;
     pbwidth_t saved_width;
-    int mdbuf_len, ttfilter = -1, retval;
+    int ttfilter = -1, retval;
     char mdbuf[32];
 
     switch (mode)
@@ -344,15 +342,15 @@ int tentec_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
     if (width != RIG_PASSBAND_NOCHANGE)
     {
-        mdbuf_len = sprintf(mdbuf,  "W%c" EOM
-                            "N%c%c%c%c%c%c" EOM
-                            "M%c" EOM,
-                            ttfilter,
-                            priv->ctf >> 8, priv->ctf & 0xff,
-                            priv->ftf >> 8, priv->ftf & 0xff,
-                            priv->btf >> 8, priv->btf & 0xff,
-                            ttmode);
-        retval = write_block(&rs->rigport, mdbuf, mdbuf_len);
+        SNPRINTF(mdbuf, sizeof(mdbuf),  "W%c" EOM
+                 "N%c%c%c%c%c%c" EOM
+                 "M%c" EOM,
+                 ttfilter,
+                 priv->ctf >> 8, priv->ctf & 0xff,
+                 priv->ftf >> 8, priv->ftf & 0xff,
+                 priv->btf >> 8, priv->btf & 0xff,
+                 ttmode);
+        retval = write_block(&rs->rigport, (unsigned char *) mdbuf, strlen(mdbuf));
 
         if (retval != RIG_OK)
         {
@@ -363,14 +361,14 @@ int tentec_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     }
     else
     {
-        mdbuf_len = sprintf(mdbuf,
-                            "N%c%c%c%c%c%c" EOM
-                            "M%c" EOM,
-                            priv->ctf >> 8, priv->ctf & 0xff,
-                            priv->ftf >> 8, priv->ftf & 0xff,
-                            priv->btf >> 8, priv->btf & 0xff,
-                            ttmode);
-        retval = write_block(&rs->rigport, mdbuf, mdbuf_len);
+        SNPRINTF(mdbuf, sizeof(mdbuf),
+                 "N%c%c%c%c%c%c" EOM
+                 "M%c" EOM,
+                 priv->ctf >> 8, priv->ctf & 0xff,
+                 priv->ftf >> 8, priv->ftf & 0xff,
+                 priv->btf >> 8, priv->btf & 0xff,
+                 ttmode);
+        retval = write_block(&rs->rigport, (unsigned char *) mdbuf, strlen(mdbuf));
 
         if (retval != RIG_OK)
         {
@@ -406,7 +404,7 @@ int tentec_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
     struct tentec_priv_data *priv = (struct tentec_priv_data *)rig->state.priv;
     struct rig_state *rs = &rig->state;
-    int cmd_len, retval = RIG_OK;
+    int retval = RIG_OK;
     char cmdbuf[32];
 
     /* Optimize:
@@ -416,10 +414,10 @@ int tentec_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     {
     case RIG_LEVEL_AGC:
         /* default to MEDIUM */
-        cmd_len = sprintf(cmdbuf, "G%c" EOM,
-                          val.i == RIG_AGC_SLOW ? '1' : (
-                              val.i == RIG_AGC_FAST ? '3' : '2'));
-        retval = write_block(&rs->rigport, cmdbuf, cmd_len);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "G%c" EOM,
+                 val.i == RIG_AGC_SLOW ? '1' : (
+                     val.i == RIG_AGC_FAST ? '3' : '2'));
+        retval = write_block(&rs->rigport, (unsigned char *) cmdbuf, strlen(cmdbuf));
 
         if (retval == RIG_OK)
         {
@@ -432,8 +430,8 @@ int tentec_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         /* FIXME: support also separate Lineout setting
          * -> need to create RIG_LEVEL_LINEOUT ?
          */
-        cmd_len = sprintf(cmdbuf, "C\x7f%c" EOM, (int)((1.0 - val.f) * 63.0));
-        retval = write_block(&rs->rigport, cmdbuf, cmd_len);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "C\x7f%c" EOM, (int)((1.0 - val.f) * 63.0));
+        retval = write_block(&rs->rigport, (unsigned char *) cmdbuf, strlen(cmdbuf));
 
         if (retval == RIG_OK)
         {

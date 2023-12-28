@@ -27,8 +27,9 @@
 #include <string.h>
 #include "token.h"
 #include "misc.h"
+#include "idx_builtin.h"
 
-#define BACKEND_VER "20210911"
+#define BACKEND_VER "20230318"
 
 #define EOM_KEN ';'
 #define EOM_TH '\r'
@@ -64,6 +65,8 @@ extern struct confparams kenwood_cfg_params[];
 #define MD_AM   '5'
 #define MD_FSK  '6'
 #define MD_CWR  '7'
+// MD_DIG used by SDRPlay
+#define MD_DIG  '8'
 #define MD_FSKR '9'
 
 /* S-meter calibration tables */
@@ -89,6 +92,7 @@ extern struct confparams kenwood_cfg_params[];
 #define RIG_IS_KX3       (rig->caps->rig_model == RIG_MODEL_KX3)
 #define RIG_IS_THD7A     (rig->caps->rig_model == RIG_MODEL_THD7A)
 #define RIG_IS_THD74     (rig->caps->rig_model == RIG_MODEL_THD74)
+#define RIG_IS_TMD700    (rig->caps->rig_model == RIG_MODEL_TMD700)
 #define RIG_IS_TS2000    (rig->caps->rig_model == RIG_MODEL_TS2000)
 #define RIG_IS_TS50      (rig->caps->rig_model == RIG_MODEL_TS50)
 #define RIG_IS_TS450S    (rig->caps->rig_model == RIG_MODEL_TS450S)
@@ -107,6 +111,7 @@ extern struct confparams kenwood_cfg_params[];
 #define RIG_IS_PT8000A   (rig->caps->rig_model == RIG_MODEL_PT8000A)
 #define RIG_IS_POWERSDR  (rig->caps->rig_model == RIG_MODEL_POWERSDR)
 #define RIG_IS_MALACHITE (rig->caps->rig_model == RIG_MODEL_MALACHITE)
+#define RIG_IS_QRPLABS (rig->caps->rig_model == RIG_MODEL_QRPLABS)
 
 struct kenwood_filter_width
 {
@@ -153,6 +158,7 @@ struct kenwood_priv_data
     struct timespec cache_start;
     char last_if_response[KENWOOD_MAX_BUF_LEN];
     int poweron;   /* to avoid powering on more than once */
+    int has_ps;    /* rig has PS cmd */
     int ag_format; /* which AG command is being used...see LEVEL_AF in kenwood.c*/
     int has_rit2; /* rig has set 2 rit command -- can set rit 0-99999 directly */
     int micgain_min, micgain_max; /* varies by rig so we figure it out automagically */
@@ -166,6 +172,10 @@ struct kenwood_priv_data
     int is_k4hd;
     int no_id;  // if true will not send ID; with every set command
     int opened; // true once rig_open is called to avoid setting VFOA every open call
+    rmode_t modeA;
+    rmode_t modeB;
+    int datamodeA; // datamode status from get_mode or set_mode
+    int datamodeB; // datamode status from get_mode or set_mode
 };
 
 
@@ -279,6 +289,7 @@ extern const struct rig_caps thf7a_caps;
 extern const struct rig_caps thf7e_caps;
 extern const struct rig_caps thg71_caps;
 extern const struct rig_caps tmv7_caps;
+extern const struct rig_caps tmv71_caps;
 extern const struct rig_caps tmd710_caps;
 
 extern const struct rig_caps ts440_caps;
@@ -300,6 +311,9 @@ extern const struct rig_caps pihpsdr_caps;
 extern const struct rig_caps ts890s_caps;
 extern const struct rig_caps pt8000a_caps;
 extern const struct rig_caps malachite_caps;
+extern const struct rig_caps tx500_caps;
+extern const struct rig_caps sdruno_caps;
+extern const struct rig_caps qrplabs_caps;
 
 /* use when not interested in the answer, but want to check its len */
 static int inline kenwood_simple_transaction(RIG *rig, const char *cmd,

@@ -109,13 +109,13 @@ am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
 	$(top_srcdir)/macros/ltsugar.m4 \
 	$(top_srcdir)/macros/ltversion.m4 \
 	$(top_srcdir)/macros/lt~obsolete.m4 \
-	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/tcl.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/pkg.m4 \
+	$(top_srcdir)/macros/tcl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/include/hamlib/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
@@ -153,7 +153,8 @@ am__objects_1 = rig.lo serial.lo misc.lo register.lo event.lo cal.lo \
 	rot_settings.lo rot_ext.lo iofunc.lo ext.lo mem.lo settings.lo \
 	parallel.lo usb_port.lo debug.lo network.lo cm108.lo gpio.lo \
 	microham.lo amplifier.lo amp_reg.lo amp_conf.lo \
-	amp_settings.lo extamp.lo sleep.lo sprintflst.lo
+	amp_settings.lo extamp.lo sleep.lo sprintflst.lo cache.lo \
+	snapshot_data.lo
 am_libhamlib_la_OBJECTS = $(am__objects_1)
 libhamlib_la_OBJECTS = $(am_libhamlib_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -175,12 +176,13 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include/hamlib
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/amp_conf.Plo ./$(DEPDIR)/amp_reg.Plo \
 	./$(DEPDIR)/amp_settings.Plo ./$(DEPDIR)/amplifier.Plo \
-	./$(DEPDIR)/cal.Plo ./$(DEPDIR)/cm108.Plo ./$(DEPDIR)/conf.Plo \
+	./$(DEPDIR)/cache.Plo ./$(DEPDIR)/cal.Plo \
+	./$(DEPDIR)/cm108.Plo ./$(DEPDIR)/conf.Plo \
 	./$(DEPDIR)/debug.Plo ./$(DEPDIR)/event.Plo \
 	./$(DEPDIR)/ext.Plo ./$(DEPDIR)/extamp.Plo \
 	./$(DEPDIR)/gpio.Plo ./$(DEPDIR)/iofunc.Plo \
@@ -192,8 +194,8 @@ am__depfiles_remade = ./$(DEPDIR)/amp_conf.Plo ./$(DEPDIR)/amp_reg.Plo \
 	./$(DEPDIR)/rot_reg.Plo ./$(DEPDIR)/rot_settings.Plo \
 	./$(DEPDIR)/rotator.Plo ./$(DEPDIR)/serial.Plo \
 	./$(DEPDIR)/settings.Plo ./$(DEPDIR)/sleep.Plo \
-	./$(DEPDIR)/sprintflst.Plo ./$(DEPDIR)/tones.Plo \
-	./$(DEPDIR)/usb_port.Plo
+	./$(DEPDIR)/snapshot_data.Plo ./$(DEPDIR)/sprintflst.Plo \
+	./$(DEPDIR)/tones.Plo ./$(DEPDIR)/usb_port.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -345,6 +347,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL_INC_DIR = @PERL_INC_DIR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -355,6 +360,7 @@ PYTHON_EXTRA_LDFLAGS = @PYTHON_EXTRA_LDFLAGS@
 PYTHON_EXTRA_LIBS = @PYTHON_EXTRA_LIBS@
 PYTHON_LIBS = @PYTHON_LIBS@
 PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PLATFORM_SITE_PKG = @PYTHON_PLATFORM_SITE_PKG@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_SITE_PKG = @PYTHON_SITE_PKG@
 PYTHON_VERSION = @PYTHON_VERSION@
@@ -371,12 +377,16 @@ STRIP = @STRIP@
 SWIG = @SWIG@
 SWIG_LIB = @SWIG_LIB@
 TCL_BIN_DIR = @TCL_BIN_DIR@
+TCL_CFLAGS = @TCL_CFLAGS@
 TCL_INCLUDE_SPEC = @TCL_INCLUDE_SPEC@
+TCL_LIBS = @TCL_LIBS@
 TCL_LIB_FILE = @TCL_LIB_FILE@
 TCL_LIB_SPEC = @TCL_LIB_SPEC@
 TCL_SHLIB_SUFFIX = @TCL_SHLIB_SUFFIX@
 TCL_SRC_DIR = @TCL_SRC_DIR@
 TCL_VERSION = @TCL_VERSION@
+USRP_CFLAGS = @USRP_CFLAGS@
+USRP_LIBS = @USRP_LIBS@
 VERSION = @VERSION@
 WINEXELDFLAGS = @WINEXELDFLAGS@
 WINLDFLAGS = @WINLDFLAGS@
@@ -453,15 +463,15 @@ RIGSRC = hamlibdatetime.h rig.c serial.c serial.h misc.c misc.h register.c regis
    	network.c network.h cm108.c cm108.h gpio.c gpio.h idx_builtin.h token.h \
    	par_nt.h microham.c microham.h amplifier.c amp_reg.c amp_conf.c \
    	amp_conf.h amp_settings.c extamp.c sleep.c sleep.h sprintflst.c \
-   	sprintflst.h
+   	sprintflst.h cache.c cache.h snapshot_data.c snapshot_data.h
 
 lib_LTLIBRARIES = libhamlib.la
 libhamlib_la_SOURCES = $(RIGSRC)
 libhamlib_la_LDFLAGS = $(WINLDFLAGS) $(OSXLDFLAGS) -no-undefined -version-info $(ABI_VERSION):$(ABI_REVISION):$(ABI_AGE)
-libhamlib_la_LIBADD = $(top_builddir)/lib/libmisc.la \
+libhamlib_la_LIBADD = $(top_builddir)/lib/libmisc.la $(top_builddir)/security/libsecurity.la \
 	$(BACKENDEPS) $(RIG_BACKENDEPS) $(ROT_BACKENDEPS) $(AMP_BACKENDEPS) $(NET_LIBS) $(MATH_LIBS) $(LIBUSB_LIBS) $(INDI_LIBS)
 
-libhamlib_la_DEPENDENCIES = $(top_builddir)/lib/libmisc.la $(BACKENDEPS) $(RIG_BACKENDEPS) $(ROT_BACKENDEPS) $(AMP_BACKENDEPS)
+libhamlib_la_DEPENDENCIES = $(top_builddir)/lib/libmisc.la $(top_builddir)/security/libsecurity.la $(BACKENDEPS) $(RIG_BACKENDEPS) $(ROT_BACKENDEPS) $(AMP_BACKENDEPS)
 EXTRA_DIST = Android.mk hamlibdatetime.h.in
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -546,6 +556,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/amp_reg.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/amp_settings.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/amplifier.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cache.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cal.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cm108.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/conf.Plo@am__quote@ # am--include-marker
@@ -571,6 +582,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/serial.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/settings.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sleep.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/snapshot_data.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sprintflst.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tones.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/usb_port.Plo@am__quote@ # am--include-marker
@@ -750,6 +762,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/amp_reg.Plo
 	-rm -f ./$(DEPDIR)/amp_settings.Plo
 	-rm -f ./$(DEPDIR)/amplifier.Plo
+	-rm -f ./$(DEPDIR)/cache.Plo
 	-rm -f ./$(DEPDIR)/cal.Plo
 	-rm -f ./$(DEPDIR)/cm108.Plo
 	-rm -f ./$(DEPDIR)/conf.Plo
@@ -775,6 +788,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/serial.Plo
 	-rm -f ./$(DEPDIR)/settings.Plo
 	-rm -f ./$(DEPDIR)/sleep.Plo
+	-rm -f ./$(DEPDIR)/snapshot_data.Plo
 	-rm -f ./$(DEPDIR)/sprintflst.Plo
 	-rm -f ./$(DEPDIR)/tones.Plo
 	-rm -f ./$(DEPDIR)/usb_port.Plo
@@ -827,6 +841,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/amp_reg.Plo
 	-rm -f ./$(DEPDIR)/amp_settings.Plo
 	-rm -f ./$(DEPDIR)/amplifier.Plo
+	-rm -f ./$(DEPDIR)/cache.Plo
 	-rm -f ./$(DEPDIR)/cal.Plo
 	-rm -f ./$(DEPDIR)/cm108.Plo
 	-rm -f ./$(DEPDIR)/conf.Plo
@@ -852,6 +867,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/serial.Plo
 	-rm -f ./$(DEPDIR)/settings.Plo
 	-rm -f ./$(DEPDIR)/sleep.Plo
+	-rm -f ./$(DEPDIR)/snapshot_data.Plo
 	-rm -f ./$(DEPDIR)/sprintflst.Plo
 	-rm -f ./$(DEPDIR)/tones.Plo
 	-rm -f ./$(DEPDIR)/usb_port.Plo
@@ -899,9 +915,10 @@ uninstall-am: uninstall-libLTLIBRARIES
 # directory  before  the  source directory  for  the  hamlibdatetime.h
 # header.
 hamlibdatetime.h: FORCE
+	echo "#define HAMLIBDATETIME "\"$$(TZ=UTC git --git-dir=$(top_srcdir)/.git log --no-merges --date='format-local:%b %d %H:%M:%SZ %Y SHA=' --format='%cd' -n 1)$$(git --git-dir=$(top_srcdir)/.git log --no-merges -n 1 | cut -c8-13)\"  
 	@if test -x $(top_srcdir)/.git ; then \
 		echo "/* This date time is from the last non-merge commit to Hamlib. */" > $(builddir)/$(@F).tmp ;\
-		echo "#define HAMLIBDATETIME "\"$$(TZ=UTC git --git-dir=$(top_srcdir)/.git log --no-merges --date='format-local:%a %b %d %H:%M:%S %Y %z SHA=' --format='%cd' -n 1)$$(git --git-dir=$(top_srcdir)/.git log --no-merges | grep commit | head -n 1 | cut -c8-13)\"  >> $(builddir)/$(@F).tmp ;\
+		echo "#define HAMLIBDATETIME "\"$$(TZ=UTC git --git-dir=$(top_srcdir)/.git log --no-merges --date='format-local:%b %d %H:%M:%SZ %Y SHA=' --format='%cd' -n 1)$$(git --git-dir=$(top_srcdir)/.git log --no-merges -n 1 | head -n 1 | cut -c8-13)\"  >> $(builddir)/$(@F).tmp ;\
 		diff -qN $(builddir)/$(@F).tmp $(builddir)/$(@F) ; test $$? -eq 0 || { echo "Generating SCS header \"$(builddir)/$(@F)\"" ; mv -f $(builddir)/$(@F).tmp $(builddir)/$(@F) ; } ;\
 		rm -f $(builddir)/$(@F).tmp ;\
 	else \

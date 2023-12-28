@@ -107,8 +107,8 @@ am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
 	$(top_srcdir)/macros/ltsugar.m4 \
 	$(top_srcdir)/macros/ltversion.m4 \
 	$(top_srcdir)/macros/lt~obsolete.m4 \
-	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/tcl.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/pkg.m4 \
+	$(top_srcdir)/macros/tcl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(top_srcdir)/configure \
@@ -116,7 +116,7 @@ DIST_COMMON = $(srcdir)/Makefile.am $(top_srcdir)/configure \
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/include/hamlib/config.h
 CONFIG_CLEAN_FILES = hamlib.pc
 CONFIG_CLEAN_VPATH_FILES =
 AM_V_P = $(am__v_P_@AM_V@)
@@ -210,10 +210,12 @@ am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/hamlib.pc.in \
 	$(top_srcdir)/build-aux/config.sub \
 	$(top_srcdir)/build-aux/install-sh \
 	$(top_srcdir)/build-aux/ltmain.sh \
-	$(top_srcdir)/build-aux/missing AUTHORS COPYING COPYING.LIB \
-	ChangeLog INSTALL NEWS README THANKS build-aux/ar-lib \
-	build-aux/compile build-aux/config.guess build-aux/config.sub \
-	build-aux/install-sh build-aux/ltmain.sh build-aux/missing
+	$(top_srcdir)/build-aux/missing \
+	$(top_srcdir)/include/hamlib/config.h.in AUTHORS COPYING \
+	COPYING.LIB ChangeLog INSTALL NEWS README THANKS \
+	build-aux/ar-lib build-aux/compile build-aux/config.guess \
+	build-aux/config.sub build-aux/install-sh build-aux/ltmain.sh \
+	build-aux/missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -359,6 +361,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL_INC_DIR = @PERL_INC_DIR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -369,6 +374,7 @@ PYTHON_EXTRA_LDFLAGS = @PYTHON_EXTRA_LDFLAGS@
 PYTHON_EXTRA_LIBS = @PYTHON_EXTRA_LIBS@
 PYTHON_LIBS = @PYTHON_LIBS@
 PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PLATFORM_SITE_PKG = @PYTHON_PLATFORM_SITE_PKG@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_SITE_PKG = @PYTHON_SITE_PKG@
 PYTHON_VERSION = @PYTHON_VERSION@
@@ -385,12 +391,16 @@ STRIP = @STRIP@
 SWIG = @SWIG@
 SWIG_LIB = @SWIG_LIB@
 TCL_BIN_DIR = @TCL_BIN_DIR@
+TCL_CFLAGS = @TCL_CFLAGS@
 TCL_INCLUDE_SPEC = @TCL_INCLUDE_SPEC@
+TCL_LIBS = @TCL_LIBS@
 TCL_LIB_FILE = @TCL_LIB_FILE@
 TCL_LIB_SPEC = @TCL_LIB_SPEC@
 TCL_SHLIB_SUFFIX = @TCL_SHLIB_SUFFIX@
 TCL_SRC_DIR = @TCL_SRC_DIR@
 TCL_VERSION = @TCL_VERSION@
+USRP_CFLAGS = @USRP_CFLAGS@
+USRP_LIBS = @USRP_LIBS@
 VERSION = @VERSION@
 WINEXELDFLAGS = @WINEXELDFLAGS@
 WINLDFLAGS = @WINLDFLAGS@
@@ -469,17 +479,18 @@ EXTRA_DIST = PLAN LICENSE hamlib.m4 hamlib.pc.in README.developer \
 doc_DATA = ChangeLog COPYING COPYING.LIB LICENSE \
 	README README.betatester README.developer
 
-SUBDIRS = macros include lib \
+SUBDIRS = macros include lib security \
 	$(BACKEND_LIST) \
 	$(RIG_BACKEND_LIST) \
 	$(ROT_BACKEND_LIST) \
 	$(AMP_BACKEND_LIST) \
+    security \
 	src \
 	$(BINDINGS) \
 	tests doc
 
-DIST_SUBDIRS = macros include lib src c++ bindings tests doc android scripts rotators/indi \
-	$(BACKEND_LIST) $(RIG_BACKEND_LIST) $(ROT_BACKEND_LIST) $(AMP_BACKEND_LIST)
+DIST_SUBDIRS = macros include lib src c++ bindings tests doc android scripts rotators/indi simulators\
+	security $(BACKEND_LIST) $(RIG_BACKEND_LIST) $(ROT_BACKEND_LIST) $(AMP_BACKEND_LIST)
 
 
 # Install any third party macros into our tree for distribution
@@ -520,6 +531,21 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
 $(am__aclocal_m4_deps):
+
+include/hamlib/config.h: include/hamlib/stamp-h1
+	@test -f $@ || rm -f include/hamlib/stamp-h1
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) include/hamlib/stamp-h1
+
+include/hamlib/stamp-h1: $(top_srcdir)/include/hamlib/config.h.in $(top_builddir)/config.status
+	@rm -f include/hamlib/stamp-h1
+	cd $(top_builddir) && $(SHELL) ./config.status include/hamlib/config.h
+$(top_srcdir)/include/hamlib/config.h.in:  $(am__configure_deps) 
+	($(am__cd) $(top_srcdir) && $(AUTOHEADER))
+	rm -f include/hamlib/stamp-h1
+	touch $@
+
+distclean-hdr:
+	-rm -f include/hamlib/config.h include/hamlib/stamp-h1
 hamlib.pc: $(top_builddir)/config.status $(srcdir)/hamlib.pc.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 
@@ -937,8 +963,8 @@ clean-am: clean-generic clean-libtool mostlyclean-am
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-libtool \
-	distclean-tags
+distclean-am: clean-am distclean-generic distclean-hdr \
+	distclean-libtool distclean-tags
 
 dvi: dvi-recursive
 
@@ -1009,9 +1035,9 @@ uninstall-am: uninstall-aclocalDATA uninstall-docDATA \
 	clean-libtool cscope cscopelist-am ctags ctags-am dist \
 	dist-all dist-bzip2 dist-gzip dist-lzip dist-shar dist-tarZ \
 	dist-xz dist-zip distcheck distclean distclean-generic \
-	distclean-libtool distclean-tags distcleancheck distdir \
-	distuninstallcheck dvi dvi-am html html-am info info-am \
-	install install-aclocalDATA install-am install-data \
+	distclean-hdr distclean-libtool distclean-tags distcleancheck \
+	distdir distuninstallcheck dvi dvi-am html html-am info \
+	info-am install install-aclocalDATA install-am install-data \
 	install-data-am install-docDATA install-dvi install-dvi-am \
 	install-exec install-exec-am install-html install-html-am \
 	install-info install-info-am install-man install-pdf \

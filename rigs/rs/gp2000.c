@@ -25,15 +25,11 @@
  * Looks like the GP2000 could be reused in other rigs so
  * we implement that and then the XK2100 uses this interface
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* String function definitions */
-#include <unistd.h>     /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -75,7 +71,7 @@ gp2000_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rig_debug(RIG_DEBUG_VERBOSE, "gp2000_transaction: len=%d,cmd=%s\n",
               cmd_len, cmd);
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(&rs->rigport, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -89,7 +85,8 @@ gp2000_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
         return RIG_OK;
     }
 
-    retval = read_string(&rs->rigport, data, RESPSZ, CR, 1);
+    retval = read_string(&rs->rigport, (unsigned char *) data, RESPSZ,
+                         CR, 1, 0, 1);
 
     if (retval < 0)
     {
@@ -109,18 +106,15 @@ int
 gp2000_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[32];
-    int freq_len, retval;
+    int retval;
     // cppcheck-suppress *
     char *fmt = BOM "F%" PRIll ",%" PRIll EOM;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: vfo=%s,freq=%.0f\n", __func__,
               rig_strvfo(vfo), freq);
 
-    freq_len =
-        snprintf(freqbuf, sizeof(freqbuf), fmt,
-                 (int64_t) freq,
-                 (int64_t) freq);
-    retval = gp2000_transaction(rig, freqbuf, freq_len, NULL, NULL);
+    SNPRINTF(freqbuf, sizeof(freqbuf), fmt, (int64_t) freq, (int64_t) freq);
+    retval = gp2000_transaction(rig, freqbuf, strlen(freqbuf), NULL, NULL);
 
     return retval;
 }
@@ -160,7 +154,7 @@ int
 gp2000_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     char buf[32], *smode;
-    int len, retval;
+    int retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: vfo=%s, mode=%s, width=%d\n", __func__,
               rig_strvfo(vfo), rig_strvfo(mode), (int)width);
@@ -199,8 +193,8 @@ gp2000_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    len = snprintf(buf, sizeof(buf), BOM "I%s" EOM, smode);
-    retval = gp2000_transaction(rig, buf, len, NULL, NULL);
+    SNPRINTF(buf, sizeof(buf), BOM "I%s" EOM, smode);
+    retval = gp2000_transaction(rig, buf, strlen(buf), NULL, NULL);
 
     if (retval < 0)
     {
@@ -219,8 +213,8 @@ gp2000_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
     if (width > 0)
     {
-        len = snprintf(buf, sizeof(buf), BOM "W%d" EOM, (int) width);
-        retval = gp2000_transaction(rig, buf, len, NULL, NULL);
+        SNPRINTF(buf, sizeof(buf), BOM "W%d" EOM, (int) width);
+        retval = gp2000_transaction(rig, buf, strlen(buf), NULL, NULL);
     }
 
     return retval;
@@ -237,7 +231,7 @@ gp2000_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     int buf_len, retval;
     int nmode;
     char *pmode = "UNKNOWN";
-    int n = sscanf(buf, "%*cI%d", &nmode);
+    int n;
 
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: vfo=%s\n", __func__, rig_strvfo(vfo));
@@ -252,8 +246,11 @@ gp2000_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
         return retval;
     }
 
+    n = sscanf(buf, "%*cI%d", &nmode);
+
     if (n != 1)
     {
+        rig_debug(RIG_DEBUG_ERR, "%s: unable to parse mode from '%s'\n", __func__, buf);
         return -RIG_EPROTO;
     }
 
@@ -311,8 +308,8 @@ gp2000_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
         return -RIG_EINVAL;
     }
 
-    len = snprintf(buf, sizeof(buf), BOM "%s %s" EOM, sfunc, status ? "1" : "0");
-    retval = gp2000_transaction(rig, buf, len, NULL, NULL);
+    SNPRINTF(buf, sizeof(buf), BOM "%s %s" EOM, sfunc, status ? "1" : "0");
+    retval = gp2000_transaction(rig, buf, strlen(buf), NULL, NULL);
 
     return retval;
 }
@@ -356,18 +353,18 @@ int
 gp2000_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
     char buf[64];
-    int len, retval;
+    int retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: vfo=%s\n", __func__, rig_strvfo(vfo));
 
     switch (level)
     {
     case RIG_LEVEL_AF:
-        len = snprintf(buf, sizeof(buf), BOM "SR%02d" EOM, (int)val.f);
+        SNPRINTF(buf, sizeof(buf), BOM "SR%02d" EOM, (int)val.f);
         break;
 
     case RIG_LEVEL_SQL:
-        len = snprintf(buf, sizeof(buf), BOM "SQ%1d" EOM, (int)val.f);
+        SNPRINTF(buf, sizeof(buf), BOM "SQ%1d" EOM, (int)val.f);
         break;
 
     case RIG_LEVEL_AGC:
@@ -378,7 +375,7 @@ gp2000_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         return -RIG_EINVAL;
     }
 
-    retval = gp2000_transaction(rig, buf, len, NULL, NULL);
+    retval = gp2000_transaction(rig, buf, strlen(buf), NULL, NULL);
 
     return retval;
 }
@@ -497,7 +494,7 @@ gp2000_get_info(RIG *rig)
         p = strtok(NULL, ",");
     }
 
-    snprintf(infobuf, sizeof(infobuf), "ADDR=%02d\nTYPE=%s\nSER#=%s\nID  =%s\n",
+    SNPRINTF(infobuf, sizeof(infobuf), "ADDR=%02d\nTYPE=%s\nSER#=%s\nID  =%s\n",
              addr, type, sernum, rigid);
 
     return infobuf;
@@ -511,7 +508,7 @@ gp2000_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: vfo=%s\n", __func__, rig_strvfo(vfo));
 
-    snprintf(cmd, sizeof(cmd), "X%1d", ptt);
+    SNPRINTF(cmd, sizeof(cmd), "X%1d", ptt);
     retval = gp2000_transaction(rig, cmd, strlen(cmd), NULL, NULL);
     return retval;
 }

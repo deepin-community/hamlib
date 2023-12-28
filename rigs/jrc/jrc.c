@@ -19,14 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rig.h"
@@ -67,8 +64,8 @@
  * Otherwise, you'll get a nice seg fault. You've been warned!
  * TODO: error case handling
  */
-static int jrc_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
-                           int *data_len)
+int jrc_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
+                    int *data_len)
 {
     int retval;
     struct rig_state *rs;
@@ -77,25 +74,26 @@ static int jrc_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rig_flush(&rs->rigport);
 
-    Hold_Decode(rig);
+    set_transaction_active(rig);
 
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(&rs->rigport, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         return retval;
     }
 
     if (!data || !data_len)
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         return 0;
     }
 
-    retval = read_string(&rs->rigport, data, BUFSZ, EOM, strlen(EOM));
+    retval = read_string(&rs->rigport, (unsigned char *) data, BUFSZ, EOM,
+                         strlen(EOM), 0, 1);
 
-    Unhold_Decode(rig);
+    set_transaction_inactive(rig);
 
     if (retval < 0)
     {
@@ -290,7 +288,6 @@ int jrc_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     struct jrc_priv_caps *priv = (struct jrc_priv_caps *)rig->caps->priv;
     char freqbuf[BUFSZ];
-    int freq_len;
 
     if (freq >= (freq_t)pow(10, priv->max_freq_len))
     {
@@ -299,9 +296,10 @@ int jrc_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     // cppcheck-suppress *
     // suppressing bogus cppcheck error in ver 1.90
-    freq_len = sprintf(freqbuf, "F%0*"PRIll EOM, priv->max_freq_len, (int64_t)freq);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "F%0*"PRIll EOM, priv->max_freq_len,
+             (int64_t)freq);
 
-    return jrc_transaction(rig, freqbuf, freq_len, NULL, NULL);
+    return jrc_transaction(rig, freqbuf, strlen(freqbuf), NULL, NULL);
 }
 
 static int get_current_istate(RIG *rig, char *buf, int *buf_len)
@@ -330,8 +328,9 @@ static int get_current_istate(RIG *rig, char *buf, int *buf_len)
 int jrc_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
     struct jrc_priv_caps *priv = (struct jrc_priv_caps *)rig->caps->priv;
-    int freq_len, retval;
+    int retval;
     char freqbuf[BUFSZ];
+    int freq_len;
 
     //note: JRCs use "I" to get information
     retval = get_current_istate(rig, freqbuf, &freq_len);
@@ -364,7 +363,7 @@ int jrc_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 int jrc_set_vfo(RIG *rig, vfo_t vfo)
 {
     unsigned char cmdbuf[16];
-    int cmd_len, retval;
+    int retval;
     char vfo_function;
 
     switch (vfo)
@@ -379,9 +378,10 @@ int jrc_set_vfo(RIG *rig, vfo_t vfo)
         return -RIG_EINVAL;
     }
 
-    cmd_len = sprintf((char *) cmdbuf, "%c" EOM, vfo_function);
+    SNPRINTF((char *) cmdbuf, sizeof(cmdbuf), "%c" EOM, vfo_function);
 
-    retval = jrc_transaction(rig, (char *) cmdbuf, cmd_len, NULL, NULL);
+    retval = jrc_transaction(rig, (char *) cmdbuf, strlen((char *)cmdbuf), NULL,
+                             NULL);
 
     return retval;
 }
@@ -394,7 +394,7 @@ int jrc_set_vfo(RIG *rig, vfo_t vfo)
 int jrc_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     char mdbuf[BUFSZ];
-    int retval, mdbuf_len;
+    int retval;
     char amode, awidth;
 
     retval = rig2jrc_mode(rig, mode, width, &amode, &awidth);
@@ -404,8 +404,8 @@ int jrc_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return retval;
     }
 
-    mdbuf_len = sprintf(mdbuf, "D" "%c" EOM, amode);
-    retval = jrc_transaction(rig, mdbuf, mdbuf_len, NULL, NULL);
+    SNPRINTF(mdbuf, sizeof(mdbuf), "D" "%c" EOM, amode);
+    retval = jrc_transaction(rig, mdbuf, strlen(mdbuf), NULL, NULL);
 
     if (retval != RIG_OK)
     {
@@ -414,8 +414,8 @@ int jrc_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
     if (width != RIG_PASSBAND_NOCHANGE)
     {
-        mdbuf_len = sprintf(mdbuf, "B" "%c" EOM, awidth);
-        retval = jrc_transaction(rig, mdbuf, mdbuf_len, NULL, NULL);
+        SNPRINTF(mdbuf, sizeof(mdbuf), "B" "%c" EOM, awidth);
+        retval = jrc_transaction(rig, mdbuf, strlen(mdbuf), NULL, NULL);
 
         if (retval != RIG_OK)
         {
@@ -470,7 +470,6 @@ int jrc_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
  */
 int jrc_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
 {
-    int cmd_len;
     char cmdbuf[BUFSZ];
 
     /* Optimize:
@@ -480,38 +479,38 @@ int jrc_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
     {
     case RIG_FUNC_FAGC:
         /* FIXME: FAGC levels */
-        cmd_len = sprintf(cmdbuf, "G%d" EOM, status ? 1 : 2);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "G%d" EOM, status ? 1 : 2);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_FUNC_NB:
         /* FIXME: NB1 and NB2 */
-        cmd_len = sprintf(cmdbuf, "N%d" EOM, status ? 1 : 0);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "N%d" EOM, status ? 1 : 0);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     /*
      * FIXME: which BB mode for NR and BC at same time ?
      */
     case RIG_FUNC_NR:
-        cmd_len = sprintf(cmdbuf, "BB%d" EOM, status ? 1 : 0);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "BB%d" EOM, status ? 1 : 0);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_FUNC_BC:
-        cmd_len = sprintf(cmdbuf, "BB%d" EOM, status ? 2 : 0);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "BB%d" EOM, status ? 2 : 0);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_FUNC_LOCK:
-        cmd_len = sprintf(cmdbuf, "DD%d" EOM, status ? 1 : 0);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "DD%d" EOM, status ? 1 : 0);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_FUNC_MN:
-        cmd_len = sprintf(cmdbuf, "EE%d" EOM, status ? 1 : 0);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "EE%d" EOM, status ? 1 : 0);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     default:
         rig_debug(RIG_DEBUG_ERR, "Unsupported set_func %s\n", rig_strfunc(func));
@@ -676,7 +675,6 @@ int jrc_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
 int jrc_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
     struct jrc_priv_caps *priv = (struct jrc_priv_caps *)rig->caps->priv;
-    int cmd_len;
     char cmdbuf[BUFSZ];
 
     /* Optimize:
@@ -685,42 +683,42 @@ int jrc_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     switch (level)
     {
     case RIG_LEVEL_ATT:
-        cmd_len = sprintf(cmdbuf, "A%d" EOM, val.i ? 1 : 0);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "A%d" EOM, val.i ? 1 : 0);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_LEVEL_RF:
-        cmd_len = sprintf(cmdbuf, "HH%03d" EOM, (int)(val.f * 255.0));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "HH%03d" EOM, (int)(val.f * 255.0));
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_LEVEL_AF:
-        cmd_len = sprintf(cmdbuf, "JJ%03d" EOM, (int)(val.f * 255.0));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "JJ%03d" EOM, (int)(val.f * 255.0));
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_LEVEL_SQL:
-        cmd_len = sprintf(cmdbuf, "LL%03d" EOM, (int)(val.f * 255.0));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "LL%03d" EOM, (int)(val.f * 255.0));
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_LEVEL_NR:
-        cmd_len = sprintf(cmdbuf, "FF%03d" EOM, (int)(val.f * 255.0));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "FF%03d" EOM, (int)(val.f * 255.0));
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
 #if 0
 
     case RIG_LEVEL_TONE:
-        cmd_len = sprintf(cmdbuf, "KK%03d" EOM, (int)(val.f * 255.0));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "KK%03d" EOM, (int)(val.f * 255.0));
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 #endif
 
     case RIG_LEVEL_NOTCHF:
-        cmd_len = sprintf(cmdbuf, "GG%+04d" EOM, val.i);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "GG%+04d" EOM, val.i);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
 #if 0
 
@@ -730,27 +728,29 @@ int jrc_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             val.i /= 10;
         }
 
-        cmd_len = sprintf(cmdbuf, "W%0*d" EOM, priv->pbs_len,  val.i);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "W%0*d" EOM, priv->pbs_len,  val.i);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 #endif
 
     case RIG_LEVEL_AGC:
         if (val.i < 10)
-            cmd_len = sprintf(cmdbuf, "G%d" EOM,
-                              val.i == RIG_AGC_SLOW ? 0 :
-                              val.i == RIG_AGC_FAST ? 1 : 2);
+        {
+            SNPRINTF(cmdbuf, sizeof(cmdbuf), "G%d" EOM,
+                     val.i == RIG_AGC_SLOW ? 0 :
+                     val.i == RIG_AGC_FAST ? 1 : 2);
+        }
         else
         {
-            cmd_len = sprintf(cmdbuf, "G3%03d" EOM, val.i / 20);
+            SNPRINTF(cmdbuf, sizeof(cmdbuf), "G3%03d" EOM, val.i / 20);
         }
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_LEVEL_CWPITCH:
-        cmd_len = sprintf(cmdbuf, "%s%+05d" EOM, priv->cw_pitch, val.i);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "%s%+05d" EOM, priv->cw_pitch, val.i);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_LEVEL_IF:
         if (priv->pbs_len == 3)
@@ -758,9 +758,9 @@ int jrc_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             val.i /= 10;
         }
 
-        cmd_len = sprintf(cmdbuf, "P%+0*d" EOM, priv->pbs_len + 1, val.i);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "P%+0*d" EOM, priv->pbs_len + 1, val.i);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     default:
         rig_debug(RIG_DEBUG_ERR, "%s: unsupported set_level %s\n", __func__,
@@ -1042,9 +1042,10 @@ int jrc_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 #endif
 
     case RIG_LEVEL_CWPITCH:
-        cw_len = sprintf(cwbuf, "%s" EOM, priv->cw_pitch);
+        SNPRINTF(cwbuf, sizeof(cwbuf), "%s" EOM, priv->cw_pitch);
+        cw_len = strlen(cwbuf);
 
-        retval = jrc_transaction(rig, cwbuf, cw_len, lvlbuf, &lvl_len);
+        retval = jrc_transaction(rig, cwbuf, strlen(cwbuf), lvlbuf, &lvl_len);
 
         if (retval != RIG_OK)
         {
@@ -1104,7 +1105,6 @@ int jrc_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 int jrc_set_parm(RIG *rig, setting_t parm, value_t val)
 {
     struct jrc_priv_caps *priv = (struct jrc_priv_caps *)rig->caps->priv;
-    int cmd_len;
     char cmdbuf[BUFSZ];
     int minutes;
 
@@ -1114,23 +1114,23 @@ int jrc_set_parm(RIG *rig, setting_t parm, value_t val)
     switch (parm)
     {
     case RIG_PARM_BACKLIGHT:
-        cmd_len = sprintf(cmdbuf, "AA%d" EOM, val.f > 0.5 ? 0 : 1);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "AA%d" EOM, val.f > 0.5 ? 0 : 1);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_PARM_BEEP:
 
-        cmd_len = sprintf(cmdbuf, "U%0*d" EOM, priv->beep_len,
-                          (priv->beep + val.i) ? 1 : 0);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "U%0*d" EOM, priv->beep_len,
+                 (priv->beep + val.i) ? 1 : 0);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     case RIG_PARM_TIME:
         minutes = val.i / 60;
-        cmd_len = sprintf(cmdbuf, "R1%02d%02d" EOM,
-                          minutes / 60, minutes % 60);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "R1%02d%02d" EOM,
+                 minutes / 60, minutes % 60);
 
-        return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 
     default:
         rig_debug(RIG_DEBUG_ERR, "%s: unsupported set_parm %s\n", __func__,
@@ -1151,7 +1151,6 @@ int jrc_get_parm(RIG *rig, setting_t parm, value_t *val)
     int retval, lvl_len, i;
     char lvlbuf[BUFSZ];
     char cmdbuf[BUFSZ];
-    int cmd_len;
 
     /* Optimize:
      *   sort the switch cases with the most frequent first
@@ -1186,8 +1185,8 @@ int jrc_get_parm(RIG *rig, setting_t parm, value_t *val)
         break;
 
     case RIG_PARM_BEEP:
-        cmd_len = sprintf(cmdbuf, "U%d" EOM, priv->beep / 10);
-        retval = jrc_transaction(rig, cmdbuf, cmd_len, lvlbuf, &lvl_len);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "U%d" EOM, priv->beep / 10);
+        retval = jrc_transaction(rig, cmdbuf, strlen(cmdbuf), lvlbuf, &lvl_len);
 
         if (retval != RIG_OK)
         {
@@ -1264,11 +1263,10 @@ int jrc_set_trn(RIG *rig, int trn)
 int jrc_set_powerstat(RIG *rig, powerstat_t status)
 {
     char pwrbuf[BUFSZ];
-    int pwr_len;
 
-    pwr_len = sprintf(pwrbuf, "T%d" EOM, status == RIG_POWER_ON ? 1 : 0);
+    SNPRINTF(pwrbuf, sizeof(pwrbuf), "T%d" EOM, status == RIG_POWER_ON ? 1 : 0);
 
-    return jrc_transaction(rig, pwrbuf, pwr_len, NULL, NULL);
+    return jrc_transaction(rig, pwrbuf, strlen(pwrbuf), NULL, NULL);
 }
 
 /*
@@ -1318,7 +1316,6 @@ int jrc_get_powerstat(RIG *rig, powerstat_t *status)
 int jrc_reset(RIG *rig, reset_t reset)
 {
     char rstbuf[BUFSZ];
-    int rst_len;
     char rst;
 
     switch (reset)
@@ -1335,9 +1332,9 @@ int jrc_reset(RIG *rig, reset_t reset)
         return -RIG_EINVAL;
     }
 
-    rst_len = sprintf(rstbuf, "Z%c" EOM, rst);
+    SNPRINTF(rstbuf, sizeof(rstbuf), "Z%c" EOM, rst);
 
-    return jrc_transaction(rig, rstbuf, rst_len, NULL, NULL);
+    return jrc_transaction(rig, rstbuf, strlen(rstbuf), NULL, NULL);
 }
 
 /*
@@ -1348,18 +1345,18 @@ int jrc_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
     char cmdbuf[BUFSZ];
     char membuf[BUFSZ];
-    int cmd_len, mem_len;
+    int mem_len;
 
     if (ch < 0 || ch > rig->caps->chan_list[0].endc)
     {
         return -RIG_EINVAL;
     }
 
-    cmd_len = sprintf(cmdbuf, "C%03d" EOM, ch);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "C%03d" EOM, ch);
 
     /* don't care about the Automatic response from receiver */
 
-    return jrc_transaction(rig, cmdbuf, cmd_len, membuf, &mem_len);
+    return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), membuf, &mem_len);
 }
 
 /*
@@ -1405,7 +1402,7 @@ int jrc_set_chan(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     struct jrc_priv_caps *priv = (struct jrc_priv_caps *)rig->caps->priv;
     char    cmdbuf[BUFSZ];
-    int retval, cmd_len;
+    int retval;
     rmode_t mode;
     pbwidth_t width;
     channel_t current;
@@ -1415,7 +1412,7 @@ int jrc_set_chan(RIG *rig, vfo_t vfo, const channel_t *chan)
 
     if ((retval = jrc_get_chan(rig, vfo, &current, 1)) != RIG_OK) { return retval; }
 
-    sprintf(cmdbuf, "K%03d000", chan->channel_num);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "K%03d000", chan->channel_num);
 
     if (chan->levels[rig_setting2idx(RIG_LEVEL_ATT)].i == 20)
     {
@@ -1436,7 +1433,8 @@ int jrc_set_chan(RIG *rig, vfo_t vfo, const channel_t *chan)
         return retval;
     }
 
-    sprintf(cmdbuf + 7, "%0*"PRIll, priv->max_freq_len, (int64_t)chan->freq);
+    SNPRINTF(cmdbuf + 7, sizeof(cmdbuf) - 7, "%0*"PRIll, priv->max_freq_len,
+             (int64_t)chan->freq);
 
     if (priv->mem_len == 17)
     {
@@ -1453,12 +1451,12 @@ int jrc_set_chan(RIG *rig, vfo_t vfo, const channel_t *chan)
     }
     else
     {
-        sprintf(cmdbuf + priv->mem_len - 4, "%03d",
-                chan->levels[rig_setting2idx(RIG_LEVEL_AGC)].i);
+        SNPRINTF(cmdbuf + priv->mem_len - 4, sizeof(cmdbuf) - (priv->mem_len - 4),
+                 "%03d",
+                 chan->levels[rig_setting2idx(RIG_LEVEL_AGC)].i);
     }
 
-    cmd_len = priv->mem_len;
-    return jrc_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+    return jrc_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
 }
 
 /*
@@ -1469,7 +1467,7 @@ int jrc_get_chan(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     struct jrc_priv_caps *priv = (struct jrc_priv_caps *)rig->caps->priv;
     char    membuf[BUFSZ], cmdbuf[BUFSZ];
-    int     mem_len, cmd_len, retval;
+    int     mem_len, retval;
 
     chan->vfo = RIG_VFO_MEM;
     chan->ant = RIG_ANT_NONE;
@@ -1497,9 +1495,9 @@ int jrc_get_chan(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
     chan->flags = RIG_CHFLAG_SKIP;
     strcpy(chan->channel_desc, "");
 
-    cmd_len = sprintf(cmdbuf, "L%03d%03d" EOM, chan->channel_num,
-                      chan->channel_num);
-    retval = jrc_transaction(rig, cmdbuf, cmd_len, membuf, &mem_len);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "L%03d%03d" EOM, chan->channel_num,
+             chan->channel_num);
+    retval = jrc_transaction(rig, cmdbuf, strlen(cmdbuf), membuf, &mem_len);
 
     if (retval != RIG_OK)
     {
@@ -1632,7 +1630,8 @@ int jrc_decode_event(RIG *rig)
     //#define SETUP_STATUS_LEN 17
 
     //count = read_string(&rs->rigport, buf, SETUP_STATUS_LEN, "", 0);
-    count = read_string(&rs->rigport, buf, priv->info_len, "", 0);
+    count = read_string(&rs->rigport, (unsigned char *) buf, priv->info_len, "", 0,
+                        0, 1);
 
     if (count < 0)
     {
@@ -1683,6 +1682,8 @@ DECLARE_INITRIG_BACKEND(jrc)
     rig_register(&nrd535_caps);
     rig_register(&nrd545_caps);
     rig_register(&nrd525_caps);
+    rig_register(&jst145_caps);
+    rig_register(&jst245_caps);
 
     return RIG_OK;
 }

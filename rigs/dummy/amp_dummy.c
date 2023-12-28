@@ -19,16 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
-#include <sys/time.h>
-#include <time.h>
 
 #include "hamlib/amplifier.h"
 #include "serial.h"
@@ -63,7 +56,7 @@ static int dummy_amp_init(AMP *amp)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     amp->state.priv = (struct dummy_amp_priv_data *)
-                      malloc(sizeof(struct dummy_amp_priv_data));
+                      calloc(1, sizeof(struct dummy_amp_priv_data));
 
     if (!amp->state.priv)
     {

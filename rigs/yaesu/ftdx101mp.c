@@ -27,15 +27,13 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
-#include "idx_builtin.h"
 #include "tones.h"
 #include "newcat.h"
+#include "yaesu.h"
 #include "ftdx101.h"
 
 const struct newcat_priv_caps ftdx101mp_priv_caps =
@@ -77,7 +75,7 @@ const struct rig_caps ftdx101mp_caps =
     RIG_MODEL(RIG_MODEL_FTDX101MP),
     .model_name =         "FTDX-101MP",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".2",
+    .version =            NEWCAT_VER ".8",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -114,11 +112,13 @@ const struct rig_caps ftdx101mp_caps =
     .max_xit =            Hz(9999),
     .max_ifshift =        Hz(1200),
     .vfo_ops =            FTDX101_VFO_OPS,
-    .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE | RIG_TARGETABLE_FUNC | RIG_TARGETABLE_LEVEL | RIG_TARGETABLE_COMMON | RIG_TARGETABLE_ANT,
+    .scan_ops =           RIG_SCAN_VFO,
+    .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE | RIG_TARGETABLE_FUNC | RIG_TARGETABLE_LEVEL | RIG_TARGETABLE_COMMON | RIG_TARGETABLE_ANT | RIG_TARGETABLE_ROOFING | RIG_TARGETABLE_TONE,
     .transceive =         RIG_TRN_OFF, /* May enable later as the FTDX101 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
     .rfpower_meter_cal =  FTDX101MP_RFPOWER_METER_WATTS_CAL,
+    .vd_meter_cal =       YAESU_DEFAULT_VD_METER_200W_CAL,
     .str_cal =            FTDX101D_STR_CAL,
     .swr_cal =            FTDX101D_SWR_CAL,
     .chan_list =          {
@@ -201,7 +201,7 @@ const struct rig_caps ftdx101mp_caps =
 
     .cfgparams =          newcat_cfg_params,
     .set_conf =           newcat_set_conf,
-    .get_conf =           newcat_get_conf,
+    .get_conf2 =          newcat_get_conf2,
     .set_freq =           newcat_set_freq,
     .get_freq =           newcat_get_freq,
     .set_mode =           newcat_set_mode,
@@ -246,4 +246,10 @@ const struct rig_caps ftdx101mp_caps =
     .get_channel =        newcat_get_channel,
     .set_ext_level =      newcat_set_ext_level,
     .get_ext_level =      newcat_get_ext_level,
+    .send_morse =         newcat_send_morse,
+    .wait_morse =         rig_wait_morse,
+    .set_clock =          newcat_set_clock,
+    .get_clock =          newcat_get_clock,
+    .scan =               newcat_scan,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

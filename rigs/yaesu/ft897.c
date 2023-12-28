@@ -31,9 +31,6 @@
 /*
  * Unimplemented features supported by the FT-897:
  *
- *   - RIT ON/OFF without touching the RIT offset. This would
- *     need frontend support (eg. a new RIG_FUNC_xxx)
- *
  *   - DCS encoder/squelch ON/OFF, similar to RIG_FUNC_TONE/TSQL.
  *     Needs frontend support.
  *
@@ -59,13 +56,10 @@
  *      - high swr flag
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>     /* String function definitions */
-#include <unistd.h>     /* UNIX standard function definitions */
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -75,14 +69,60 @@
 #include "serial.h"
 #include "yaesu.h"
 #include "ft897.h"
+#include "ft817.h" /* We use functions from the 817 code */
+#include "ft857.h" //Needed for ft857_set_vfo, ft857_get_vfo
 #include "misc.h"
 #include "tones.h"
 #include "bandplan.h"
 
+enum ft897_native_cmd_e
+{
+    FT897_NATIVE_CAT_LOCK_ON = 0,
+    FT897_NATIVE_CAT_LOCK_OFF,
+    FT897_NATIVE_CAT_PTT_ON,
+    FT897_NATIVE_CAT_PTT_OFF,
+    FT897_NATIVE_CAT_SET_FREQ,
+    FT897_NATIVE_CAT_SET_MODE_LSB,
+    FT897_NATIVE_CAT_SET_MODE_USB,
+    FT897_NATIVE_CAT_SET_MODE_CW,
+    FT897_NATIVE_CAT_SET_MODE_CWR,
+    FT897_NATIVE_CAT_SET_MODE_AM,
+    FT897_NATIVE_CAT_SET_MODE_FM,
+    FT897_NATIVE_CAT_SET_MODE_FM_N,
+    FT897_NATIVE_CAT_SET_MODE_DIG,
+    FT897_NATIVE_CAT_SET_MODE_PKT,
+    FT897_NATIVE_CAT_CLAR_ON,
+    FT897_NATIVE_CAT_CLAR_OFF,
+    FT897_NATIVE_CAT_SET_CLAR_FREQ,
+    FT897_NATIVE_CAT_SET_VFOAB,
+    FT897_NATIVE_CAT_SPLIT_ON,
+    FT897_NATIVE_CAT_SPLIT_OFF,
+    FT897_NATIVE_CAT_SET_RPT_SHIFT_MINUS,
+    FT897_NATIVE_CAT_SET_RPT_SHIFT_PLUS,
+    FT897_NATIVE_CAT_SET_RPT_SHIFT_SIMPLEX,
+    FT897_NATIVE_CAT_SET_RPT_OFFSET,
+    FT897_NATIVE_CAT_SET_DCS_ON,
+    FT897_NATIVE_CAT_SET_DCS_DEC_ON,
+    FT897_NATIVE_CAT_SET_DCS_ENC_ON,
+    FT897_NATIVE_CAT_SET_CTCSS_ON,
+    FT897_NATIVE_CAT_SET_CTCSS_DEC_ON,
+    FT897_NATIVE_CAT_SET_CTCSS_ENC_ON,
+    FT897_NATIVE_CAT_SET_CTCSS_DCS_OFF,
+    FT897_NATIVE_CAT_SET_CTCSS_FREQ,
+    FT897_NATIVE_CAT_SET_DCS_CODE,
+    FT897_NATIVE_CAT_GET_RX_STATUS,
+    FT897_NATIVE_CAT_GET_TX_STATUS,
+    FT897_NATIVE_CAT_GET_FREQ_MODE_STATUS,
+    FT897_NATIVE_CAT_PWR_WAKE,
+    FT897_NATIVE_CAT_PWR_ON,
+    FT897_NATIVE_CAT_PWR_OFF,
+    FT897_NATIVE_CAT_EEPROM_READ,
+    FT897_NATIVE_CAT_GET_TX_METER,
+    FT897_NATIVE_SIZE     /* end marker */
+};
+
 struct ft897_priv_data
 {
-    yaesu_cmd_set_t pcs[FT897_NATIVE_SIZE];  /* TODO:  why? */
-
     /* rx status */
     struct timeval rx_status_tv;
     unsigned char rx_status;
@@ -94,6 +134,10 @@ struct ft897_priv_data
     /* freq & mode status */
     struct timeval fm_status_tv;
     unsigned char fm_status[YAESU_CMD_LENGTH + 1];
+
+    /* tx meter status */
+    struct timeval tm_status_tv;
+    unsigned char tm_status[3];
 };
 
 
@@ -106,8 +150,6 @@ static int ft897_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 static int ft897_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
 static int ft897_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
 static int ft897_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
-extern int ft857_set_vfo(RIG *rig, vfo_t vfo);
-extern int ft857_get_vfo(RIG *rig, vfo_t *vfo);
 static int ft897_set_split_vfo(RIG *rig, vfo_t vfo, split_t split,
                                vfo_t tx_vfo);
 static int ft897_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split,
@@ -129,8 +171,6 @@ static int ft897_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t rptr_shift);
 static int ft897_set_rptr_offs(RIG *rig, vfo_t vfo, shortfreq_t offs);
 static int ft897_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit);
 static int ft897_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd);
-extern int ft817_read_ack(RIG *rig);
-extern int ft817_set_powerstat(RIG *rig, powerstat_t status);
 
 /* Native ft897 cmd set prototypes. These are READ ONLY as each */
 /* rig instance will copy from these and modify if required . */
@@ -180,6 +220,7 @@ static const yaesu_cmd_set_t ncmd[] =
     { 1, { 0x00, 0x00, 0x00, 0x00, 0x0f } }, /* pwr on */
     { 1, { 0x00, 0x00, 0x00, 0x00, 0x8f } }, /* pwr off */
     { 0, { 0x00, 0x00, 0x00, 0x00, 0xbb } }, /* eeprom read */
+    { 1, { 0x00, 0x00, 0x00, 0x00, 0xbd } }, /* tx meter status, i.e ALC, MOD, PWR, SWR */
 };
 
 enum ft897_digi
@@ -209,7 +250,7 @@ const struct rig_caps ft897_caps =
     RIG_MODEL(RIG_MODEL_FT897),
     .model_name =     "FT-897",
     .mfg_name =       "Yaesu",
-    .version =        "20201215.0",
+    .version =        "20220404.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_TRANSCEIVER,
@@ -227,12 +268,15 @@ const struct rig_caps ft897_caps =
     .timeout =        FT897_TIMEOUT,
     .retry =      0,
     .has_get_func =       RIG_FUNC_NONE,
-    .has_set_func =   RIG_FUNC_LOCK | RIG_FUNC_TONE | RIG_FUNC_TSQL,
-    .has_get_level =  RIG_LEVEL_STRENGTH | RIG_LEVEL_RFPOWER | RIG_LEVEL_SWR | RIG_LEVEL_RAWSTR,
-    .has_set_level =  RIG_LEVEL_NONE,
+    .has_set_func =   RIG_FUNC_LOCK | RIG_FUNC_TONE | RIG_FUNC_TSQL | RIG_FUNC_CSQL | RIG_FUNC_RIT,
+    .has_get_level =  RIG_LEVEL_STRENGTH | RIG_LEVEL_RFPOWER | RIG_LEVEL_SWR | RIG_LEVEL_RAWSTR | RIG_LEVEL_ALC,
+    .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,
-    .level_gran =     {},                     /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =      {},
     .ctcss_list =     common_ctcss_list,
     .dcs_list =       common_dcs_list,   /* only 104 supported */
@@ -304,6 +348,7 @@ const struct rig_caps ft897_caps =
      * per testing by Rich Newsom, WA4SXZ
      */
     .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
 //        {RIG_MODE_SSB, kHz(2.2)},
 //        {RIG_MODE_CW, kHz(2.2)},
 //        {RIG_MODE_CWR, kHz(2.2)},
@@ -345,6 +390,7 @@ const struct rig_caps ft897_caps =
     .get_level =      ft897_get_level,
     .set_func =       ft897_set_func,
     .vfo_op =     ft897_vfo_op,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 const struct rig_caps ft897d_caps =
@@ -352,9 +398,9 @@ const struct rig_caps ft897d_caps =
     RIG_MODEL(RIG_MODEL_FT897D),
     .model_name =     "FT-897D",
     .mfg_name =       "Yaesu",
-    .version =        "20210103.0",
+    .version =        "20220407.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_TRANSCEIVER,
     .ptt_type =       RIG_PTT_RIG,
     .dcd_type =       RIG_DCD_RIG,
@@ -371,11 +417,14 @@ const struct rig_caps ft897d_caps =
     .retry =      0,
     .has_get_func =       RIG_FUNC_NONE,
     .has_set_func =   RIG_FUNC_LOCK | RIG_FUNC_TONE | RIG_FUNC_TSQL,
-    .has_get_level =  RIG_LEVEL_STRENGTH | RIG_LEVEL_RFPOWER | RIG_LEVEL_SWR | RIG_LEVEL_RAWSTR,
-    .has_set_level =  RIG_LEVEL_NONE,
+    .has_get_level =  RIG_LEVEL_STRENGTH | RIG_LEVEL_RFPOWER | RIG_LEVEL_SWR | RIG_LEVEL_RAWSTR | RIG_LEVEL_ALC,
+    .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,
-    .level_gran =     {},                     /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =      {},
     .ctcss_list =     common_ctcss_list,
     .dcs_list =       common_dcs_list,   /* only 104 supported */
@@ -447,6 +496,7 @@ const struct rig_caps ft897d_caps =
      * per testing by Rich Newsom, WA4SXZ
      */
     .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
 //        {RIG_MODE_SSB, kHz(2.2)},
 //        {RIG_MODE_CW, kHz(2.2)},
 //        {RIG_MODE_CWR, kHz(2.2)},
@@ -486,25 +536,19 @@ const struct rig_caps ft897d_caps =
     .get_level =      ft897_get_level,
     .set_func =       ft897_set_func,
     .vfo_op =     ft897_vfo_op,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /* ---------------------------------------------------------------------- */
 
 int ft897_init(RIG *rig)
 {
-    struct ft897_priv_data *priv;
-
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
 
     if ((rig->state.priv = calloc(1, sizeof(struct ft897_priv_data))) == NULL)
     {
         return -RIG_ENOMEM;
     }
-
-    priv = rig->state.priv;
-
-    /* Copy complete native cmd set to private cmd storage area */
-    memcpy(priv->pcs, ncmd, sizeof(ncmd));
 
     return RIG_OK;
 }
@@ -576,20 +620,19 @@ static int check_cache_timeout(struct timeval *tv)
 
 static int ft897_read_eeprom(RIG *rig, unsigned short addr, unsigned char *out)
 {
-    struct ft897_priv_data *p = (struct ft897_priv_data *) rig->state.priv;
     unsigned char data[YAESU_CMD_LENGTH];
     int n;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
-    memcpy(data, (char *)p->pcs[FT897_NATIVE_CAT_EEPROM_READ].nseq,
+    memcpy(data, (char *)ncmd[FT897_NATIVE_CAT_EEPROM_READ].nseq,
            YAESU_CMD_LENGTH);
 
     data[0] = addr >> 8;
     data[1] = addr & 0xfe;
 
-    write_block(&rig->state.rigport, (char *) data, YAESU_CMD_LENGTH);
+    write_block(&rig->state.rigport, data, YAESU_CMD_LENGTH);
 
-    if ((n = read_block(&rig->state.rigport, (char *) data, 2)) < 0)
+    if ((n = read_block(&rig->state.rigport, data, 2)) < 0)
     {
         return n;
     }
@@ -634,6 +677,13 @@ static int ft897_get_status(RIG *rig, int status)
         tv   = &p->tx_status_tv;
         break;
 
+    case FT897_NATIVE_CAT_GET_TX_METER:
+        data = p->tm_status;
+        len = 2;
+        tv = &p->tm_status_tv;
+        break;
+
+
     default:
         rig_debug(RIG_DEBUG_ERR, "%s: internal error!\n", __func__);
         return -RIG_EINTERNAL;
@@ -641,10 +691,10 @@ static int ft897_get_status(RIG *rig, int status)
 
     rig_flush(&rig->state.rigport);
 
-    write_block(&rig->state.rigport, (char *) p->pcs[status].nseq,
+    write_block(&rig->state.rigport, ncmd[status].nseq,
                 YAESU_CMD_LENGTH);
 
-    if ((n = read_block(&rig->state.rigport, (char *) data, len)) < 0)
+    if ((n = read_block(&rig->state.rigport, data, len)) < 0)
     {
         return n;
     }
@@ -896,6 +946,42 @@ static int ft897_get_rawstr_level(RIG *rig, value_t *val)
     return RIG_OK;
 }
 
+static int ft897_get_alc_level(RIG *rig, value_t *val)
+{
+    struct ft897_priv_data *p = (struct ft897_priv_data *) rig->state.priv;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
+
+    /* have to check PTT first - only 1 byte (0xff) returned in RX
+       and two bytes returned in TX */
+    if ((p->tx_status & 0x80) == 0)
+    {
+        if (check_cache_timeout(&p->tm_status_tv))
+        {
+            int n;
+
+            if ((n = ft897_get_status(rig, FT897_NATIVE_CAT_GET_TX_METER)) < 0)
+            {
+                return n;
+            }
+        }
+
+        /* returns 2 bytes when in TX mode:
+           byte[0]: bits 7:4 --> power
+           byte[0]: bits 3:0 --> ALC
+           byte[1]: bits 7:4 --> SWR
+           byte[1]: bits 3:0 --> MOD */
+
+        val->f = p->tm_status[0] >> 4;
+    }
+    else
+    {
+        val->f = 0;
+    }
+
+    return RIG_OK;
+}
+
 int ft897_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
@@ -913,6 +999,9 @@ int ft897_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
     case RIG_LEVEL_SWR:
         return ft897_get_swr_level(rig, val);
+
+    case RIG_LEVEL_ALC:
+        return ft897_get_alc_level(rig, val);
 
     default:
         return -RIG_EINVAL;
@@ -956,17 +1045,15 @@ int ft897_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
  */
 static int ft897_send_cmd(RIG *rig, int index)
 {
-    struct ft897_priv_data *p = (struct ft897_priv_data *) rig->state.priv;
-
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
 
-    if (p->pcs[index].ncomp == 0)
+    if (ncmd[index].ncomp == 0)
     {
         rig_debug(RIG_DEBUG_VERBOSE, "%s: incomplete sequence\n", __func__);
         return -RIG_EINTERNAL;
     }
 
-    write_block(&rig->state.rigport, (char *) p->pcs[index].nseq, YAESU_CMD_LENGTH);
+    write_block(&rig->state.rigport, ncmd[index].nseq, YAESU_CMD_LENGTH);
     return ft817_read_ack(rig);
 }
 
@@ -975,21 +1062,20 @@ static int ft897_send_cmd(RIG *rig, int index)
  */
 static int ft897_send_icmd(RIG *rig, int index, unsigned char *data)
 {
-    struct ft897_priv_data *p = (struct ft897_priv_data *) rig->state.priv;
     unsigned char cmd[YAESU_CMD_LENGTH];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
 
-    if (p->pcs[index].ncomp == 1)
+    if (ncmd[index].ncomp == 1)
     {
         rig_debug(RIG_DEBUG_VERBOSE, "%s: Complete sequence\n", __func__);
         return -RIG_EINTERNAL;
     }
 
-    cmd[YAESU_CMD_LENGTH - 1] = p->pcs[index].nseq[YAESU_CMD_LENGTH - 1];
+    cmd[YAESU_CMD_LENGTH - 1] = ncmd[index].nseq[YAESU_CMD_LENGTH - 1];
     memcpy(cmd, data, YAESU_CMD_LENGTH - 1);
 
-    write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
     return ft817_read_ack(rig);
 }
 
@@ -1237,22 +1323,32 @@ int ft897_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
             return ft897_send_cmd(rig, FT897_NATIVE_CAT_SET_CTCSS_DCS_OFF);
         }
 
-#if 0
-
-    case RIG_FUNC_CODE:   /* this doesn't exist */
+    case RIG_FUNC_CSQL:
         if (status)
         {
-            return ft897_send_cmd(rig, FT897_NATIVE_CAT_SET_DCS_ENC_ON);
+            return ft897_send_cmd(rig, FT897_NATIVE_CAT_SET_DCS_ON);
         }
         else
         {
             return ft897_send_cmd(rig, FT897_NATIVE_CAT_SET_CTCSS_DCS_OFF);
         }
 
-    case RIG_FUNC_DSQL:   /* this doesn't exist */
+    case RIG_FUNC_RIT:
         if (status)
         {
-            return ft897_send_cmd(rig, FT897_NATIVE_CAT_SET_DCS_ON);
+            return ft897_send_cmd(rig, FT897_NATIVE_CAT_CLAR_ON);
+        }
+        else
+        {
+            return ft897_send_cmd(rig, FT897_NATIVE_CAT_CLAR_OFF);
+        }
+
+#if 0
+
+    case RIG_FUNC_CODE:   /* this doesn't exist */
+        if (status)
+        {
+            return ft897_send_cmd(rig, FT897_NATIVE_CAT_SET_DCS_ENC_ON);
         }
         else
         {
@@ -1425,6 +1521,8 @@ int ft897_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
     }
 
     /* the rig rejects if these are repeated - don't confuse user with retcode */
+
+    /* not used anymore, RIG_FUNC_RIT implemented
     if (rit == 0)
     {
         ft897_send_cmd(rig, FT897_NATIVE_CAT_CLAR_OFF);
@@ -1432,7 +1530,7 @@ int ft897_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
     else
     {
         ft897_send_cmd(rig, FT897_NATIVE_CAT_CLAR_ON);
-    }
+    }*/
 
     return RIG_OK;
 }

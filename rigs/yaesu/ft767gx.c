@@ -34,13 +34,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -240,7 +237,6 @@ static int rig2ctcss(RIG *rig, unsigned char tn, tone_t *tone);
 struct ft767_priv_data
 {
     unsigned char pacing;     /* pacing value */
-    unsigned int read_update_delay;    /* depends on pacing value */
     unsigned char
     current_vfo;    /* active VFO from last cmd , can be either RIG_VFO_A or RIG_VFO_B only */
     unsigned char
@@ -284,10 +280,14 @@ const struct rig_caps ft767gx_caps =
     .retry =             0,
     .has_get_func =      RIG_FUNC_NONE,
     .has_set_func =      RIG_FUNC_NONE,
-    .has_get_level =     RIG_LEVEL_NONE,
-    .has_set_level =     RIG_LEVEL_NONE,
+    .has_get_level =     RIG_LEVEL_BAND_SELECT,
+    .has_set_level =     RIG_LEVEL_BAND_SELECT,
     .has_get_parm =      RIG_PARM_NONE,
     .has_set_parm =      RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .ctcss_list =        static_767gx_ctcss_list,
     .dcs_list =          NULL,
     .preamp =            { RIG_DBLST_END, },
@@ -349,9 +349,9 @@ const struct rig_caps ft767gx_caps =
 
     /* mode/filter list, .remember =  order matters! */
     .filters =  {
-        RIG_FLT_END,
+        {RIG_MODE_ALL, RIG_FLT_ANY},
+        RIG_FLT_END
     },
-
 
     .priv =   NULL, /* private data */
 
@@ -380,7 +380,7 @@ const struct rig_caps ft767gx_caps =
     .get_split_mode = ft767_get_split_mode,
     .set_split_vfo =  ft767_set_split_vfo,
     .get_split_vfo =  ft767_get_split_vfo,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -413,8 +413,6 @@ int ft767_init(RIG *rig)
     /* TODO: read pacing from preferences */
 
     priv->pacing = FT767GX_PACING_DEFAULT_VALUE; /* set pacing to minimum for now */
-    priv->read_update_delay =
-        FT767GX_DEFAULT_READ_TIMEOUT; /* set update timeout to safe value */
     priv->current_vfo =  RIG_VFO_A;  /* default to VFO_A ? */
     priv->ack_cmd[0] = 00;
     priv->ack_cmd[1] = 00;
@@ -1477,11 +1475,11 @@ int ft767_send_block_and_ack(RIG *rig, unsigned char *cmd, size_t length)
     }
 
     /* send the command block */
-    write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 
     /* read back the command block echo */
     retval = read_block(&rig->state.rigport,
-                        (char *) cmd_echo_buf,
+                        cmd_echo_buf,
                         YAESU_CMD_LENGTH);
 
     if (retval < 0)
@@ -1500,11 +1498,11 @@ int ft767_send_block_and_ack(RIG *rig, unsigned char *cmd, size_t length)
     }
 
     /* send the ACK */
-    write_block(&rig->state.rigport, (char *) priv->ack_cmd, YAESU_CMD_LENGTH);
+    write_block(&rig->state.rigport, priv->ack_cmd, YAESU_CMD_LENGTH);
 
     /* read back the response (status bytes) */
     retval = read_block(&rig->state.rigport,
-                        (char *) priv->rx_data,
+                        priv->rx_data,
                         replylen);
 
     // update data

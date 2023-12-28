@@ -19,14 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 #include <errno.h>
 
 #include "hamlib/rotator.h"
@@ -50,14 +46,15 @@ static int netrotctl_transaction(ROT *rot, char *cmd, int len, char *buf)
     /* flush anything in the read buffer before command is sent */
     rig_flush(&rot->state.rotport);
 
-    ret = write_block(&rot->state.rotport, cmd, len);
+    ret = write_block(&rot->state.rotport, (unsigned char *) cmd, len);
 
     if (ret != RIG_OK)
     {
         return ret;
     }
 
-    ret = read_string(&rot->state.rotport, buf, BUF_MAX, "\n", sizeof("\n"));
+    ret = read_string(&rot->state.rotport, (unsigned char *) buf, BUF_MAX, "\n",
+                      sizeof("\n"), 0, 1);
 
     if (ret < 0)
     {
@@ -74,7 +71,7 @@ static int netrotctl_transaction(ROT *rot, char *cmd, int len, char *buf)
 
 static int netrotctl_open(ROT *rot)
 {
-    int ret, len;
+    int ret;
     struct rot_state *rs = &rot->state;
     int prot_ver;
     char cmd[CMD_MAX];
@@ -83,9 +80,9 @@ static int netrotctl_open(ROT *rot)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
 
-    len = sprintf(cmd, "\\dump_state\n");
+    SNPRINTF(cmd, sizeof(cmd), "\\dump_state\n");
 
-    ret = netrotctl_transaction(rot, cmd, len, buf);
+    ret = netrotctl_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret <= 0)
     {
@@ -93,55 +90,72 @@ static int netrotctl_open(ROT *rot)
     }
 
     prot_ver = atoi(buf);
-#define ROTCTLD_PROT_VER 0
+#define ROTCTLD_PROT_VER 1
 
-    if (prot_ver < ROTCTLD_PROT_VER)
-    {
-        return -RIG_EPROTO;
-    }
-
-    ret = read_string(&rot->state.rotport, buf, BUF_MAX, "\n", sizeof("\n"));
+    ret = read_string(&rot->state.rotport, (unsigned char *) buf, BUF_MAX, "\n",
+                      sizeof("\n"), 0, 1);
 
     if (ret <= 0)
     {
         return (ret < 0) ? ret : -RIG_EPROTO;
     }
 
-    ret = read_string(&rot->state.rotport, buf, BUF_MAX, "\n", sizeof("\n"));
+    if (prot_ver == 0) { return (RIG_OK); }
 
-    if (ret <= 0)
+    // Prot 1 is tag=value format and should cover any needed additions
+    do
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        char setting[32], value[1024];
+
+        ret = read_string(&rot->state.rotport, (unsigned char *) buf, BUF_MAX, "\n",
+                          sizeof("\n"), 0, 1);
+
+        if (ret <= 0)
+        {
+            return (ret < 0) ? ret : -RIG_EPROTO;
+        }
+
+        // ignore the rot_model
+
+        if (strncmp(buf, "done", 4) == 0) { return (RIG_OK); }
+
+        if (sscanf(buf, "%31[^=]=%1023[^\t\n]", setting, value) == 2)
+        {
+            if (strcmp(setting, "min_az") == 0)
+            {
+                rs->min_az = rot->caps->min_az = atof(value);
+            }
+            else if (strcmp(setting, "max_az") == 0)
+            {
+                rs->max_az = rot->caps->max_az = atof(value);
+            }
+            else if (strcmp(setting, "min_el") == 0)
+            {
+                rs->min_el = rot->caps->min_el = atof(value);
+            }
+            else if (strcmp(setting, "max_el") == 0)
+            {
+                rs->max_el = rot->caps->max_el = atof(value);
+            }
+            else if (strcmp(setting, "south_zero") == 0)
+            {
+                rs->south_zero = atoi(value);
+            }
+            else if (strcmp(setting, "rot_type") == 0)
+            {
+                if (strcmp(value, "AzEl") == 0) { rot->caps->rot_type = ROT_TYPE_AZEL; }
+                else if (strcmp(value, "Az") == 0) { rot->caps->rot_type = ROT_TYPE_AZIMUTH; }
+                else if (strcmp(value, "El") == 0) { rot->caps->rot_type = ROT_TYPE_ELEVATION; }
+            }
+            else
+            {
+                // not an error -- just a warning for backward compatibility
+                rig_debug(RIG_DEBUG_ERR, "%s: unknown setting='%s'\n", __func__, buf);
+            }
+        }
     }
+    while (1);
 
-    rs->min_az = atof(buf);
-
-    ret = read_string(&rot->state.rotport, buf, BUF_MAX, "\n", sizeof("\n"));
-
-    if (ret <= 0)
-    {
-        return (ret < 0) ? ret : -RIG_EPROTO;
-    }
-
-    rs->max_az = atof(buf);
-
-    ret = read_string(&rot->state.rotport, buf, BUF_MAX, "\n", sizeof("\n"));
-
-    if (ret <= 0)
-    {
-        return (ret < 0) ? ret : -RIG_EPROTO;
-    }
-
-    rs->min_el = atof(buf);
-
-    ret = read_string(&rot->state.rotport, buf, BUF_MAX, "\n", sizeof("\n"));
-
-    if (ret <= 0)
-    {
-        return (ret < 0) ? ret : -RIG_EPROTO;
-    }
-
-    rs->max_el = atof(buf);
 
     return RIG_OK;
 }
@@ -151,23 +165,23 @@ static int netrotctl_close(ROT *rot)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     /* clean signoff, no read back */
-    write_block(&rot->state.rotport, "q\n", 2);
+    write_block(&rot->state.rotport, (unsigned char *) "q\n", 2);
 
     return RIG_OK;
 }
 
 static int netrotctl_set_position(ROT *rot, azimuth_t az, elevation_t el)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %f %f\n", __func__,
               az, el);
 
-    len = sprintf(cmd, "P %f %f\n", az, el);
+    SNPRINTF(cmd, sizeof(cmd), "P %f %f\n", az, el);
 
-    ret = netrotctl_transaction(rot, cmd, len, buf);
+    ret = netrotctl_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -181,15 +195,15 @@ static int netrotctl_set_position(ROT *rot, azimuth_t az, elevation_t el)
 
 static int netrotctl_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "p\n");
+    SNPRINTF(cmd, sizeof(cmd), "p\n");
 
-    ret = netrotctl_transaction(rot, cmd, len, buf);
+    ret = netrotctl_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret <= 0)
     {
@@ -198,7 +212,8 @@ static int netrotctl_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 
     *az = atof(buf);
 
-    ret = read_string(&rot->state.rotport, buf, BUF_MAX, "\n", sizeof("\n"));
+    ret = read_string(&rot->state.rotport, (unsigned char *) buf, BUF_MAX, "\n",
+                      sizeof("\n"), 0, 1);
 
     if (ret <= 0)
     {
@@ -213,15 +228,15 @@ static int netrotctl_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 
 static int netrotctl_stop(ROT *rot)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "S\n");
+    SNPRINTF(cmd, sizeof(cmd), "S\n");
 
-    ret = netrotctl_transaction(rot, cmd, len, buf);
+    ret = netrotctl_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -236,15 +251,15 @@ static int netrotctl_stop(ROT *rot)
 
 static int netrotctl_park(ROT *rot)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "K\n");
+    SNPRINTF(cmd, sizeof(cmd), "K\n");
 
-    ret = netrotctl_transaction(rot, cmd, len, buf);
+    ret = netrotctl_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -258,15 +273,15 @@ static int netrotctl_park(ROT *rot)
 
 static int netrotctl_reset(ROT *rot, rot_reset_t reset)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "R %d\n", reset);
+    SNPRINTF(cmd, sizeof(cmd), "R %d\n", reset);
 
-    ret = netrotctl_transaction(rot, cmd, len, buf);
+    ret = netrotctl_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -280,15 +295,15 @@ static int netrotctl_reset(ROT *rot, rot_reset_t reset)
 
 static int netrotctl_move(ROT *rot, int direction, int speed)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "M %d %d\n", direction, speed);
+    SNPRINTF(cmd, sizeof(cmd), "M %d %d\n", direction, speed);
 
-    ret = netrotctl_transaction(rot, cmd, len, buf);
+    ret = netrotctl_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -302,15 +317,15 @@ static int netrotctl_move(ROT *rot, int direction, int speed)
 
 static const char *netrotctl_get_info(ROT *rot)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     static char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "_\n");
+    SNPRINTF(cmd, sizeof(cmd), "_\n");
 
-    ret = netrotctl_transaction(rot, cmd, len, buf);
+    ret = netrotctl_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret < 0)
     {
@@ -328,12 +343,12 @@ static const char *netrotctl_get_info(ROT *rot)
  * NET rotctl capabilities.
  */
 
-const struct rot_caps netrotctl_caps =
+struct rot_caps netrotctl_caps =
 {
     ROT_MODEL(ROT_MODEL_NETROTCTL),
     .model_name =     "NET rotctl",
     .mfg_name =       "Hamlib",
-    .version =        "20200528.0",
+    .version =        "20221110.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_OTHER,

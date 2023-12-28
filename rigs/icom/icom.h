@@ -25,12 +25,18 @@
 #include "hamlib/rig.h"
 #include "cal.h"
 #include "tones.h"
+#include "idx_builtin.h"
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 
-#define BACKEND_VER "20210907"
+#define BACKEND_VER "20230109"
+
+#define ICOM_IS_ID31 rig_is_model(rig, RIG_MODEL_ID31)
+#define ICOM_IS_ID51 rig_is_model(rig, RIG_MODEL_ID51)
+#define ICOM_IS_ID4100 rig_is_model(rig, RIG_MODEL_ID4100)
+#define ICOM_IS_ID5100 rig_is_model(rig, RIG_MODEL_ID5100)
 
 #define ICOM_IS_SECONDARY_VFO(vfo) ((vfo) & (RIG_VFO_B | RIG_VFO_SUB | RIG_VFO_SUB_B | RIG_VFO_MAIN_B))
 #define ICOM_GET_VFO_NUMBER(vfo) (ICOM_IS_SECONDARY_VFO(vfo) ? 0x01 : 0x00)
@@ -181,7 +187,7 @@ struct icom_spectrum_scope_cache
     freq_t spectrum_span_freq; /*!< The frequency span of the current spectrum scope line being received */
     freq_t spectrum_low_edge_freq; /*!< The low edge frequency of the current spectrum scope line being received */
     freq_t spectrum_high_edge_freq; /*!< The high edge frequency of the current spectrum scope line being received */
-    int spectrum_data_length;     /*!< Number of bytes of 8-bit spectrum data in the data buffer. The amount of data may vary if the rig has multiple spectrum scopes, depending on the scope. */
+    size_t spectrum_data_length;     /*!< Number of bytes of 8-bit spectrum data in the data buffer. The amount of data may vary if the rig has multiple spectrum scopes, depending on the scope. */
     unsigned char *spectrum_data; /*!< Dynamically allocated buffer for raw spectrum data */
 };
 
@@ -229,10 +235,11 @@ struct icom_priv_caps
     int offs_len;               /*!< Number of bytes in offset frequency field. 0 defaults to 3 */
     int serial_USB_echo_check;  /*!< Flag to test USB echo state */
     int agc_levels_present;     /*!< Flag to indicate that agc_levels array is populated */
-    struct icom_agc_level agc_levels[RIG_AGC_LAST + 1]; /*!< Icom rig-specific AGC levels, the last entry should have level -1 */
+    struct icom_agc_level agc_levels[HAMLIB_MAX_AGC_LEVELS + 1]; /*!< Icom rig-specific AGC levels, the last entry should have level -1 */
     struct icom_spectrum_scope_caps spectrum_scope_caps; /*!< Icom spectrum scope capabilities, if supported by the rig. Main/Sub scopes in Icom rigs have the same caps. */
     struct icom_spectrum_edge_frequency_range spectrum_edge_frequency_ranges[ICOM_MAX_SPECTRUM_FREQ_RANGES]; /*!< Icom spectrum scope edge frequencies, if supported by the rig. Last entry should have zeros in all fields. */
     struct cmdparams *extcmds;  /*!< Pointer to extended operations array */
+    int dualwatch_split;        /*!< Rig supports dual watch for split ops -- e.g. ID-5100 */
 };
 
 struct icom_priv_data
@@ -265,6 +272,8 @@ struct icom_priv_data
     unsigned char datamode; /*!< Current datamode */
     int spectrum_scope_count; /*!< Number of spectrum scopes, calculated from caps */
     struct icom_spectrum_scope_cache spectrum_scope_cache[HAMLIB_MAX_SPECTRUM_SCOPES]; /*!< Cached Icom spectrum scope data used during reception of the data. The array index must match the scope ID. */
+    freq_t other_freq; /*!< Our other freq depending on which vfo is selected */
+    int vfo_flag; // used to skip vfo check when frequencies are equal
 };
 
 extern const struct ts_sc_list r8500_ts_sc_list[];
@@ -306,7 +315,11 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
 int icom_get_mode_with_data(RIG *rig, vfo_t vfo, rmode_t *mode,
                             pbwidth_t *width);
 int icom_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
+#if 0 // see icom_get_vfo in icom.c
 int icom_get_vfo(RIG *rig, vfo_t *vfo);
+#else
+#define icom_get_vfo NULL
+#endif
 int icom_set_vfo(RIG *rig, vfo_t vfo);
 int icom_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t rptr_shift);
 int icom_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *rptr_shift);
@@ -392,8 +405,9 @@ int icom_set_custom_parm_time(RIG *rig, int parmbuflen, unsigned char *parmbuf,
 int icom_get_custom_parm_time(RIG *rig, int parmbuflen, unsigned char *parmbuf,
                               int *seconds);
 int icom_get_freq_range(RIG *rig);
-int icom_is_async_frame(RIG *rig, int frame_len, const unsigned char *frame);
-int icom_process_async_frame(RIG *rig, int frame_len, const unsigned char *frame);
+int icom_is_async_frame(RIG *rig, size_t frame_length, const unsigned char *frame);
+int icom_process_async_frame(RIG *rig, size_t frame_length, const unsigned char *frame);
+int icom_read_frame_direct(RIG *rig, size_t buffer_length, const unsigned char *buffer);
 
 extern const struct confparams icom_cfg_params[];
 extern const struct confparams icom_ext_levels[];
@@ -443,7 +457,7 @@ extern const struct rig_caps ic821h_caps;
 extern const struct rig_caps ic910_caps;
 extern const struct rig_caps ic9100_caps;
 extern const struct rig_caps ic970_caps;
-extern const struct rig_caps ic9700_caps;
+extern struct rig_caps ic9700_caps;
 extern const struct rig_caps icrx7_caps;
 extern const struct rig_caps icr10_caps;
 extern const struct rig_caps icr20_caps;
@@ -458,10 +472,12 @@ extern const struct rig_caps icr9000_caps;
 extern const struct rig_caps icr9500_caps;
 extern const struct rig_caps ic271_caps;
 extern const struct rig_caps ic275_caps;
+extern const struct rig_caps ic375_caps;
 extern const struct rig_caps ic471_caps;
 extern const struct rig_caps ic475_caps;
 extern const struct rig_caps ic575_caps;
 extern const struct rig_caps ic1275_caps;
+extern const struct rig_caps icf8101_caps;
 
 extern const struct rig_caps omnivip_caps;
 extern const struct rig_caps delta2_caps;
@@ -480,6 +496,9 @@ extern const struct rig_caps ic2730_caps;
 extern const struct rig_caps perseus_caps;
 
 extern const struct rig_caps x108g_caps;
+extern const struct rig_caps x6100_caps;
+extern const struct rig_caps g90_caps;
+extern const struct rig_caps x5105_caps;
 
 extern const struct rig_caps icr8600_caps;
 extern const struct rig_caps icr30_caps;

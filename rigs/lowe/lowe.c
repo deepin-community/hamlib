@@ -19,15 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -65,7 +61,7 @@ int lowe_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rig_flush(&rs->rigport);
 
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(&rs->rigport, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -79,7 +75,7 @@ int lowe_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
         return 0;
     }
 
-    retval = read_string(&rs->rigport, data, BUFSZ, CR, 1);
+    retval = read_string(&rs->rigport, (unsigned char *) data, BUFSZ, CR, 1, 0, 1);
 
     if (retval == -RIG_ETIMEOUT)
     {
@@ -103,12 +99,12 @@ int lowe_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 int lowe_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[16], ackbuf[16];
-    int freq_len, ack_len, retval;
+    int ack_len, retval;
 
     /*
      */
-    freq_len = sprintf(freqbuf, "FRQ%f" EOM, (float)freq / 1000);
-    retval = lowe_transaction(rig, freqbuf, freq_len, ackbuf, &ack_len);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "FRQ%f" EOM, (float)freq / 1000);
+    retval = lowe_transaction(rig, freqbuf, strlen(freqbuf), ackbuf, &ack_len);
 
     return retval;
 }
@@ -147,7 +143,7 @@ int lowe_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     char mdbuf[16], ackbuf[16];
     char *mode_sel;
-    int mdbuf_len, ack_len, retval;
+    int ack_len, retval;
 
     switch (mode)
     {
@@ -171,8 +167,8 @@ int lowe_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    mdbuf_len = sprintf(mdbuf, "MOD%s" EOM, mode_sel);
-    retval = lowe_transaction(rig, mdbuf, mdbuf_len, ackbuf, &ack_len);
+    SNPRINTF(mdbuf, sizeof(mdbuf), "MOD%s" EOM, mode_sel);
+    retval = lowe_transaction(rig, mdbuf, strlen(mdbuf), ackbuf, &ack_len);
 
     return retval;
 }
@@ -341,8 +337,8 @@ DECLARE_PROBERIG_BACKEND(lowe)
         return RIG_MODEL_NONE;
     }
 
-    retval = write_block(port, "TYP?" EOM, 4);
-    id_len = read_string(port, idbuf, BUFSZ, CR, 2);
+    retval = write_block(port, (unsigned char *) "TYP?" EOM, 4);
+    id_len = read_string(port, (unsigned char *) idbuf, BUFSZ, CR, 2, 0, 1);
 
     close(port->fd);
 

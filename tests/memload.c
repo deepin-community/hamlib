@@ -19,14 +19,7 @@
  */
 
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <hamlib/config.h>
 
 #include <hamlib/rig.h>
 #include "misc.h"

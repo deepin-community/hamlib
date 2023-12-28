@@ -20,14 +20,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>             /* Standard library definitions */
 #include <string.h>             /* String function definitions */
-#include <unistd.h>             /* UNIX standard function definitions */
 
 #include "hamlib/rotator.h"
 #include "serial.h"
@@ -58,7 +54,7 @@ const struct rot_caps sartek_rot_caps =
     .mfg_name =           "SARtek",
     .version =            "20061007.0",
     .copyright =          "LGPL",
-    .status =             RIG_STATUS_UNTESTED,
+    .status =             RIG_STATUS_BETA,
     .rot_type =           ROT_TYPE_OTHER,
     .port_type =          RIG_PORT_SERIAL,
     .serial_rate_min =    1200,
@@ -104,7 +100,7 @@ static int sartek_rot_set_position(ROT *rot, azimuth_t azimuth,
                                    elevation_t elevation)
 {
     char cmdstr[8];
-    int len, err;
+    int err;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
@@ -127,9 +123,10 @@ static int sartek_rot_set_position(ROT *rot, azimuth_t azimuth,
         azimuth = 358;
     }
 
-    len = sprintf(cmdstr, "P%c", (int)((azimuth * 255) / 360));
+    SNPRINTF(cmdstr, sizeof(cmdstr), "P%c", (int)((azimuth * 255) / 360));
 
-    err = write_block(&rot->state.rotport, cmdstr, len);
+    err = write_block(&rot->state.rotport, (unsigned char *) cmdstr,
+                      strlen(cmdstr));
 
     if (err != RIG_OK)
     {
@@ -151,7 +148,7 @@ static int sartek_rot_stop(ROT *rot)
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
-    err = write_block(&rot->state.rotport, "P\0", 2);
+    err = write_block(&rot->state.rotport, (unsigned char *) "P\0", 2);
 
     if (err != RIG_OK)
     {

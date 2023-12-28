@@ -19,12 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
 
 #include <hamlib/rig.h>
 #include "token.h"
@@ -119,7 +116,7 @@ static const struct icom_priv_caps ic7410_priv_caps =
         { .level = RIG_AGC_SLOW, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_FAST, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
 };
 
@@ -129,9 +126,9 @@ const struct rig_caps ic7410_caps =
     RIG_MODEL(RIG_MODEL_IC7410),
     .model_name = "IC-7410",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".2",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_ALPHA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -152,7 +149,9 @@ const struct rig_caps ic7410_caps =
     .has_set_level =  RIG_LEVEL_SET(IC7410_LEVELS),
     .has_get_parm =  IC7410_PARMS,
     .has_set_parm =  RIG_PARM_SET(IC7410_PARMS),    /* FIXME: parms */
-    .level_gran = {
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
@@ -253,6 +252,7 @@ const struct rig_caps ic7410_caps =
     .set_mode =  icom_set_mode_with_data,
     .get_mode =  icom_get_mode_with_data,
     .set_vfo =  icom_set_vfo,
+    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
@@ -287,5 +287,6 @@ const struct rig_caps ic7410_caps =
     .get_split_vfo =  icom_mem_get_split_vfo,
     .send_morse =  icom_send_morse,
     .stop_morse =  icom_stop_morse,
-    .wait_morse = rig_wait_morse
+    .wait_morse = rig_wait_morse,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 
@@ -123,13 +121,12 @@ int ts450_open(RIG *rig)
  */
 const struct rig_caps ts450s_caps =
 {
-
     RIG_MODEL(RIG_MODEL_TS450S),
     .model_name = "TS-450S",
     .mfg_name   = "Kenwood",
     .version    = BACKEND_VER ".0",
     .copyright  = "LGPL",
-    .status     = RIG_STATUS_BETA,
+    .status     = RIG_STATUS_STABLE,
     .rig_type   = RIG_TYPE_TRANSCEIVER,
     .ptt_type   = RIG_PTT_RIG,
     .dcd_type   = RIG_DCD_RIG,
@@ -152,7 +149,10 @@ const struct rig_caps ts450s_caps =
     .has_set_level      = RIG_LEVEL_SET(TS450S_LEVEL_ALL),
     .has_get_parm       = 0,
     .has_set_parm       = 0,
-    .level_gran     = {},     /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran      = {},
     .extparms       = ts450_ext_parms,
     .ctcss_list     = NULL, /* hw dip-switch */
@@ -266,4 +266,5 @@ const struct rig_caps ts450s_caps =
     .scan = kenwood_scan,
     .get_channel = kenwood_get_channel,
     .set_channel = kenwood_set_channel,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

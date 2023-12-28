@@ -25,9 +25,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
@@ -36,7 +34,6 @@
 #include "yaesu.h"
 #include "newcat.h"
 #include "ft2000.h"
-#include "idx_builtin.h"
 #include "tones.h"
 
 const struct newcat_priv_caps ft2000_priv_caps =
@@ -74,12 +71,57 @@ const struct confparams ft2000_ext_levels[] =
             }
         }
     },
+    {
+        TOK_KEYER,
+        "KEYER",
+        "Keyer",
+        "Keyer on/off",
+        NULL,
+        RIG_CONF_CHECKBUTTON,
+    },
+    {
+        TOK_CONTOUR,
+        "CONTOUR",
+        "Contour",
+        "Contour on/off",
+        NULL,
+        RIG_CONF_CHECKBUTTON,
+    },
+    {
+        TOK_CONTOUR_FREQ,
+        "CONTOUR_FREQ",
+        "Contour frequency",
+        "Contour frequency",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = 100, .max = 4000, .step = 100 } },
+    },
+    {
+        TOK_CONTOUR_LEVEL,
+        "CONTOUR_LEVEL",
+        "Contour level",
+        "Contour level (dB)",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = -40, .max = 20, .step = 1 } },
+    },
+    {
+        TOK_CONTOUR_WIDTH,
+        "CONTOUR_WIDTH",
+        "Contour width",
+        "Contour width",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = 1, .max = 11, .step = 1 } },
+    },
     { RIG_CONF_END, NULL, }
 };
 
 int ft2000_ext_tokens[] =
 {
-    TOK_ROOFING_FILTER, TOK_BACKEND_NONE
+    TOK_ROOFING_FILTER, TOK_KEYER,
+    TOK_CONTOUR, TOK_CONTOUR_FREQ, TOK_CONTOUR_LEVEL, TOK_CONTOUR_WIDTH,
+    TOK_BACKEND_NONE
 };
 
 
@@ -91,7 +133,7 @@ const struct rig_caps ft2000_caps =
     RIG_MODEL(RIG_MODEL_FT2000),
     .model_name =         "FT-2000",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".0",
+    .version =            NEWCAT_VER ".3",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -115,6 +157,7 @@ const struct rig_caps ft2000_caps =
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
     .level_gran = {
+#include "level_gran_yaesu.h"
         // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 50 } },
@@ -129,7 +172,8 @@ const struct rig_caps ft2000_caps =
     .max_xit =            Hz(9999),
     .max_ifshift =        Hz(1000),
     .vfo_ops =            FT2000_VFO_OPS,
-    .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE,
+    .scan_ops =           RIG_SCAN_VFO,
+    .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE | RIG_TARGETABLE_LEVEL | RIG_TARGETABLE_FUNC | RIG_TARGETABLE_TONE,
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 2000 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
@@ -218,7 +262,7 @@ const struct rig_caps ft2000_caps =
 
     .cfgparams =          newcat_cfg_params,
     .set_conf =           newcat_set_conf,
-    .get_conf =           newcat_get_conf,
+    .get_conf2 =          newcat_get_conf2,
     .set_freq =           newcat_set_freq,
     .get_freq =           newcat_get_freq,
     .set_mode =           newcat_set_mode,
@@ -263,5 +307,8 @@ const struct rig_caps ft2000_caps =
     .get_channel =        newcat_get_channel,
     .set_ext_level =      newcat_set_ext_level,
     .get_ext_level =      newcat_get_ext_level,
-
+    .send_morse =         newcat_send_morse,
+    .wait_morse =         rig_wait_morse,
+    .scan =               newcat_scan,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

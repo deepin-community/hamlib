@@ -107,19 +107,20 @@ am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
 	$(top_srcdir)/macros/ltsugar.m4 \
 	$(top_srcdir)/macros/ltversion.m4 \
 	$(top_srcdir)/macros/lt~obsolete.m4 \
-	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/tcl.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/pkg.m4 \
+	$(top_srcdir)/macros/tcl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/include/hamlib/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libhamlib_dummy_la_LIBADD =
 am__objects_1 = dummy_common.lo dummy.lo rot_dummy.lo netrigctl.lo \
-	netrotctl.lo flrig.lo trxmanager.lo amp_dummy.lo netampctl.lo
+	netrotctl.lo flrig.lo trxmanager.lo amp_dummy.lo netampctl.lo \
+	tci1x.lo
 am_libhamlib_dummy_la_OBJECTS = $(am__objects_1)
 libhamlib_dummy_la_OBJECTS = $(am_libhamlib_dummy_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -138,14 +139,14 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include/hamlib
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/amp_dummy.Plo ./$(DEPDIR)/dummy.Plo \
 	./$(DEPDIR)/dummy_common.Plo ./$(DEPDIR)/flrig.Plo \
 	./$(DEPDIR)/netampctl.Plo ./$(DEPDIR)/netrigctl.Plo \
 	./$(DEPDIR)/netrotctl.Plo ./$(DEPDIR)/rot_dummy.Plo \
-	./$(DEPDIR)/trxmanager.Plo
+	./$(DEPDIR)/tci1x.Plo ./$(DEPDIR)/trxmanager.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -297,6 +298,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL_INC_DIR = @PERL_INC_DIR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -307,6 +311,7 @@ PYTHON_EXTRA_LDFLAGS = @PYTHON_EXTRA_LDFLAGS@
 PYTHON_EXTRA_LIBS = @PYTHON_EXTRA_LIBS@
 PYTHON_LIBS = @PYTHON_LIBS@
 PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PLATFORM_SITE_PKG = @PYTHON_PLATFORM_SITE_PKG@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_SITE_PKG = @PYTHON_SITE_PKG@
 PYTHON_VERSION = @PYTHON_VERSION@
@@ -323,12 +328,16 @@ STRIP = @STRIP@
 SWIG = @SWIG@
 SWIG_LIB = @SWIG_LIB@
 TCL_BIN_DIR = @TCL_BIN_DIR@
+TCL_CFLAGS = @TCL_CFLAGS@
 TCL_INCLUDE_SPEC = @TCL_INCLUDE_SPEC@
+TCL_LIBS = @TCL_LIBS@
 TCL_LIB_FILE = @TCL_LIB_FILE@
 TCL_LIB_SPEC = @TCL_LIB_SPEC@
 TCL_SHLIB_SUFFIX = @TCL_SHLIB_SUFFIX@
 TCL_SRC_DIR = @TCL_SRC_DIR@
 TCL_VERSION = @TCL_VERSION@
+USRP_CFLAGS = @USRP_CFLAGS@
+USRP_LIBS = @USRP_LIBS@
 VERSION = @VERSION@
 WINEXELDFLAGS = @WINEXELDFLAGS@
 WINLDFLAGS = @WINLDFLAGS@
@@ -396,7 +405,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-DUMMYSRC = dummy_common.c dummy_common.h dummy.c dummy.h rot_dummy.c rot_dummy.h netrigctl.c netrotctl.c flrig.c flrig.h trxmanager.c trxmanager.h amp_dummy.c amp_dummy.h netampctl.c
+DUMMYSRC = dummy_common.c dummy_common.h dummy.c dummy.h rot_dummy.c rot_dummy.h netrigctl.c netrotctl.c flrig.c flrig.h trxmanager.c trxmanager.h amp_dummy.c amp_dummy.h netampctl.c tci1x.c
 noinst_LTLIBRARIES = libhamlib-dummy.la
 libhamlib_dummy_la_SOURCES = $(DUMMYSRC)
 EXTRA_DIST = Android.mk
@@ -462,6 +471,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/netrigctl.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/netrotctl.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rot_dummy.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tci1x.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trxmanager.Plo@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -633,6 +643,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/netrigctl.Plo
 	-rm -f ./$(DEPDIR)/netrotctl.Plo
 	-rm -f ./$(DEPDIR)/rot_dummy.Plo
+	-rm -f ./$(DEPDIR)/tci1x.Plo
 	-rm -f ./$(DEPDIR)/trxmanager.Plo
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -687,6 +698,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/netrigctl.Plo
 	-rm -f ./$(DEPDIR)/netrotctl.Plo
 	-rm -f ./$(DEPDIR)/rot_dummy.Plo
+	-rm -f ./$(DEPDIR)/tci1x.Plo
 	-rm -f ./$(DEPDIR)/trxmanager.Plo
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic

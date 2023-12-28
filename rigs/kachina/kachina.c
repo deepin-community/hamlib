@@ -19,14 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -86,14 +81,14 @@ static int kachina_transaction(RIG *rig, unsigned char cmd1, unsigned char cmd2)
 
     rig_flush(&rs->rigport);
 
-    retval = write_block(&rs->rigport, (char *) buf4, 4);
+    retval = write_block(&rs->rigport, buf4, 4);
 
     if (retval != RIG_OK)
     {
         return retval;
     }
 
-    count = read_string(&rs->rigport, (char *) buf4, 1, "", 0);
+    count = read_string(&rs->rigport, buf4, 1, "", 0, 0, 1);
 
     if (count != 1)
     {
@@ -121,14 +116,14 @@ static int kachina_trans_n(RIG *rig, unsigned char cmd1, const char *data,
 
     rig_flush(&rs->rigport);
 
-    retval = write_block(&rs->rigport, (char *) buf, cmd_len);
+    retval = write_block(&rs->rigport, buf, cmd_len);
 
     if (retval != RIG_OK)
     {
         return retval;
     }
 
-    count = read_string(&rs->rigport, (char *) buf, 1, "", 0);
+    count = read_string(&rs->rigport, buf, 1, "", 0, 0, 1);
 
     if (count != 1)
     {
@@ -272,8 +267,8 @@ int kachina_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
     rig_flush(&rig->state.rigport);
 
-    count = read_string(&rig->state.rigport, (char *) buf, 31, rcv_signal_range,
-                        128);
+    count = read_string(&rig->state.rigport, buf, 31, rcv_signal_range,
+                        128, 0, 1);
 
     if (count < 1)
     {

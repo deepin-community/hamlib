@@ -20,12 +20,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
-#include <string.h>
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -123,11 +120,11 @@ static struct kenwood_priv_caps  ts990s_priv_caps  =
 const struct rig_caps ts990s_caps =
 {
     RIG_MODEL(RIG_MODEL_TS990S),
-    .model_name = "TS-990s",
+    .model_name = "TS-990S",
     .mfg_name =  "Kenwood",
-    .version =  BACKEND_VER ".1",
+    .version =  BACKEND_VER ".3",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG_MICDATA,
     .dcd_type =  RIG_DCD_RIG,
@@ -140,7 +137,7 @@ const struct rig_caps ts990s_caps =
     .serial_handshake =  RIG_HANDSHAKE_HARDWARE,
     .write_delay =  0,
     .post_write_delay =  0, /* ms */
-    .timeout =  200,
+    .timeout =  500,
     .retry =  10,
 
     .has_get_func =  TS2000_FUNC_ALL,
@@ -149,7 +146,10 @@ const struct rig_caps ts990s_caps =
     .has_set_level =  RIG_LEVEL_SET(TS2000_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
-    .level_gran =  {},                 /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  {},
     .vfo_ops =  TS990S_VFO_OP,
     .scan_ops =  TS990S_SCAN_OP,
@@ -160,6 +160,8 @@ const struct rig_caps ts990s_caps =
     .max_xit =  Hz(9990),
     .targetable_vfo =  RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE,
     .transceive =  RIG_TRN_RIG,
+    .agc_level_count = 5,
+    .agc_levels = { RIG_AGC_OFF, RIG_AGC_SLOW, RIG_AGC_MEDIUM, RIG_AGC_FAST, RIG_AGC_ON },
     .bank_qty =   0,
     .chan_desc_sz =  7,
 
@@ -349,7 +351,7 @@ const struct rig_caps ts990s_caps =
     .set_powerstat =  kenwood_set_powerstat,
     .get_powerstat =  kenwood_get_powerstat,
     .reset =  kenwood_reset,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -418,7 +420,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EINVAL;
         }
 
-        sprintf(cmd, "RA%c", v);
+        SNPRINTF(cmd, sizeof(cmd), "RA%c", v);
         retval = kenwood_safe_transaction(rig, cmd, lvlbuf, sizeof(lvlbuf), 4);
 
         if (retval != RIG_OK)
@@ -465,7 +467,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EINVAL;
         }
 
-        sprintf(cmd, "AG%c", v);
+        SNPRINTF(cmd, sizeof(cmd), "AG%c", v);
         retval = kenwood_safe_transaction(rig, cmd, lvlbuf, sizeof(lvlbuf), 6);
 
         if (retval != RIG_OK)
@@ -494,7 +496,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EINVAL;
         }
 
-        sprintf(cmd, "RG%c", v);
+        SNPRINTF(cmd, sizeof(cmd), "RG%c", v);
         retval = kenwood_safe_transaction(rig, cmd, lvlbuf, sizeof(lvlbuf), 6);
 
         if (retval != RIG_OK)
@@ -523,7 +525,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EINVAL;
         }
 
-        sprintf(cmd, "SQ%c", v);
+        SNPRINTF(cmd, sizeof(cmd), "SQ%c", v);
         retval = kenwood_safe_transaction(rig, cmd, lvlbuf, sizeof(lvlbuf), 6);
 
         if (retval != RIG_OK)
@@ -605,7 +607,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EINVAL;
         }
 
-        sprintf(cmd, "GC%c", v);
+        SNPRINTF(cmd, sizeof(cmd), "GC%c", v);
 
         if (RIG_OK != (retval = kenwood_safe_transaction(rig, cmd, lvlbuf,
                                 sizeof(lvlbuf), 4)))
@@ -701,7 +703,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EINVAL;
         }
 
-        sprintf(cmd, "SM%c", v);
+        SNPRINTF(cmd, sizeof(cmd), "SM%c", v);
         retval = kenwood_safe_transaction(rig, cmd, lvlbuf, sizeof(lvlbuf), 7);
 
         if (retval != RIG_OK)

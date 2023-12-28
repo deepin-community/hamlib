@@ -19,15 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -179,7 +174,7 @@ static int wj_transaction(RIG *rig, int monitor)
 
     rig_flush(&rig->state.rigport);
 
-    retval = write_block(&rig->state.rigport, (char *) buf, CMDSZ);
+    retval = write_block(&rig->state.rigport, buf, CMDSZ);
 
     if (retval != RIG_OK)
     {
@@ -191,7 +186,7 @@ static int wj_transaction(RIG *rig, int monitor)
         /*
         * Transceiver sends back ">"
         */
-        retval = read_block(&rig->state.rigport, (char *) rxbuf, CMDSZ);
+        retval = read_block(&rig->state.rigport, rxbuf, CMDSZ);
 
         if (retval < 0 || retval > CMDSZ)
         {
@@ -216,7 +211,7 @@ int wj_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct wj_priv_data *)malloc(sizeof(struct wj_priv_data));
+    rig->state.priv = (struct wj_priv_data *)calloc(1, sizeof(struct wj_priv_data));
 
     if (!rig->state.priv)
     {
@@ -283,14 +278,14 @@ int wj_set_conf(RIG *rig, token_t token, const char *val)
  * Assumes rig!=NULL, rig->state.priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-int wj_get_conf(RIG *rig, token_t token, char *val)
+int wj_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
     struct wj_priv_data *priv = (struct wj_priv_data *)rig->state.priv;
 
     switch (token)
     {
     case TOK_RIGID:
-        sprintf(val, "%u", priv->receiver_id);
+        SNPRINTF(val, val_len, "%u", priv->receiver_id);
         break;
 
     default:
@@ -298,6 +293,11 @@ int wj_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int wj_get_conf(RIG *rig, token_t token, char *val)
+{
+    return wj_get_conf2(rig, token, val, 128);
 }
 
 /*

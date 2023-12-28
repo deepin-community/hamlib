@@ -1,0 +1,3 @@
+# protective diversion for upgrades of files moved from / to /usr
+# see: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1056692
+libhamlib4: diversion-for-unknown-file lib/udev/rules.d/60-libhamlib4.rules [preinst:14]

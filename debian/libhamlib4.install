@@ -1,1 +1,2 @@
 usr/lib/*/libhamlib.so.*
+debian/60-libhamlib4.rules	usr/lib/udev/rules.d

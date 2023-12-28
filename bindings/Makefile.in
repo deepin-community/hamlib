@@ -133,13 +133,13 @@ am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
 	$(top_srcdir)/macros/ltsugar.m4 \
 	$(top_srcdir)/macros/ltversion.m4 \
 	$(top_srcdir)/macros/lt~obsolete.m4 \
-	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/tcl.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/macros/perl.m4 $(top_srcdir)/macros/pkg.m4 \
+	$(top_srcdir)/macros/tcl.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/include/hamlib/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
@@ -200,12 +200,13 @@ _Hamlib_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 @ENABLE_PYTHON_TRUE@am__Hamlib_la_rpath = -rpath $(_Hamlib_ladir)
 @ENABLE_TCL_TRUE@hamlibtcl_la_DEPENDENCIES =  \
 @ENABLE_TCL_TRUE@	$(top_builddir)/src/libhamlib.la \
-@ENABLE_TCL_TRUE@	$(am__DEPENDENCIES_1)
-@ENABLE_TCL_TRUE@nodist_hamlibtcl_la_OBJECTS = hamlibtcl_wrap.lo
+@ENABLE_TCL_TRUE@	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+@ENABLE_TCL_TRUE@nodist_hamlibtcl_la_OBJECTS =  \
+@ENABLE_TCL_TRUE@	hamlibtcl_la-hamlibtcl_wrap.lo
 hamlibtcl_la_OBJECTS = $(nodist_hamlibtcl_la_OBJECTS)
 hamlibtcl_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(hamlibtcl_la_LDFLAGS) $(LDFLAGS) -o $@
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(hamlibtcl_la_CFLAGS) \
+	$(CFLAGS) $(hamlibtcl_la_LDFLAGS) $(LDFLAGS) -o $@
 @ENABLE_TCL_TRUE@am_hamlibtcl_la_rpath = -rpath $(hamlibtcl_ladir)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -219,11 +220,12 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include/hamlib
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/Hamliblua_la-hamliblua_wrap.Plo \
-	./$(DEPDIR)/hamlibpy_wrap.Plo ./$(DEPDIR)/hamlibtcl_wrap.Plo
+	./$(DEPDIR)/hamlibpy_wrap.Plo \
+	./$(DEPDIR)/hamlibtcl_la-hamlibtcl_wrap.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -287,7 +289,7 @@ ALLOCA = @ALLOCA@
 AMP_BACKENDEPS = @AMP_BACKENDEPS@
 AMP_BACKEND_LIST = @AMP_BACKEND_LIST@
 AMTAR = @AMTAR@
-AM_CFLAGS = -fno-strict-aliasing
+AM_CFLAGS = @AM_CPPFLAGS@ -fno-strict-aliasing
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/include -I$(top_srcdir)/bindings  \
 	$(TCL_INCLUDE_SPEC) $(PYTHON_CPPFLAGS)
 
@@ -384,6 +386,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL_INC_DIR = @PERL_INC_DIR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -394,6 +399,7 @@ PYTHON_EXTRA_LDFLAGS = @PYTHON_EXTRA_LDFLAGS@
 PYTHON_EXTRA_LIBS = @PYTHON_EXTRA_LIBS@
 PYTHON_LIBS = @PYTHON_LIBS@
 PYTHON_PLATFORM = @PYTHON_PLATFORM@
+PYTHON_PLATFORM_SITE_PKG = @PYTHON_PLATFORM_SITE_PKG@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_SITE_PKG = @PYTHON_SITE_PKG@
 PYTHON_VERSION = @PYTHON_VERSION@
@@ -410,12 +416,16 @@ STRIP = @STRIP@
 SWIG = @SWIG@
 SWIG_LIB = @SWIG_LIB@
 TCL_BIN_DIR = @TCL_BIN_DIR@
+TCL_CFLAGS = @TCL_CFLAGS@
 TCL_INCLUDE_SPEC = @TCL_INCLUDE_SPEC@
+TCL_LIBS = @TCL_LIBS@
 TCL_LIB_FILE = @TCL_LIB_FILE@
 TCL_LIB_SPEC = @TCL_LIB_SPEC@
 TCL_SHLIB_SUFFIX = @TCL_SHLIB_SUFFIX@
 TCL_SRC_DIR = @TCL_SRC_DIR@
 TCL_VERSION = @TCL_VERSION@
+USRP_CFLAGS = @USRP_CFLAGS@
+USRP_LIBS = @USRP_LIBS@
 VERSION = @VERSION@
 WINEXELDFLAGS = @WINEXELDFLAGS@
 WINLDFLAGS = @WINLDFLAGS@
@@ -525,8 +535,9 @@ MOSTLYCLEANFILES = $(am__append_2) $(am__append_4) $(am__append_8) \
 @ENABLE_TCL_TRUE@PKG_VER = $(ABI_VERSION).$(ABI_REVISION)
 @ENABLE_TCL_TRUE@DLL = hamlibtcl-$(PKG_VER)$(TCL_SHLIB_SUFFIX)
 @ENABLE_TCL_TRUE@nodist_hamlibtcl_la_SOURCES = hamlibtcl_wrap.c
+@ENABLE_TCL_TRUE@hamlibtcl_la_CFLAGS = $(TCL_CFLAGS)
 @ENABLE_TCL_TRUE@hamlibtcl_la_LDFLAGS = -no-undefined -module -release $(PKG_VER) -avoid-version
-@ENABLE_TCL_TRUE@hamlibtcl_la_LIBADD = $(top_builddir)/src/libhamlib.la $(TCL_LIB_SPEC)
+@ENABLE_TCL_TRUE@hamlibtcl_la_LIBADD = $(top_builddir)/src/libhamlib.la $(TCL_LIB_SPEC) $(TCL_LIBS)
 @ENABLE_TCL_TRUE@hamlibtcl_ladir = $(tcldir)
 @ENABLE_TCL_TRUE@hamlibtcl_la_DATA = pkgIndex.tcl
 
@@ -704,7 +715,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Hamliblua_la-hamliblua_wrap.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hamlibpy_wrap.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hamlibtcl_wrap.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hamlibtcl_la-hamlibtcl_wrap.Plo@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -742,6 +753,13 @@ Hamliblua_la-hamliblua_wrap.lo: hamliblua_wrap.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='hamliblua_wrap.c' object='Hamliblua_la-hamliblua_wrap.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(Hamliblua_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o Hamliblua_la-hamliblua_wrap.lo `test -f 'hamliblua_wrap.c' || echo '$(srcdir)/'`hamliblua_wrap.c
+
+hamlibtcl_la-hamlibtcl_wrap.lo: hamlibtcl_wrap.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(hamlibtcl_la_CFLAGS) $(CFLAGS) -MT hamlibtcl_la-hamlibtcl_wrap.lo -MD -MP -MF $(DEPDIR)/hamlibtcl_la-hamlibtcl_wrap.Tpo -c -o hamlibtcl_la-hamlibtcl_wrap.lo `test -f 'hamlibtcl_wrap.c' || echo '$(srcdir)/'`hamlibtcl_wrap.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/hamlibtcl_la-hamlibtcl_wrap.Tpo $(DEPDIR)/hamlibtcl_la-hamlibtcl_wrap.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='hamlibtcl_wrap.c' object='hamlibtcl_la-hamlibtcl_wrap.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(hamlibtcl_la_CFLAGS) $(CFLAGS) -c -o hamlibtcl_la-hamlibtcl_wrap.lo `test -f 'hamlibtcl_wrap.c' || echo '$(srcdir)/'`hamlibtcl_wrap.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -970,7 +988,7 @@ clean-am: clean-Hamliblua_laLTLIBRARIES clean-_Hamlib_laLTLIBRARIES \
 distclean: distclean-am
 		-rm -f ./$(DEPDIR)/Hamliblua_la-hamliblua_wrap.Plo
 	-rm -f ./$(DEPDIR)/hamlibpy_wrap.Plo
-	-rm -f ./$(DEPDIR)/hamlibtcl_wrap.Plo
+	-rm -f ./$(DEPDIR)/hamlibtcl_la-hamlibtcl_wrap.Plo
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-local distclean-tags
@@ -1020,7 +1038,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 		-rm -f ./$(DEPDIR)/Hamliblua_la-hamliblua_wrap.Plo
 	-rm -f ./$(DEPDIR)/hamlibpy_wrap.Plo
-	-rm -f ./$(DEPDIR)/hamlibtcl_wrap.Plo
+	-rm -f ./$(DEPDIR)/hamlibtcl_la-hamlibtcl_wrap.Plo
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

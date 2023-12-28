@@ -44,7 +44,7 @@ const struct rig_caps wr3700_caps =
     .mfg_name =       "Winradio",
     .version =        BACKEND_VER ".0",
     .copyright =   "LGPL",
-    .status =         RIG_STATUS_UNTESTED,
+    .status =         RIG_STATUS_ALPHA,
     .rig_type =       RIG_TYPE_PCRECEIVER,
     .port_type =      RIG_PORT_DEVICE,
     .targetable_vfo =      0,
@@ -124,6 +124,7 @@ const struct rig_caps wr3700_caps =
     .get_func =      wr_get_func,
 
     .get_info =      wr_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 #endif  /* WINRADIO_IOCTL */

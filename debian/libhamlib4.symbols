@@ -1,7 +1,15 @@
 libhamlib.so.4 libhamlib4 #MINVER#
+ AESStringCrypt@Base 4.5
+ AESStringDecrypt@Base 4.5
  CRC32_function@Base 4.3.1
  CloseDevice@Base 0
  DestroyDeviceList@Base 0
+ FSb@Base 4.5
+ FT0@Base 4.5
+ FT1@Base 4.5
+ FT2@Base 4.5
+ FT3@Base 4.5
+ GS100_caps@Base 4.5
  GetAGC@Base 0
  GetAPIVersion@Base 0
  GetAttenuator@Base 0
@@ -26,8 +34,22 @@ libhamlib.so.4 libhamlib4 #MINVER#
  GetVolume@Base 0
  InitAPI@Base 0
  IsDeviceConnected@Base 0
+ KT0@Base 4.5
+ KT1@Base 4.5
+ KT2@Base 4.5
+ KT3@Base 4.5
+ KT_init@Base 4.5
  LoadCalibrationFile@Base 0
+ MD5Final@Base 4.5
+ MD5Init@Base 4.5
+ MD5Update@Base 4.5
  OpenDevice@Base 0
+ RCON@Base 4.5
+ RSb@Base 4.5
+ RT0@Base 4.5
+ RT1@Base 4.5
+ RT2@Base 4.5
+ RT3@Base 4.5
  ResetCalibration@Base 0
  SetAGC@Base 0
  SetAttenuator@Base 0
@@ -46,6 +68,38 @@ libhamlib.so.4 libhamlib4 #MINVER#
  SetVolume@Base 0
  StartStreaming@Base 0
  StopStreaming@Base 0
+ (optional)_ZN13RotINDIClient10newMessageEPN4INDI10BaseDeviceEi@Base 4.5.3
+ (optional)_ZN13RotINDIClient11newPropertyEPN4INDI8PropertyE@Base 4.5.3
+ (optional)_ZN13RotINDIClient11setPositionEff@Base 4.5.3
+ (optional)_ZN13RotINDIClient12removeDeviceEPN4INDI10BaseDeviceE@Base 4.5.3
+ (optional)_ZN13RotINDIClient14removePropertyEPN4INDI8PropertyE@Base 4.5.3
+ (optional)_ZN13RotINDIClient15getPositionDiffEdddd@Base 4.5.3
+ (optional)_ZN13RotINDIClient15serverConnectedEv@Base 4.5.3
+ (optional)_ZN13RotINDIClient18serverDisconnectedEi@Base 4.5.3
+ (optional)_ZN13RotINDIClient22getPositionDiffBetweenEdd@Base 4.5.3
+ (optional)_ZN13RotINDIClient22getPositionDiffOutsideEdddd@Base 4.5.3
+ (optional)_ZN13RotINDIClient4moveEii@Base 4.5.3
+ (optional)_ZN13RotINDIClient4parkEv@Base 4.5.3
+ (optional)_ZN13RotINDIClient4stopEv@Base 4.5.3
+ (optional)_ZN13RotINDIClient5closeEv@Base 4.5.3
+ (optional)_ZN13RotINDIClient6unParkEv@Base 4.5.3
+ (optional)_ZN13RotINDIClient7getInfoEv@Base 4.5.3
+ (optional)_ZN13RotINDIClient7newBLOBEP6_IBLOB@Base 4.5.3
+ (optional)_ZN13RotINDIClient7newTextEP20_ITextVectorProperty@Base 4.5.3
+ (optional)_ZN13RotINDIClient8newLightEP21_ILightVectorProperty@Base 4.5.3
+ (optional)_ZN13RotINDIClient8positionEPfS0_@Base 4.5.3
+ (optional)_ZN13RotINDIClient8setSpeedEi@Base 4.5.3
+ (optional)_ZN13RotINDIClient9newDeviceEPN4INDI10BaseDeviceE@Base 4.5.3
+ (optional)_ZN13RotINDIClient9newNumberEP22_INumberVectorProperty@Base 4.5.3
+ (optional)_ZN13RotINDIClient9newSwitchEP22_ISwitchVectorProperty@Base 4.5.3
+ (optional)_ZN13RotINDIClientD0Ev@Base 4.5.3
+ (optional)_ZN13RotINDIClientD1Ev@Base 4.5.3
+ (optional)_ZN13RotINDIClientD2Ev@Base 4.5.3
+ (optional)_ZNSt10unique_ptrI13RotINDIClientSt14default_deleteIS0_EED1Ev@Base 4.5.3
+ (optional)_ZNSt10unique_ptrI13RotINDIClientSt14default_deleteIS0_EED2Ev@Base 4.5.3
+ (optional)_ZTI13RotINDIClient@Base 4.5.3
+ (optional)_ZTS13RotINDIClient@Base 4.5.3
+ (optional)_ZTV13RotINDIClient@Base 4.5.3
  adat_cleanup@Base 0
  adat_close@Base 0
  adat_cmd_fn_get_callsign@Base 0
@@ -102,10 +156,16 @@ libhamlib.so.4 libhamlib4 #MINVER#
  adat_transaction@Base 0
  adat_vfo_anr2rnr@Base 0
  adat_vfo_rnr2anr@Base 0
- add_trn_rig@Base 0
+ add2debugmsgsave@Base 4.5
  adt_200a_caps@Base 0
+ aes_decrypt@Base 4.5
+ aes_encrypt@Base 4.5
+ aes_gen_tables@Base 4.5
+ aes_set_key@Base 4.5
  agcToHamlib@Base 0
  agcToNative@Base 0
+ agc_level2@Base 4.5.3
+ agc_level@Base 4.5.3
  alloc_init_ext@Base 0
  amp_check_backend@Base 0
  amp_cleanup@Base 0
@@ -117,6 +177,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  amp_ext_parm_foreach@Base 0
  amp_ext_token_lookup@Base 0
  amp_get_caps@Base 0
+ amp_get_conf2@Base 4.5
  amp_get_conf@Base 0
  amp_get_ext_level@Base 0
  amp_get_freq@Base 0
@@ -124,6 +185,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  amp_get_level@Base 0
  amp_get_powerstat@Base 0
  amp_has_get_level@Base 0
+ amp_has_set_level@Base 4.5
  amp_init@Base 0
  amp_list_foreach@Base 0
  amp_load_all_backends@Base 0
@@ -134,7 +196,9 @@ libhamlib.so.4 libhamlib4 #MINVER#
  amp_register@Base 0
  amp_reset@Base 0
  amp_set_conf@Base 0
+ amp_set_ext_level@Base 4.5
  amp_set_freq@Base 0
+ amp_set_level@Base 4.5
  amp_set_powerstat@Base 0
  amp_sprintf_level@Base 4.3.1
  amp_strlevel@Base 0
@@ -172,15 +236,23 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ar8000_caps@Base 0
  ar8200_caps@Base 0
  ar8600_caps@Base 0
+ async_data_handler@Base 4.5
  axcmd@Base 0
  azimuth_long_path@Base 0
+ barrett4050_caps@Base 4.5
  barrett950_caps@Base 4.1
+ barrett950_set_freq@Base 4.5
  barrett_caps@Base 0
  barrett_cleanup@Base 4.1
  barrett_get_freq@Base 4.1
+ barrett_get_info@Base 4.5
+ barrett_get_level@Base 4.5
  barrett_get_mode@Base 4.1
+ barrett_get_ptt@Base 4.5
  barrett_get_split_vfo@Base 4.1
  barrett_init@Base 4.1
+ barrett_open@Base 4.5
+ barrett_set_freq@Base 4.5
  barrett_set_mode@Base 4.1
  barrett_set_ptt@Base 4.1
  barrett_set_split_freq@Base 4.1
@@ -194,22 +266,111 @@ libhamlib.so.4 libhamlib4 #MINVER#
  bcd2Int@Base 0
  bcd396t_caps@Base 0
  bcd996t_caps@Base 0
+ body@Base 4.5
+ cJSON_AddArrayToObject@Base 4.5
+ cJSON_AddBoolToObject@Base 4.5
+ cJSON_AddFalseToObject@Base 4.5
+ cJSON_AddItemReferenceToArray@Base 4.5
+ cJSON_AddItemReferenceToObject@Base 4.5
+ cJSON_AddItemToArray@Base 4.5
+ cJSON_AddItemToObject@Base 4.5
+ cJSON_AddItemToObjectCS@Base 4.5
+ cJSON_AddNullToObject@Base 4.5
+ cJSON_AddNumberToObject@Base 4.5
+ cJSON_AddObjectToObject@Base 4.5
+ cJSON_AddRawToObject@Base 4.5
+ cJSON_AddStringToObject@Base 4.5
+ cJSON_AddTrueToObject@Base 4.5
+ cJSON_Compare@Base 4.5
+ cJSON_CreateArray@Base 4.5
+ cJSON_CreateArrayReference@Base 4.5
+ cJSON_CreateBool@Base 4.5
+ cJSON_CreateDoubleArray@Base 4.5
+ cJSON_CreateFalse@Base 4.5
+ cJSON_CreateFloatArray@Base 4.5
+ cJSON_CreateIntArray@Base 4.5
+ cJSON_CreateNull@Base 4.5
+ cJSON_CreateNumber@Base 4.5
+ cJSON_CreateObject@Base 4.5
+ cJSON_CreateObjectReference@Base 4.5
+ cJSON_CreateRaw@Base 4.5
+ cJSON_CreateString@Base 4.5
+ cJSON_CreateStringArray@Base 4.5
+ cJSON_CreateStringReference@Base 4.5
+ cJSON_CreateTrue@Base 4.5
+ cJSON_Delete@Base 4.5
+ cJSON_DeleteItemFromArray@Base 4.5
+ cJSON_DeleteItemFromObject@Base 4.5
+ cJSON_DeleteItemFromObjectCaseSensitive@Base 4.5
+ cJSON_DetachItemFromArray@Base 4.5
+ cJSON_DetachItemFromObject@Base 4.5
+ cJSON_DetachItemFromObjectCaseSensitive@Base 4.5
+ cJSON_DetachItemViaPointer@Base 4.5
+ cJSON_Duplicate@Base 4.5
+ cJSON_GetArrayItem@Base 4.5
+ cJSON_GetArraySize@Base 4.5
+ cJSON_GetErrorPtr@Base 4.5
+ cJSON_GetNumberValue@Base 4.5
+ cJSON_GetObjectItem@Base 4.5
+ cJSON_GetObjectItemCaseSensitive@Base 4.5
+ cJSON_GetStringValue@Base 4.5
+ cJSON_HasObjectItem@Base 4.5
+ cJSON_InitHooks@Base 4.5
+ cJSON_InsertItemInArray@Base 4.5
+ cJSON_IsArray@Base 4.5
+ cJSON_IsBool@Base 4.5
+ cJSON_IsFalse@Base 4.5
+ cJSON_IsInvalid@Base 4.5
+ cJSON_IsNull@Base 4.5
+ cJSON_IsNumber@Base 4.5
+ cJSON_IsObject@Base 4.5
+ cJSON_IsRaw@Base 4.5
+ cJSON_IsString@Base 4.5
+ cJSON_IsTrue@Base 4.5
+ cJSON_Minify@Base 4.5
+ cJSON_Parse@Base 4.5
+ cJSON_ParseWithLength@Base 4.5
+ cJSON_ParseWithLengthOpts@Base 4.5
+ cJSON_ParseWithOpts@Base 4.5
+ cJSON_Print@Base 4.5
+ cJSON_PrintBuffered@Base 4.5
+ cJSON_PrintPreallocated@Base 4.5
+ cJSON_PrintUnformatted@Base 4.5
+ cJSON_ReplaceItemInArray@Base 4.5
+ cJSON_ReplaceItemInObject@Base 4.5
+ cJSON_ReplaceItemInObjectCaseSensitive@Base 4.5
+ cJSON_ReplaceItemViaPointer@Base 4.5
+ cJSON_SetNumberHelper@Base 4.5
+ cJSON_SetValuestring@Base 4.5
+ cJSON_Version@Base 4.5
+ cJSON_free@Base 4.5
+ cJSON_malloc@Base 4.5
  caps_test@Base 4.1
  caps_test_macro_name@Base 4.1
  caps_test_rig_model@Base 4.1
- chan_map@Base 4.1
  check_buffer_overflow@Base 4.3.1
  cm108_close@Base 0
  cm108_open@Base 0
  cm108_ptt_get@Base 0
  cm108_ptt_set@Base 0
  cnctrk_rot_caps@Base 0
+ codan_cleanup@Base 4.5
+ codan_close@Base 4.5
+ codan_get_freq@Base 4.5
+ codan_get_mode@Base 4.5
+ codan_init@Base 4.5
+ codan_open@Base 4.5
+ codan_set_freq@Base 4.5
+ codan_set_mode@Base 4.5
+ codan_set_ptt@Base 4.5
+ codan_transaction@Base 4.5
  common_ctcss_list@Base 0
  common_dcs_list@Base 0
  cookie_use@Base 4.3.1
  date_strget@Base 0
  dcu_rot_caps@Base 0
  dds60_caps@Base 0
+ dds60_get_conf2@Base 4.5
  ddsToHz@Base 0
  debugmsgsave2@Base 4.3.1
  debugmsgsave3@Base 4.3.1
@@ -220,6 +381,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  distance_long_path@Base 0
  dmmm2dec@Base 0
  dms2dec@Base 0
+ do_init@Base 4.5
  dot10ths_to_millis@Base 0
  dra818_cleanup@Base 0
  dra818_get_ctcss_sql@Base 0
@@ -267,15 +429,19 @@ libhamlib.so.4 libhamlib4 #MINVER#
  drake_transaction@Base 0
  drake_vfo_op@Base 0
  drt1_caps@Base 0
+ drt1_get_conf2@Base 4.5
  dsp10_caps@Base 0
  dttsp_cfg_params@Base 0
+ dttsp_get_conf2@Base 4.5
  dttsp_rig_caps@Base 0
  dttsp_udp_rig_caps@Base 0
  dummy@Base 0
  dummy_amp_caps@Base 0
  dummy_caps@Base 0
+ dummy_get_clock@Base 4.5
  dummy_no_vfo_caps@Base 0
  dummy_rot_caps@Base 0
+ dummy_set_clock@Base 4.5
  dump_hex@Base 0
  dwt_caps@Base 0
  dx77_caps@Base 0
@@ -318,6 +484,15 @@ libhamlib.so.4 libhamlib4 #MINVER#
  easycomm2_rot_caps@Base 0
  easycomm3_rot_caps@Base 0
  eb200_caps@Base 0
+ ek89x_caps@Base 4.5
+ ek89x_get_freq@Base 4.5
+ ek89x_get_info@Base 4.5
+ ek89x_get_level@Base 4.5
+ ek89x_get_mode@Base 4.5
+ ek89x_set_freq@Base 4.5
+ ek89x_set_level@Base 4.5
+ ek89x_set_mode@Base 4.5
+ ek89x_transaction@Base 4.5
  ekd500_caps@Base 0
  elad2rmode@Base 0
  elad38_ctcss_list@Base 0
@@ -386,11 +561,15 @@ libhamlib.so.4 libhamlib4 #MINVER#
  elecraft_ext_levels@Base 0
  elecraft_get_extension_level@Base 0
  elecraft_get_firmware_revision_level@Base 0
+ elecraft_get_vfo_tq@Base 4.5
  elecraft_open@Base 0
  elektor304_caps@Base 0
+ elektor304_get_conf2@Base 4.5
  elektor507_caps@Base 0
  elektor507_ftdi_write_data@Base 0
+ elektor507_get_conf2@Base 4.5
  elektor507_libusb_setup@Base 0
+ envoy_caps@Base 4.5
  erc_rot_caps@Base 0
  errmsg@Base 4.1
  esmc_caps@Base 0
@@ -401,11 +580,13 @@ libhamlib.so.4 libhamlib4 #MINVER#
  fasdr_caps@Base 0
  fdm_duo_caps@Base 0
  fifisdr_caps@Base 0
+ filtericom@Base 4.5
  find_ext@Base 0
  flex6k_get_ptt@Base 0
  flex6k_set_ptt@Base 0
  flexradio_open@Base 0
  flrig_caps@Base 0
+ flrig_cat_string@Base 4.5
  fodtrack_rot_caps@Base 0
  foreach_opened_rig@Base 0
  foreach_opened_rot@Base 0
@@ -415,68 +596,11 @@ libhamlib.so.4 libhamlib4 #MINVER#
  frg9600_caps@Base 0
  from_bcd@Base 0
  from_bcd_be@Base 0
- frontamp_get_conf@Base 0
  frontamp_set_conf@Base 0
  frontrot_get_conf@Base 0
  frontrot_set_conf@Base 0
  ft1000d_caps@Base 0
- ft1000d_cleanup@Base 0
- ft1000d_close@Base 0
- ft1000d_get_channel@Base 0
- ft1000d_get_freq@Base 0
- ft1000d_get_func@Base 0
- ft1000d_get_level@Base 0
- ft1000d_get_mem@Base 0
- ft1000d_get_mode@Base 0
- ft1000d_get_ptt@Base 0
- ft1000d_get_rit@Base 0
- ft1000d_get_rptr_shift@Base 0
- ft1000d_get_split_freq@Base 0
- ft1000d_get_split_mode@Base 0
- ft1000d_get_split_vfo@Base 0
- ft1000d_get_vfo@Base 0
- ft1000d_get_xit@Base 0
- ft1000d_init@Base 0
- ft1000d_open@Base 0
- ft1000d_set_channel@Base 0
- ft1000d_set_freq@Base 0
- ft1000d_set_func@Base 0
- ft1000d_set_mem@Base 0
- ft1000d_set_mode@Base 0
- ft1000d_set_parm@Base 0
- ft1000d_set_ptt@Base 0
- ft1000d_set_rit@Base 0
- ft1000d_set_rptr_offs@Base 0
- ft1000d_set_rptr_shift@Base 0
- ft1000d_set_split_freq@Base 0
- ft1000d_set_split_mode@Base 0
- ft1000d_set_split_vfo@Base 0
- ft1000d_set_vfo@Base 0
- ft1000d_set_xit@Base 0
- ft1000d_vfo_op@Base 0
  ft1000mp_caps@Base 0
- ft1000mp_cleanup@Base 0
- ft1000mp_get_freq@Base 0
- ft1000mp_get_func@Base 0
- ft1000mp_get_level@Base 0
- ft1000mp_get_mode@Base 0
- ft1000mp_get_rxit@Base 0
- ft1000mp_get_split_freq@Base 0
- ft1000mp_get_split_vfo@Base 0
- ft1000mp_get_vfo@Base 0
- ft1000mp_get_vfo_data@Base 0
- ft1000mp_init@Base 0
- ft1000mp_open@Base 0
- ft1000mp_set_freq@Base 0
- ft1000mp_set_func@Base 0
- ft1000mp_set_mode@Base 0
- ft1000mp_set_ptt@Base 0
- ft1000mp_set_rit@Base 0
- ft1000mp_set_rxit@Base 0
- ft1000mp_set_split_freq@Base 0
- ft1000mp_set_split_vfo@Base 0
- ft1000mp_set_vfo@Base 0
- ft1000mp_set_xit@Base 0
  ft1000mpmkv_caps@Base 0
  ft1000mpmkvfld_caps@Base 0
  ft100_caps@Base 0
@@ -487,7 +611,13 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ft3000_get_ant@Base 4.3.1
  ft3000_set_ant@Base 4.3.1
  ft450_caps@Base 0
+ ft450d_caps@Base 4.5
  ft600_caps@Base 0
+ ft650_caps@Base 4.5
+ ft710_caps@Base 4.5
+ ft710_ext_levels@Base 4.5
+ ft710_ext_tokens@Base 4.5
+ ft710_priv_caps@Base 4.5
  ft736_caps@Base 0
  ft747_caps@Base 0
  ft757gx2_caps@Base 0
@@ -506,7 +636,8 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ft857_set_vfo@Base 0
  ft890_caps@Base 0
  ft891_caps@Base 0
- ft891_init@Base 0
+ ft891_ext_levels@Base 4.5
+ ft891_ext_tokens@Base 4.5
  ft897_caps@Base 0
  ft897d_caps@Base 4.1
  ft9000_caps@Base 0
@@ -521,37 +652,11 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ft980_set_split_mode@Base 0
  ft980_set_split_vfo@Base 0
  ft990_caps@Base 0
- ft990_cleanup@Base 0
- ft990_close@Base 0
- ft990_get_channel@Base 0
- ft990_get_freq@Base 0
- ft990_get_func@Base 0
- ft990_get_level@Base 0
- ft990_get_mem@Base 0
- ft990_get_mode@Base 0
- ft990_get_ptt@Base 0
- ft990_get_rit@Base 0
- ft990_get_rptr_shift@Base 0
- ft990_get_split_vfo@Base 0
- ft990_get_vfo@Base 0
- ft990_get_xit@Base 0
- ft990_init@Base 0
- ft990_open@Base 0
- ft990_set_channel@Base 0
- ft990_set_freq@Base 0
- ft990_set_func@Base 0
- ft990_set_mem@Base 0
- ft990_set_mode@Base 0
- ft990_set_parm@Base 0
- ft990_set_ptt@Base 0
- ft990_set_rit@Base 0
- ft990_set_rptr_offs@Base 0
- ft990_set_rptr_shift@Base 0
- ft990_set_split_vfo@Base 0
- ft990_set_vfo@Base 0
- ft990_set_xit@Base 0
- ft990_vfo_op@Base 0
+ ft990uni_caps@Base 4.5
+ ft990uni_get_freq_state@Base 4.5
  ft991_caps@Base 0
+ ft991_ext_levels@Base 4.5
+ ft991_ext_tokens@Base 4.5
  ftdx101d_caps@Base 0
  ftdx101d_ext_levels@Base 0
  ftdx101d_ext_tokens@Base 0
@@ -595,7 +700,22 @@ libhamlib.so.4 libhamlib4 #MINVER#
  g313_set_freq@Base 0
  g313_set_level@Base 0
  g313_set_powerstat@Base 0
- gen_crc@Base 4.3.1
+ g90_caps@Base 4.5
+ gemini_amp_caps@Base 4.5
+ gemini_close@Base 4.5
+ gemini_flushbuffer@Base 4.5
+ gemini_get_freq@Base 4.5
+ gemini_get_info@Base 4.5
+ gemini_get_level@Base 4.5
+ gemini_get_powerstat@Base 4.5
+ gemini_init@Base 4.5
+ gemini_priv@Base 4.5
+ gemini_reset@Base 4.5
+ gemini_set_freq@Base 4.5
+ gemini_set_level@Base 4.5
+ gemini_set_powerstat@Base 4.5
+ gemini_status_parse@Base 4.5
+ gemini_transaction@Base 4.5
  getCalLevel@Base 0
  getFilterBW@Base 0
  get_chan_all_cb_generic@Base 0
@@ -622,6 +742,11 @@ libhamlib.so.4 libhamlib4 #MINVER#
  gpio_open@Base 0
  gpio_ptt_get@Base 0
  gpio_ptt_set@Base 0
+ grbl_get_config@Base 4.5
+ grbl_get_pos@Base 4.5
+ grbl_init_list@Base 4.5
+ grbltrk_net_rot_caps@Base 4.5
+ grbltrk_serial_rot_caps@Base 4.5
  gs232_generic_rot_caps@Base 0
  gs232_rot_caps@Base 0
  gs232a_az_rot_caps@Base 0
@@ -630,6 +755,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  gs232b_az_rot_caps@Base 0
  gs232b_el_rot_caps@Base 0
  gs232b_rot_caps@Base 0
+ gs23_az_rot_caps@Base 4.5
  gs23_rot_caps@Base 0
  hamlib_copyright2@Base 0
  hamlib_copyright@Base 0
@@ -640,6 +766,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  hf235_caps@Base 0
  hiqsdr_caps@Base 0
  hiqsdr_cfg_params@Base 0
+ hiqsdr_get_conf2@Base 4.5
  hl_usleep@Base 0
  hzToDDS@Base 0
  ic10_cmd_trim@Base 0
@@ -678,6 +805,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ic271_caps@Base 0
  ic2730_caps@Base 0
  ic275_caps@Base 0
+ ic375_caps@Base 4.5
  ic471_caps@Base 0
  ic475_caps@Base 0
  ic575_caps@Base 4.3.1
@@ -696,6 +824,8 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ic707_caps@Base 0
  ic7100_caps@Base 0
  ic7100_extcmds@Base 0
+ ic7100_get_clock@Base 4.5
+ ic7100_set_clock@Base 4.5
  ic7100_tokens@Base 0
  ic7100_ts_sc_list@Base 0
  ic718_caps@Base 0
@@ -711,6 +841,8 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ic7300_caps@Base 0
  ic7300_ext_tokens@Base 4.3.1
  ic7300_extcmds@Base 0
+ ic7300_get_clock@Base 4.5
+ ic7300_set_clock@Base 4.5
  ic7300_ts_sc_list@Base 0
  ic735_caps@Base 0
  ic736_caps@Base 0
@@ -723,7 +855,6 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ic746pro_caps@Base 0
  ic751_caps@Base 0
  ic756_caps@Base 0
- ic756_set_func@Base 0
  ic756_ts_sc_list@Base 0
  ic756pro2_caps@Base 0
  ic756pro3_caps@Base 0
@@ -733,19 +864,27 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ic7600_caps@Base 0
  ic7600_ext_tokens@Base 0
  ic7600_extcmds@Base 0
+ ic7600_get_clock@Base 4.5
+ ic7600_set_clock@Base 4.5
  ic7610_caps@Base 0
  ic7610_ext_tokens@Base 0
  ic7610_extcmds@Base 0
+ ic7610_get_clock@Base 4.5
+ ic7610_set_clock@Base 4.5
  ic761_caps@Base 0
  ic765_caps@Base 0
  ic7700_caps@Base 0
  ic7700_ext_tokens@Base 0
  ic7700_extcmds@Base 0
+ ic7700_get_clock@Base 4.5
+ ic7700_set_clock@Base 4.5
  ic775_caps@Base 0
  ic7800_caps@Base 0
  ic7800_ext_tokens@Base 0
  ic7800_extcmds@Base 0
+ ic7800_get_clock@Base 4.5
  ic7800_get_level@Base 0
+ ic7800_set_clock@Base 4.5
  ic7800_set_level@Base 0
  ic781_caps@Base 0
  ic785x_caps@Base 0
@@ -770,13 +909,29 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ic9700_caps@Base 0
  ic9700_ext_tokens@Base 4.3.1
  ic9700_extcmds@Base 0
+ ic9700_get_clock@Base 4.5
+ ic9700_set_clock@Base 4.5
  ic9700_ts_sc_list@Base 0
  ic970_caps@Base 0
+ icf8101_caps@Base 4.5
+ icf8101_get_func@Base 4.5
+ icf8101_get_level@Base 4.5
+ icf8101_get_ptt@Base 4.5
+ icf8101_get_split_freq@Base 4.5
+ icf8101_get_split_freq_mode@Base 4.5
+ icf8101_get_split_vfo@Base 4.5
+ icf8101_set_func@Base 4.5
+ icf8101_set_level@Base 4.5
+ icf8101_set_ptt@Base 4.5
+ icf8101_set_split_freq@Base 4.5
+ icf8101_set_split_freq_mode@Base 4.5
+ icf8101_set_split_vfo@Base 4.5
  icm700pro_caps@Base 0
  icm710_caps@Base 0
  icm710_cfg_params@Base 0
  icm710_cleanup@Base 0
  icm710_close@Base 0
+ icm710_get_conf2@Base 4.5
  icm710_get_conf@Base 0
  icm710_get_freq@Base 0
  icm710_get_func@Base 0
@@ -800,6 +955,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  icm803_caps@Base 0
  icmarine_cfg_params@Base 0
  icmarine_cleanup@Base 0
+ icmarine_get_conf2@Base 4.5
  icmarine_get_conf@Base 0
  icmarine_get_dcd@Base 0
  icmarine_get_freq@Base 0
@@ -838,6 +994,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  icom_frame_fix_preamble@Base 4.3.1
  icom_get_ant@Base 0
  icom_get_cmd@Base 0
+ icom_get_conf2@Base 4.5
  icom_get_conf@Base 0
  icom_get_ctcss_sql@Base 0
  icom_get_ctcss_tone@Base 0
@@ -878,6 +1035,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  icom_one_transaction@Base 0
  icom_power2mW@Base 0
  icom_process_async_frame@Base 4.3.1
+ icom_read_frame_direct@Base 4.5
  icom_rig_close@Base 0
  icom_rig_open@Base 0
  icom_scan@Base 0
@@ -891,7 +1049,6 @@ libhamlib.so.4 libhamlib4 #MINVER#
  icom_set_ctcss_tone@Base 0
  icom_set_dcs_code@Base 0
  icom_set_dcs_sql@Base 0
-#MISSING: 4.3.1-1# icom_set_default_vfo@Base 0
  icom_set_dsp_flt@Base 4.3.1
  icom_set_ext_cmd@Base 0
  icom_set_ext_func@Base 0
@@ -947,20 +1104,34 @@ libhamlib.so.4 libhamlib4 #MINVER#
  id31_caps@Base 0
  id4100_caps@Base 0
  id5100_caps@Base 0
+ id5100_get_mode@Base 4.5.4
+ id5100_set_mode@Base 4.5.4
  id51_caps@Base 0
  id51_tokens@Base 0
  if100_rot_caps@Base 0
+ indi_rot_caps@Base 4.5.3
+ indi_wrapper_close@Base 4.5.3
+ indi_wrapper_get_info@Base 4.5.3
+ indi_wrapper_get_position@Base 4.5.3
+ indi_wrapper_move@Base 4.5.3
+ indi_wrapper_open@Base 4.5.3
+ indi_wrapper_park@Base 4.5.3
+ indi_wrapper_set_position@Base 4.5.3
+ indi_wrapper_stop@Base 4.5.3
  initamps4_dummy@Base 0
+ initamps4_gemini@Base 4.5
  initamps4_kpa1500@Base 0
  initrigs4_adat@Base 0
  initrigs4_alinco@Base 0
  initrigs4_aor@Base 0
  initrigs4_barrett@Base 0
+ initrigs4_codan@Base 4.5
  initrigs4_dorji@Base 0
  initrigs4_drake@Base 0
  initrigs4_dummy@Base 0
  initrigs4_elad@Base 0
  initrigs4_flexradio@Base 0
+ initrigs4_gomspace@Base 4.5
  initrigs4_icm710@Base 0
  initrigs4_icmarine@Base 0
  initrigs4_icom@Base 0
@@ -990,8 +1161,10 @@ libhamlib.so.4 libhamlib4 #MINVER#
  initrots4_easycomm@Base 0
  initrots4_ether6@Base 0
  initrots4_fodtrack@Base 0
+ initrots4_grbltrk@Base 4.5
  initrots4_gs232a@Base 0
  initrots4_heathkit@Base 0
+ initrots4_indi@Base 4.5.3
  initrots4_ioptron@Base 0
  initrots4_kit@Base 0
  initrots4_m2@Base 0
@@ -1029,7 +1202,10 @@ libhamlib.so.4 libhamlib4 #MINVER#
  jrc_set_powerstat@Base 0
  jrc_set_trn@Base 0
  jrc_set_vfo@Base 0
+ jrc_transaction@Base 4.5
  jrc_vfo_op@Base 0
+ jst145_caps@Base 4.5
+ jst245_caps@Base 4.5
  k2_caps@Base 0
  k2_fwmd_cw@Base 0
  k2_fwmd_rtty@Base 0
@@ -1051,7 +1227,9 @@ libhamlib.so.4 libhamlib4 #MINVER#
  k3_get_nb_level@Base 0
  k3_get_split_mode@Base 0
  k3_get_vfo@Base 4.3.1
+ k3_power2mW@Base 4.5.4
  k3_set_ext_level@Base 0
+ k3_set_freq@Base 4.5
  k3_set_func@Base 0
  k3_set_level@Base 0
  k3_set_mode@Base 0
@@ -1062,6 +1240,8 @@ libhamlib.so.4 libhamlib4 #MINVER#
  k3_set_xit@Base 0
  k3s_caps@Base 0
  k4_caps@Base 0
+ k4_get_ptt@Base 4.5
+ k4_set_ptt@Base 4.5
  k505dsp_caps@Base 0
  kachina_get_level@Base 0
  kachina_set_freq@Base 0
@@ -1155,6 +1335,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  kx3_set_level@Base 0
  locator2longlat@Base 0
  lockRx@Base 0
+ lock_mode@Base 4.5
  longlat2locator@Base 0
  lowe_get_freq@Base 0
  lowe_get_info@Base 0
@@ -1165,38 +1346,47 @@ libhamlib.so.4 libhamlib4 #MINVER#
  lowe_set_mode@Base 0
  lowe_transaction@Base 0
  make_cmd_frame@Base 0
- make_crc_table@Base 4.3.1
+ make_digest@Base 4.5
+ make_hash@Base 4.5
  malachite_caps@Base 4.3.1
  malachite_cfg_parms@Base 4.3.1
  malachite_init@Base 4.3.1
  malachite_set_freq@Base 4.3.1
+ mchfqrp_caps@Base 4.5
  meade_caps@Base 0
  millis_to_dot10ths@Base 0
  miniVNA_caps@Base 0
  modeToHamlib@Base 0
  modeToNative@Base 0
  morse_code_dot_to_millis@Base 0
- multicast_server@Base 4.3.1
- multicast_server_args@Base 4.3.1
- multicast_server_run@Base 4.3.1
- multicast_server_threadId@Base 4.3.1
+ multicast_publisher@Base 4.5
  netampctl_caps@Base 0
  netrigctl_caps@Base 0
+ netrigctl_get_lock_mode@Base 4.5
  netrigctl_get_vfo_mode@Base 0
+ netrigctl_password@Base 4.5
+ netrigctl_send_raw@Base 4.5.3
+ netrigctl_set_lock_mode@Base 4.5
  netrotctl_caps@Base 0
  network_close@Base 0
  network_flush@Base 0
  network_init@Base 4.3.1
- network_multicast_server@Base 4.3.1
+ network_multicast_publisher_start@Base 4.5
+ network_multicast_publisher_stop@Base 4.5
  network_open@Base 0
+ network_publish_rig_poll_data@Base 4.5
+ network_publish_rig_spectrum_data@Base 4.5
+ network_publish_rig_transceive_data@Base 4.5
+ newcat_60m_exception@Base 4.5
  newcat_cfg_params@Base 0
  newcat_cleanup@Base 0
  newcat_close@Base 0
  newcat_decode_event@Base 0
  newcat_get_ant@Base 0
  newcat_get_channel@Base 0
+ newcat_get_clock@Base 4.5
  newcat_get_cmd@Base 0
- newcat_get_conf@Base 0
+ newcat_get_conf2@Base 4.5
  newcat_get_ctcss_sql@Base 0
  newcat_get_ctcss_tone@Base 0
  newcat_get_dcd@Base 0
@@ -1238,9 +1428,11 @@ libhamlib.so.4 libhamlib4 #MINVER#
  newcat_scan@Base 0
  newcat_send_dtmf@Base 0
  newcat_send_morse@Base 0
+ newcat_send_voice_mem@Base 4.5
  newcat_set_ant@Base 0
  newcat_set_bank@Base 0
  newcat_set_channel@Base 0
+ newcat_set_clock@Base 4.5
  newcat_set_cmd@Base 0
  newcat_set_cmd_validate@Base 4.1
  newcat_set_conf@Base 0
@@ -1273,6 +1465,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  newcat_set_xit@Base 0
  newcat_vfo_op@Base 0
  nexstar_rot_caps@Base 0
+ ngs_caps@Base 4.5
  no_restore_ai@Base 0
  nrd525_caps@Base 0
  nrd535_caps@Base 0
@@ -1380,6 +1573,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  probeallrigs4_adat@Base 0
  probeallrigs4_drake@Base 0
  probeallrigs4_elad@Base 0
+ probeallrigs4_gomspace@Base 4.5
  probeallrigs4_icom@Base 0
  probeallrigs4_kenwood@Base 0
  probeallrigs4_lowe@Base 0
@@ -1387,9 +1581,12 @@ libhamlib.so.4 libhamlib4 #MINVER#
  probeallrigs4_yaesu@Base 0
  prosistel_combi_track_azel_rot_caps@Base 0
  prosistel_d_az_rot_caps@Base 0
+ prosistel_d_el_cboxaz_rot_caps@Base 4.5.3
  prosistel_d_el_rot_caps@Base 0
  pt8000a_caps@Base 0
+ qdx_set_ptt@Base 4.5.5
  qrb@Base 0
+ qrplabs_caps@Base 4.5.3
  r5000_caps@Base 0
  r7100_ts_sc_list@Base 0
  r75_ts_sc_list@Base 0
@@ -1404,6 +1601,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ra37xx_cleanup@Base 0
  ra37xx_close@Base 0
  ra37xx_get_ant@Base 0
+ ra37xx_get_conf2@Base 4.5
  ra37xx_get_conf@Base 0
  ra37xx_get_freq@Base 0
  ra37xx_get_func@Base 0
@@ -1415,6 +1613,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ra37xx_open@Base 0
  ra37xx_scan@Base 0
  ra37xx_set_ant@Base 0
+ ra37xx_set_conf2@Base 4.5
  ra37xx_set_conf@Base 0
  ra37xx_set_freq@Base 0
  ra37xx_set_func@Base 0
@@ -1426,6 +1625,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  racal_cfg_params@Base 0
  racal_cleanup@Base 0
  racal_close@Base 0
+ racal_get_conf2@Base 4.5
  racal_get_conf@Base 0
  racal_get_freq@Base 0
  racal_get_info@Base 0
@@ -1449,15 +1649,17 @@ libhamlib.so.4 libhamlib4 #MINVER#
  readShort@Base 0
  readSignal@Base 0
  read_block@Base 0
+ read_block_direct@Base 4.5
  read_icom_frame@Base 0
+ read_icom_frame_direct@Base 4.5
  read_string@Base 0
- remove_trn_rig@Base 0
+ read_string_direct@Base 4.5
  rft_set_freq@Base 0
  rft_transaction@Base 0
  rig2icom_mode@Base 0
+ rig_cache_show@Base 4.5
  rig_check_backend@Base 0
  rig_check_cache_timeout@Base 0
- rig_check_rig_caps@Base 4.1
  rig_cleanup@Base 0
  rig_close@Base 0
  rig_confparam_lookup@Base 0
@@ -1465,16 +1667,25 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_copy_channel@Base 0
  rig_copyright@Base 0
  rig_debug@Base 0
+ rig_debug_stream@Base 4.5
  rig_ext_func_foreach@Base 0
  rig_ext_level_foreach@Base 0
  rig_ext_lookup@Base 0
  rig_ext_lookup_tok@Base 0
  rig_ext_parm_foreach@Base 0
  rig_ext_token_lookup@Base 0
+ rig_fire_dcd_event@Base 4.5
+ rig_fire_freq_event@Base 4.5
+ rig_fire_mode_event@Base 4.5
+ rig_fire_pltune_event@Base 4.5
+ rig_fire_ptt_event@Base 4.5
+ rig_fire_spectrum_event@Base 4.5
+ rig_fire_vfo_event@Base 4.5
  rig_flush@Base 0
  rig_force_cache_timeout@Base 0
  rig_get_ant@Base 0
  rig_get_cache@Base 4.3.1
+ rig_get_cache_freq@Base 4.5.3
  rig_get_cache_timeout_ms@Base 0
  rig_get_caps@Base 0
  rig_get_caps_cptr@Base 4.1
@@ -1482,6 +1693,8 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_get_chan_all@Base 0
  rig_get_chan_all_cb@Base 0
  rig_get_channel@Base 0
+ rig_get_clock@Base 4.5
+ rig_get_conf2@Base 4.5
  rig_get_conf@Base 0
  rig_get_ctcss_sql@Base 0
  rig_get_ctcss_tone@Base 0
@@ -1497,6 +1710,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_get_function_ptr@Base 4.1
  rig_get_info@Base 0
  rig_get_level@Base 0
+ rig_get_lock_mode@Base 4.5
  rig_get_mem@Base 0
  rig_get_mem_all@Base 0
  rig_get_mem_all_cb@Base 0
@@ -1531,6 +1745,9 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_has_vfo_op@Base 0
  rig_idx2setting@Base 0
  rig_init@Base 0
+ rig_is_model@Base 4.5.4
+ rig_levelagcstr@Base 4.5
+ rig_levelagcvalue@Base 4.5
  rig_license@Base 0
  rig_list_foreach@Base 0
  rig_list_foreach_model@Base 4.1
@@ -1538,6 +1755,8 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_load_backend@Base 0
  rig_lookup_mem_caps@Base 0
  rig_mW2power@Base 0
+ rig_make_key@Base 4.5
+ rig_make_md5@Base 4.5
  rig_mem_count@Base 0
  rig_need_debug@Base 0
  rig_no_restore_ai@Base 0
@@ -1554,7 +1773,13 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_passband_narrow@Base 0
  rig_passband_normal@Base 0
  rig_passband_wide@Base 0
+ rig_password@Base 4.5
+ rig_password_generate_secret@Base 4.5
+ rig_poll_routine@Base 4.5
+ rig_poll_routine_start@Base 4.5
+ rig_poll_routine_stop@Base 4.5
  rig_power2mW@Base 0
+ rig_powerstat@Base 4.5
  rig_probe@Base 0
  rig_probe_all@Base 0
  rig_probe_all_backends@Base 0
@@ -1567,13 +1792,17 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_scan@Base 0
  rig_send_dtmf@Base 0
  rig_send_morse@Base 0
+ rig_send_raw@Base 4.5
  rig_send_voice_mem@Base 0
  rig_set_ant@Base 0
  rig_set_bank@Base 0
+ rig_set_cache_freq@Base 4.5
+ rig_set_cache_mode@Base 4.5
  rig_set_cache_timeout_ms@Base 0
  rig_set_chan_all@Base 0
  rig_set_chan_all_cb@Base 0
  rig_set_channel@Base 0
+ rig_set_clock@Base 4.5
  rig_set_conf@Base 0
  rig_set_ctcss_sql@Base 0
  rig_set_ctcss_tone@Base 0
@@ -1591,6 +1820,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_set_freq_callback@Base 0
  rig_set_func@Base 0
  rig_set_level@Base 0
+ rig_set_lock_mode@Base 4.5
  rig_set_mem@Base 0
  rig_set_mem_all@Base 0
  rig_set_mem_all_cb@Base 0
@@ -1618,6 +1848,11 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_set_vfo_opt@Base 0
  rig_set_xit@Base 0
  rig_setting2idx@Base 0
+ rig_settings_get_path@Base 4.5
+ rig_settings_load@Base 4.5
+ rig_settings_load_all@Base 4.5
+ rig_settings_save@Base 4.5
+ rig_sprintf_agc_levels@Base 4.5.3
  rig_sprintf_ant@Base 4.3.1
  rig_sprintf_func@Base 4.3.1
  rig_sprintf_level@Base 4.3.1
@@ -1648,9 +1883,11 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rig_token_foreach@Base 0
  rig_token_lookup@Base 0
  rig_unregister@Base 0
+ rig_valueagclevel@Base 4.5
  rig_version@Base 0
  rig_vfo_op@Base 0
  rig_wait_morse@Base 0
+ rigerror2@Base 4.5
  rigerror@Base 0
  rmode2elad@Base 0
  rmode2kenwood@Base 0
@@ -1665,6 +1902,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rot_ext_parm_foreach@Base 0
  rot_ext_token_lookup@Base 0
  rot_get_caps@Base 0
+ rot_get_conf2@Base 4.5
  rot_get_conf@Base 0
  rot_get_ext_func@Base 0
  rot_get_ext_level@Base 0
@@ -1736,11 +1974,13 @@ libhamlib.so.4 libhamlib4 #MINVER#
  rtty_fil@Base 0
  rx320_caps@Base 0
  rx331_caps@Base 0
+ rx331_get_conf2@Base 4.5
  rx340_caps@Base 0
  rx350_caps@Base 0
  sartek_rot_caps@Base 0
  satel_rot_caps@Base 4.1
  sdr1k_rig_caps@Base 0
+ sdruno_caps@Base 4.5
  sendIRCode@Base 0
  ser_close@Base 0
  ser_get_car@Base 0
@@ -1760,10 +2000,16 @@ libhamlib.so.4 libhamlib4 #MINVER#
  set_freq_v1@Base 0
  set_parm_all_cb_generic@Base 0
  set_rit_xit@Base 0
+ settings_file@Base 4.5
+ sha256_finish@Base 4.5
+ sha256_process@Base 4.5
+ sha256_starts@Base 4.5
+ sha256_update@Base 4.5
  si570avrusb_caps@Base 0
  si570peaberry1_caps@Base 0
  si570peaberry2_caps@Base 0
  si570picusb_caps@Base 0
+ si570xxxusb_get_conf2@Base 4.5
  skanti_reset@Base 0
  skanti_set_freq@Base 0
  skanti_set_level@Base 0
@@ -1771,6 +2017,8 @@ libhamlib.so.4 libhamlib4 #MINVER#
  skanti_set_ptt@Base 0
  skanti_set_split_freq@Base 0
  skanti_vfo_op@Base 0
+ snapshot_serialize@Base 4.5
+ spaces@Base 4.5
  spid_cfg_params@Base 0
  spid_md01_rot2prog_rot_caps@Base 0
  spid_rot1prog_rot_caps@Base 0
@@ -1783,6 +2031,7 @@ libhamlib.so.4 libhamlib4 #MINVER#
  sync_callback@Base 4.3.1
  tapr_set_freq@Base 0
  tapr_set_mode@Base 0
+ tci1x_caps@Base 4.5
  tentec2_get_freq@Base 0
  tentec2_get_info@Base 0
  tentec2_get_mode@Base 0
@@ -1871,9 +2120,11 @@ libhamlib.so.4 libhamlib4 #MINVER#
  tmd710_push_mu@Base 0
  tmd710_scan_mu@Base 0
  tmd710_set_memory_name@Base 0
+ tmv71_caps@Base 4.5
  tmv7_caps@Base 0
  to_bcd@Base 0
  to_bcd_be@Base 0
+ to_hex@Base 4.5
  transfox_caps@Base 0
  trc80_caps@Base 0
  trimwhitespace@Base 0
@@ -1884,6 +2135,12 @@ libhamlib.so.4 libhamlib4 #MINVER#
  ts2000_caps@Base 0
  ts2000_ctcss_list@Base 0
  ts2000_dcs_list@Base 4.3.1
+ ts2000_ext_funcs@Base 4.5.5
+ ts2000_ext_levels@Base 4.5.5
+ ts2000_ext_tokens@Base 4.5.5
+ ts2000_get_channel@Base 4.5.5
+ ts2000_init@Base 4.5.5
+ ts2000_set_channel@Base 4.5.5
  ts440_caps@Base 0
  ts450_open@Base 0
  ts450s_caps@Base 0
@@ -1966,7 +2223,9 @@ libhamlib.so.4 libhamlib4 #MINVER#
  tt585_caps@Base 0
  tt588_caps@Base 0
  tt599_caps@Base 0
- twiddling@Base 0
+ tx500_caps@Base 4.5
+ tx500_ctcss_list@Base 4.5
+ tx500_dcs_list@Base 4.5
  uh_close_ptt@Base 0
  uh_close_radio@Base 0
  uh_close_wkey@Base 0
@@ -2002,12 +2261,14 @@ libhamlib.so.4 libhamlib4 #MINVER#
  valid_commands_count@Base 0
  verify_flexradio_id@Base 0
  verify_kenwood_id@Base 0
+ vfo_fixup2a@Base 4.5
  vfo_fixup@Base 0
  vr5000_caps@Base 0
  vx1700_caps@Base 0
  wj8888_caps@Base 0
  wj_cfg_params@Base 0
  wj_cleanup@Base 0
+ wj_get_conf2@Base 4.5
  wj_get_conf@Base 0
  wj_get_freq@Base 0
  wj_get_level@Base 0
@@ -2040,7 +2301,11 @@ libhamlib.so.4 libhamlib4 #MINVER#
  writeByte@Base 0
  writeShort@Base 0
  write_block@Base 0
+ write_block_sync@Base 4.5
+ write_block_sync_error@Base 4.5
  x108g_caps@Base 0
+ x5105_caps@Base 4.5
+ x6100_caps@Base 4.5
  xg3_caps@Base 0
  xg3_get_freq@Base 0
  xg3_get_level@Base 0
@@ -2066,3 +2331,4 @@ libhamlib.so.4 libhamlib4 #MINVER#
  yaesu_default_str_cal@Base 0
  yaesu_default_swr_cal@Base 0
  yaesu_default_vd_meter_cal@Base 0
+ yrc1_rot_caps@Base 4.5

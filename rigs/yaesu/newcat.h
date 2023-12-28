@@ -50,7 +50,7 @@
 typedef char ncboolean;
 
 /* shared function version */
-#define NEWCAT_VER "20210805"
+#define NEWCAT_VER "20230328"
 
 /* Hopefully large enough for future use, 128 chars plus '\0' */
 #define NEWCAT_DATA_LEN                 129
@@ -68,6 +68,18 @@ typedef char ncboolean;
     .ctcss_tone = 1,\
     .ctcss_sql = 1,\
 }
+
+#define YAESU_DEFAULT_VD_METER_200W_CAL \
+{ \
+    3, \
+    { \
+        {0, 0.0f}, \
+        {196, 50.0f}, \
+        {255, 65.0f}, \
+    } \
+}
+
+
 
 extern const struct confparams newcat_cfg_params[];
 
@@ -102,9 +114,6 @@ struct newcat_priv_caps
  */
 struct newcat_priv_data
 {
-    unsigned int
-    read_update_delay;              /* depends on pacing value */
-//    vfo_t               current_vfo;                    /* active VFO from last cmd */
     char                cmd_str[NEWCAT_DATA_LEN];       /* command string buffer */
     char
     ret_data[NEWCAT_DATA_LEN];      /* returned data--max value, most are less */
@@ -119,6 +128,7 @@ struct newcat_priv_data
     char last_if_response[NEWCAT_DATA_LEN];
     int poweron; /* to prevent powering on more than once */
     int question_mark_response_means_rejected; /* the question mark response has multiple meanings */
+    char front_rear_status; /* e.g. FTDX5000 EX103 status */
 };
 
 /*
@@ -163,6 +173,7 @@ int newcat_close(RIG *rig);
 
 int newcat_set_conf(RIG *rig, token_t token, const char *val);
 int newcat_get_conf(RIG *rig, token_t token, char *val);
+int newcat_get_conf2(RIG *rig, token_t token, char *val, int val_len);
 
 int newcat_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 int newcat_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
@@ -220,8 +231,23 @@ rmode_t newcat_rmode_width(RIG *rig, vfo_t vfo, char mode, pbwidth_t *width);
 int newcat_set_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t val);
 int newcat_get_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t *val);
 
+int newcat_send_morse(RIG *rig, vfo_t vfo, const char *msg);
+int newcat_send_voice_mem(RIG *rig, vfo_t vfo, int ch);
+int newcat_set_clock(RIG *rig, int year, int month, int day, int hour, int min,
+                     int sec, double msec, int utc_offset);
+int newcat_get_clock(RIG *rig, int *year, int *month, int *day, int *hour,
+                     int *min, int *sec, double *msec, int *utc_offset);
+int newcat_scan(RIG *rig, vfo_t vfo, scan_t scan, int ch);
+
 #define TOKEN_BACKEND(t) (t)
 
 #define TOK_ROOFING_FILTER TOKEN_BACKEND(100)
+#define TOK_KEYER          TOKEN_BACKEND(101)
+#define TOK_APF_FREQ       TOKEN_BACKEND(102)
+#define TOK_APF_WIDTH      TOKEN_BACKEND(103)
+#define TOK_CONTOUR        TOKEN_BACKEND(104)
+#define TOK_CONTOUR_FREQ   TOKEN_BACKEND(105)
+#define TOK_CONTOUR_LEVEL  TOKEN_BACKEND(106)
+#define TOK_CONTOUR_WIDTH  TOKEN_BACKEND(107)
 
 #endif /* _NEWCAT_H */

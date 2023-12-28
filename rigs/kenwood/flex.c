@@ -25,7 +25,6 @@
  */
 
 #include <string.h>
-#include <stdlib.h>
 
 #include "flex.h"
 #include "kenwood.h"
@@ -99,9 +98,8 @@ int verify_flexradio_id(RIG *rig, char *id)
     }
     else
     {
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: Rig (%.5s) is not a Flex 6000 Series\n",
+        rig_debug(RIG_DEBUG_WARN, "%s: Rig (%.5s) is not a Flex 6000 Series\n",
                   __func__, id);
-        return -RIG_EPROTO;
     }
 
     return RIG_OK;
@@ -145,6 +143,7 @@ int flexradio_open(RIG *rig)
         return -RIG_EINVAL;
     }
 
+    priv->has_rit2 = 1;
     /* get current AI state so it can be restored */
     priv->trn_state = -1;
     kenwood_get_trn(rig, &priv->trn_state);  /* ignore errors */

@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -58,7 +56,7 @@ const struct rig_caps bcd996t_caps =
     .mfg_name =  "Uniden",
     .version =  BACKEND_DIGITAL_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRUNKSCANNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -123,7 +121,7 @@ const struct rig_caps bcd996t_caps =
     .get_info =  uniden_digital_get_info,
     .set_freq =  uniden_digital_set_freq,
     .get_freq =  uniden_digital_get_freq,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

@@ -19,9 +19,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -97,7 +95,7 @@ const struct rig_caps ar8600_caps =
     .mfg_name =  "AOR",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_SCANNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -129,7 +127,7 @@ const struct rig_caps ar8600_caps =
     .max_ifshift =  Hz(0),
     .targetable_vfo =  0,
     .transceive =  RIG_TRN_RIG,
-    .bank_qty =   20,   /* A through J, and a trough j */
+    .bank_qty =   20,   /* A through J, and a through j */
     .chan_desc_sz =  12,
     .vfo_ops =  AR8600_VFO_OPS,
     .scan_ops =  AR8600_SCAN_OPS,
@@ -211,7 +209,7 @@ const struct rig_caps ar8600_caps =
     .get_channel = aor_get_channel,
 
     .get_chan_all_cb = aor_get_chan_all_cb,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

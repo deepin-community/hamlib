@@ -20,13 +20,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
@@ -150,7 +147,8 @@ ars_init(ROT *rot)
         return -RIG_EINVAL;
     }
 
-    rot->state.priv = (struct ars_priv_data *)malloc(sizeof(struct ars_priv_data));
+    rot->state.priv = (struct ars_priv_data *)calloc(1,
+                      sizeof(struct ars_priv_data));
 
     if (!rot->state.priv)
     {
@@ -716,7 +714,7 @@ const struct rot_caps rci_azel_rot_caps =
     .mfg_name =       "EA4TX",
     .version =        "20200112.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,  /* AZ&EL units */
     .port_type =      RIG_PORT_PARALLEL,
     .write_delay =    0,
@@ -750,7 +748,7 @@ const struct rot_caps rci_az_rot_caps =
     .mfg_name =       "EA4TX",
     .version =        "20200112.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZIMUTH,    /* AZ-only unit */
     .port_type =      RIG_PORT_PARALLEL,
     .write_delay =    0,
