@@ -46,7 +46,7 @@ public:
 #endif
 
 
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
 
     // This method opens the communication port to the rig
     void open(void);
@@ -54,11 +54,11 @@ public:
     // This method closes the communication port to the rig
     void close(void);
 
-    void setConf(token_t token, const char *val);
+    void setConf(hamlib_token_t token, const char *val);
     void setConf(const char *name, const char *val);
-    void getConf(token_t token, char *val);
+    void getConf(hamlib_token_t token, char *val);
     void getConf(const char *name, char *val);
-    token_t tokenLookup(const char *name);
+    hamlib_token_t tokenLookup(const char *name);
 
     void setFreq(freq_t freq, vfo_t vfo = RIG_VFO_CURR);
     freq_t getFreq(vfo_t vfo = RIG_VFO_CURR);
@@ -177,22 +177,27 @@ public:
     void reset(reset_t reset);
 
     // callbacks available in your derived object
+// cppcheck-suppress unusedFunction
     virtual int FreqEvent(vfo_t, freq_t, rig_ptr_t) const
     {
         return RIG_OK;
     }
+// cppcheck-suppress unusedFunction
     virtual int ModeEvent(vfo_t, rmode_t, pbwidth_t, rig_ptr_t) const
     {
         return RIG_OK;
     }
+// cppcheck-suppress unusedFunction
     virtual int VFOEvent(vfo_t, rig_ptr_t) const
     {
         return RIG_OK;
     }
+// cppcheck-suppress unusedFunction
     virtual int PTTEvent(vfo_t, ptt_t, rig_ptr_t) const
     {
         return RIG_OK;
     }
+// cppcheck-suppress unusedFunction
     virtual int DCDEvent(vfo_t, dcd_t, rig_ptr_t) const
     {
         return RIG_OK;
@@ -287,6 +292,7 @@ public:
 //! @endcond
 
 
+// cppcheck-suppress unusedFunction
 inline void THROW(const RigException *e)
 {
 #if defined(__GNUG__)
@@ -298,6 +304,7 @@ inline void THROW(const RigException *e)
 #elif defined(_MSC_VER)
     throw* e;
 #elif defined(__SUNPRO_CC)
+// cppcheck-suppress cstyleCast
     genericerror(1, ((e != 0) ? (char *)(e->message) : ""));
 #else
 

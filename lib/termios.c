@@ -1,19 +1,20 @@
-#ifdef HAVE_CONFIG_H
-#include "hamlib/rig.h"
-#include <config.h>
-#endif
+#include <hamlib/rig.h>
+#include <hamlib/config.h>
+#include "misc.h"
 
 #if defined(WIN32) && !defined(HAVE_TERMIOS_H)
 
 #undef DEBUG
-#undef TRACE
+//#undef TRACE
 
 #ifdef DEBUG
 #define DEBUG_VERBOSE
 #define DEBUG_ERRORS
-#define report(a) fprintf(stderr,a)
-#define report_warning(a) fprintf(stderr,a)
-#define report_error(a) fprintf(stderr,a)
+static char message[256];
+static char datestr[64];
+#define report(a) fprintf(stderr, "%s: %s", date_strget(datestr, sizeof(datestr), 0), a)
+#define report_warning(a) fprintf(stderr, "%s: %s", date_strget(datestr, sizeof(datestr), 0), a)
+#define report_error(a) fprintf(stderr, "%s: %s", date_strget(datestr, sizeof(datestr), 0), a)
 #else
 #define report(a) do {} while (0)
 #define report_warning(a) do {} while (0)
@@ -67,31 +68,8 @@ int my_errno;
 #if 0
 extern int errno;
 #endif
-struct termios_list
-{
-    char filename[512];
-    int my_errno;
-    int interrupt;
-    int event_flag;
-    int tx_happened;
-    unsigned long *hComm;
-    struct termios *ttyset;
-    struct serial_struct *sstruct;
-    /* for DTR DSR */
-    unsigned char MSR;
-    struct async_struct *astruct;
-    struct serial_icounter_struct *sis;
-    int open_flags;
-    OVERLAPPED rol;
-    OVERLAPPED wol;
-    OVERLAPPED sol;
-    int fd;
-    struct termios_list *next;
-    struct termios_list *prev;
-};
-struct termios_list *first_tl = NULL;
 
-static struct termios_list *find_port(int);
+struct termios_list *first_tl = NULL;
 
 /*----------------------------------------------------------
 serial_test
@@ -132,7 +110,7 @@ int win32_serial_test(char *filename)
 
 static void termios_setflags(int fd, int termios_flags[])
 {
-    struct termios_list *index = find_port(fd);
+    struct termios_list *index = win32_serial_find_port(fd);
     int i, result;
     int windows_flags[11] = { 0, EV_RXCHAR, EV_TXEMPTY, EV_CTS, EV_DSR,
                               EV_RING | 0x2000, EV_RLSD, EV_ERR,
@@ -763,7 +741,7 @@ int win32_serial_close(int fd)
         return (0);
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -784,7 +762,7 @@ int win32_serial_close(int fd)
         }
         else
         {
-            sprintf( message, "serial_ close():  Invalid Port Reference for %s\n",
+            SNPRINTF( message, sizeof(message), sizeof(message), "serial_ close():  Invalid Port Reference for %s\n",
                 index->filename );
             report( message );
         }
@@ -1103,7 +1081,7 @@ termios_list()
    comments:
 ----------------------------------------------------------*/
 
-static struct termios_list *find_port(int fd)
+struct termios_list *win32_serial_find_port(int fd)
 {
 
     char message[80];
@@ -1130,7 +1108,7 @@ static struct termios_list *find_port(int fd)
     }
 
 fail:
-    sprintf(message, "No info known about the port. %i\n", fd);
+    SNPRINTF(message, sizeof(message), "No info known about the port. %i\n", fd);
     report(message);
     set_errno(EBADF);
     LEAVE("find_port");
@@ -1210,7 +1188,7 @@ static struct termios_list *add_port(const char *filename)
 
     ENTER("add_port");
 
-    port = malloc(sizeof(struct termios_list));
+    port = calloc(1, sizeof(struct termios_list));
 
     if (!port)
     {
@@ -1219,7 +1197,7 @@ static struct termios_list *add_port(const char *filename)
 
     memset(port, 0, sizeof(struct termios_list));
 
-    port->ttyset = malloc(sizeof(struct termios));
+    port->ttyset = calloc(1, sizeof(struct termios));
 
     if (! port->ttyset)
     {
@@ -1228,7 +1206,7 @@ static struct termios_list *add_port(const char *filename)
 
     memset(port->ttyset, 0, sizeof(struct termios));
 
-    port->sstruct = malloc(sizeof(struct serial_struct));
+    port->sstruct = calloc(1, sizeof(struct serial_struct));
 
     if (! port->sstruct)
     {
@@ -1236,7 +1214,7 @@ static struct termios_list *add_port(const char *filename)
     }
 
     memset(port->sstruct, 0, sizeof(struct serial_struct));
-    port->sis = malloc(sizeof(struct serial_icounter_struct));
+    port->sis = calloc(1, sizeof(struct serial_icounter_struct));
 
     if (! port->sis)
     {
@@ -1246,7 +1224,7 @@ static struct termios_list *add_port(const char *filename)
     memset(port->sis, 0, sizeof(struct serial_icounter_struct));
 
     /*  FIXME  the async_struct is being defined by mingw32 headers?
-        port->astruct = malloc( sizeof( struct async_struct ) );
+        port->astruct = calloc(1, sizeof( struct async_struct ) );
         if( ! port->astruct )
             goto fail;
         memset( port->astruct, 0, sizeof( struct async_struct ) );
@@ -1254,12 +1232,6 @@ static struct termios_list *add_port(const char *filename)
     port->MSR = 0;
 
     strncpy(port->filename, filename, sizeof(port->filename) - 1);
-
-    /* didn't free well? strdup( filename ); */
-    if (! port->filename)
-    {
-        goto fail;
-    }
 
     port->fd = get_free_fd();
 
@@ -1305,12 +1277,9 @@ fail:
 
     if (port->sis) { free(port->sis); }
 
-    /* had problems with strdup
-    if ( port->filename ) free( port->filename );
-    */
     if (port) { free(port); }
 
-    return port;
+    return NULL;
 }
 
 /*----------------------------------------------------------
@@ -1336,28 +1305,28 @@ static int check_port_capabilities(struct termios_list *index)
 
     if (!(cp.dwProvCapabilities & PCF_DTRDSR))
     {
-        sprintf(message,
-                "%s: no DTR & DSR support\n", __func__);
+        SNPRINTF(message, sizeof(message),
+                 "%s: no DTR & DSR support\n", __func__);
         report(message);
     }
 
     if (!(cp.dwProvCapabilities & PCF_RLSD))
     {
-        sprintf(message, "%s: no carrier detect (RLSD) support\n",
-                __func__);
+        SNPRINTF(message, sizeof(message), "%s: no carrier detect (RLSD) support\n",
+                 __func__);
         report(message);
     }
 
     if (!(cp.dwProvCapabilities & PCF_RTSCTS))
     {
-        sprintf(message,
-                "%s: no RTS & CTS support\n", __func__);
+        SNPRINTF(message, sizeof(message),
+                 "%s: no RTS & CTS support\n", __func__);
         report(message);
     }
 
     if (!(cp.dwProvCapabilities & PCF_TOTALTIMEOUTS))
     {
-        sprintf(message, "%s: no timeout support\n", __func__);
+        SNPRINTF(message, sizeof(message), "%s: no timeout support\n", __func__);
         report(message);
     }
 
@@ -1398,7 +1367,7 @@ int win32_serial_open(const char *filename, int flags, ...)
      * this is necessary for COM ports larger than COM9 */
     if (memcmp(filename, "\\\\.\\", 4) != 0)
     {
-        snprintf(fullfilename, sizeof(fullfilename) - 1, "\\\\.\\%s", filename);
+        SNPRINTF(fullfilename, sizeof(fullfilename) - 1, "\\\\.\\%s", filename);
     }
     else
     {
@@ -1424,8 +1393,9 @@ int win32_serial_open(const char *filename, int flags, ...)
 
     if (open_port(index))
     {
-        sprintf(message, "serial_open():  Invalid Port Reference for %s\n",
-                fullfilename);
+        SNPRINTF(message, sizeof(message),
+                 "serial_open():  Invalid Port Reference for %s\n",
+                 fullfilename);
         report(message);
         win32_serial_close(index->fd);
         return -1;
@@ -1457,8 +1427,8 @@ int win32_serial_open(const char *filename, int flags, ...)
 
     if (!first_tl->hComm)
     {
-        sprintf(message, "open():  Invalid Port Reference for %s\n",
-                index->filename);
+        SNPRINTF(message, sizeof(message), "open():  Invalid Port Reference for %s\n",
+                 index->filename);
         report(message);
     }
 
@@ -1499,7 +1469,7 @@ int win32_serial_write(int fd, const char *Str, int length)
         return 0;
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -1585,7 +1555,7 @@ int win32_serial_read(int fd, void *vb, int size)
     /* unsigned long waiting = 0; */
     int err;
     struct termios_list *index;
-    char message[80];
+//    char message[80];
     COMSTAT stat;
     clock_t c;
     unsigned char *dest = vb;
@@ -1598,7 +1568,7 @@ int win32_serial_read(int fd, void *vb, int size)
         return 0;
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -1637,7 +1607,7 @@ int win32_serial_read(int fd, void *vb, int size)
                         now - start >= (index->ttyset->c_cc[VTIME] * 100))
                 {
                     /*
-                      sprintf( message, "now = %i start = %i time = %i total =%i\n", now, start, index->ttyset->c_cc[VTIME]*100, total);
+                      SNPRINTF( message, sizeof(message), "now = %i start = %i time = %i total =%i\n", now, start, index->ttyset->c_cc[VTIME]*100, total);
                       report( message );
                     */
                     return total; /* read timeout */
@@ -1660,7 +1630,7 @@ int win32_serial_read(int fd, void *vb, int size)
         do
         {
             ClearErrors(index, &stat);
-            hl_usleep(1000);
+            hl_usleep(100);
         }
         while (stat.cbInQue < index->ttyset->c_cc[VMIN] && c > clock());
 
@@ -1679,8 +1649,8 @@ int win32_serial_read(int fd, void *vb, int size)
         err = ReadFile(index->hComm, dest + total, size, &nBytes, &index->rol);
 #ifdef DEBUG_VERBOSE
         /* warning Roy Rogers! */
-        sprintf(message, " ========== ReadFile = %i 0x%x\n",
-                (int) nBytes, *((char *) dest + total));
+        SNPRINTF(message, sizeof(message), " ========== ReadFile = %i 0x%x\n",
+                 (int) nBytes, *((char *) dest + total));
         report(message);
 #endif /* DEBUG_VERBOSE */
 
@@ -1719,12 +1689,15 @@ int win32_serial_read(int fd, void *vb, int size)
 
                 size -= nBytes;
                 total += nBytes;
+                return (total);
+
+#if 0
 
                 if (size > 0)
                 {
                     now = GetTickCount();
-                    sprintf(message, "size > 0: spent=%ld have=%d\n", now - start,
-                            index->ttyset->c_cc[VTIME] * 100);
+                    SNPRINTF(message, sizeof(message), "size > 0: spent=%ld have=%d\n", now - start,
+                             index->ttyset->c_cc[VTIME] * 100);
                     report(message);
 
                     /* we should use -1 for disabled
@@ -1738,13 +1711,14 @@ int win32_serial_read(int fd, void *vb, int size)
                     }
                 }
 
-                sprintf(message, "end nBytes=%lu] ", nBytes);
+                SNPRINTF(message, sizeof(message), "end nBytes=%lu] ", nBytes);
                 report(message);
                 /*
                   hl_usleep(1000);
                 */
                 report("ERROR_IO_PENDING\n");
                 break;
+#endif
 
             default:
                 /*
@@ -1793,7 +1767,7 @@ int win32_serial_read(int fd, void *vb, int size)
         return 0;
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -1834,7 +1808,7 @@ int win32_serial_read(int fd, void *vb, int size)
                     now - start >= (index->ttyset->c_cc[VTIME] * 100))
             {
                 /*
-                                sprintf( message, "now = %i start = %i time = %i total =%i\n", now, start, index->ttyset->c_cc[VTIME]*100, total);
+                                SNPRINTF( message, sizeof(message), "now = %i start = %i time = %i total =%i\n", now, start, index->ttyset->c_cc[VTIME]*100, total);
                                 report( message );
                 */
                 errno = EAGAIN;
@@ -1877,8 +1851,8 @@ int win32_serial_read(int fd, void *vb, int size)
         err = ReadFile(index->hComm, dest + total, size, &nBytes, &index->rol);
 #ifdef DEBUG_VERBOSE
         /* warning Roy Rogers! */
-        sprintf(message, " ========== ReadFile = %i %s\n",
-                (int) nBytes, (char *) dest + total);
+        SNPRINTF(message, sizeof(message), " ========== ReadFile = %i %s\n",
+                 (int) nBytes, (char *) dest + total);
         report(message);
 #endif /* DEBUG_VERBOSE */
 
@@ -1918,12 +1892,14 @@ int win32_serial_read(int fd, void *vb, int size)
 
                 size -= nBytes;
                 total += nBytes;
+                return (total);
+#if 0
 
                 if (size > 0)
                 {
                     now = GetTickCount();
-                    sprintf(message, "size > 0: spent=%ld have=%d\n", now - start,
-                            index->ttyset->c_cc[VTIME] * 100);
+                    SNPRINTF(message, sizeof(message), "size > 0: spent=%ld have=%d\n", now - start,
+                             index->ttyset->c_cc[VTIME] * 100);
                     report(message);
 
                     /* we should use -1 for disabled
@@ -1938,13 +1914,14 @@ int win32_serial_read(int fd, void *vb, int size)
                     }
                 }
 
-                sprintf(message, "end nBytes=%ld] ", nBytes);
+                SNPRINTF(message, sizeof(message), "end nBytes=%ld] ", nBytes);
                 report(message);
                 /*
                                     hl_usleep(1000);
                 */
                 report("ERROR_IO_PENDING\n");
                 break;
+#endif
 
             default:
                 /*
@@ -1996,7 +1973,7 @@ int cfsetospeed(struct termios *s_termios, speed_t speed)
 
     if (speed & ~CBAUD)
     {
-        sprintf(message, "cfsetospeed: not speed: %#o\n", speed);
+        SNPRINTF(message, sizeof(message), "cfsetospeed: not speed: %#o\n", speed);
         report(message);
         /* continue assuming its a custom baudrate */
         s_termios->c_cflag |= B38400;  /* use 38400 during custom */
@@ -2216,9 +2193,9 @@ static void show_DCB(DCB myDCB)
 #ifdef DEBUG_HOSED
     char message[80];
 
-    sprintf(message, "DCBlength: %ld\n", myDCB.DCBlength);
+    SNPRINTF(message, sizeof(message), "DCBlength: %ld\n", myDCB.DCBlength);
     report(message);
-    sprintf("BaudRate: %ld\n", myDCB.BaudRate);
+    SNPRINTF(message, sizeof(message), "BaudRate: %ld\n", myDCB.BaudRate);
     report(message);
 
     if (myDCB.fBinary)
@@ -2232,7 +2209,7 @@ static void show_DCB(DCB myDCB)
 
         if (myDCB.fErrorChar)
         {
-            sprintf(message, "fErrorChar: %#x\n", myDCB.ErrorChar);
+            SNPRINTF(message, sizeof(message), "fErrorChar: %#x\n", myDCB.ErrorChar);
             report(message);
         }
         else
@@ -2251,17 +2228,20 @@ static void show_DCB(DCB myDCB)
         report("fOutxDsrFlow\n");
     }
 
-    if (myDCB.fDtrControl & DTR_CONTROL_HANDSHAKE);
+    if (myDCB.fDtrControl & DTR_CONTROL_HANDSHAKE)
+    {
+        report("DTR_CONTROL_HANDSHAKE\n");
+    }
 
-    report("DTR_CONTROL_HANDSHAKE\n");
+    if (myDCB.fDtrControl & DTR_CONTROL_ENABLE)
+    {
+        report("DTR_CONTROL_ENABLE\n");
+    }
 
-    if (myDCB.fDtrControl & DTR_CONTROL_ENABLE);
-
-    report("DTR_CONTROL_ENABLE\n");
-
-    if (myDCB.fDtrControl & DTR_CONTROL_DISABLE);
-
-    report("DTR_CONTROL_DISABLE\n");
+    if (myDCB.fDtrControl & DTR_CONTROL_DISABLE)
+    {
+        report("DTR_CONTROL_DISABLE\n");
+    }
 
     if (myDCB.fDsrSensitivity)
     {
@@ -2318,11 +2298,11 @@ static void show_DCB(DCB myDCB)
         report("fAbortOnError\n");
     }
 
-    sprintf(message, "XonLim: %d\n", myDCB.XonLim);
+    SNPRINTF(message, sizeof(message), "XonLim: %d\n", myDCB.XonLim);
     report(message);
-    sprintf(message, "XoffLim: %d\n", myDCB.XoffLim);
+    SNPRINTF(message, sizeof(message), "XoffLim: %d\n", myDCB.XoffLim);
     report(message);
-    sprintf(message, "ByteSize: %d\n", myDCB.ByteSize);
+    SNPRINTF(message, sizeof(message), "ByteSize: %d\n", myDCB.ByteSize);
     report(message);
 
     switch (myDCB.Parity)
@@ -2344,8 +2324,8 @@ static void show_DCB(DCB myDCB)
         break;
 
     default:
-        sprintf(message,
-                "unknown Parity (%#x ):", myDCB.Parity);
+        SNPRINTF(message, sizeof(message),
+                 "unknown Parity (%#x ):", myDCB.Parity);
         report(message);
         break;
     }
@@ -2372,13 +2352,13 @@ static void show_DCB(DCB myDCB)
     }
 
     report("\n");
-    sprintf(message,  "XonChar: %#x\n", myDCB.XonChar);
+    SNPRINTF(message, sizeof(message),  "XonChar: %#x\n", myDCB.XonChar);
     report(message);
-    sprintf(message, "XoffChar: %#x\n", myDCB.XoffChar);
+    SNPRINTF(message, sizeof(message), "XoffChar: %#x\n", myDCB.XoffChar);
     report(message);
-    sprintf(message, "EofChar: %#x\n", myDCB.EofChar);
+    SNPRINTF(message, sizeof(message), "EofChar: %#x\n", myDCB.EofChar);
     report(message);
-    sprintf(message, "EvtChar: %#x\n", myDCB.EvtChar);
+    SNPRINTF(message, sizeof(message), "EvtChar: %#x\n", myDCB.EvtChar);
     report(message);
     report("\n");
 #endif /* DEBUG_HOSED */
@@ -2409,7 +2389,7 @@ int tcgetattr(int fd, struct termios *s_termios)
         return 0;
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -2419,7 +2399,7 @@ int tcgetattr(int fd, struct termios *s_termios)
 
     if (!GetCommState(index->hComm, &myDCB))
     {
-        sprintf(message, "GetCommState failed\n");
+        SNPRINTF(message, sizeof(message), "GetCommState failed\n");
         report(message);
         return -1;
     }
@@ -2591,9 +2571,9 @@ int tcgetattr(int fd, struct termios *s_termios)
     s_termios->c_cc[VEOF] = myDCB.EofChar;
 
 #ifdef DEBUG_VERBOSE
-    sprintf(message,
-            "tcgetattr: VTIME:%d, VMIN:%d\n", s_termios->c_cc[VTIME],
-            s_termios->c_cc[VMIN]);
+    SNPRINTF(message, sizeof(message),
+             "tcgetattr: VTIME:%d, VMIN:%d\n", s_termios->c_cc[VTIME],
+             s_termios->c_cc[VMIN]);
     report(message);
 #endif /* DEBUG_VERBOSE */
 
@@ -2652,7 +2632,7 @@ int tcsetattr(int fd, int when, struct termios *s_termios)
         return 0;
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -2783,8 +2763,9 @@ int tcsetattr(int fd, int when, struct termios *s_termios)
 #ifdef DEBUG_VERBOSE
     {
         char message[32];
-        sprintf(message, "VTIME:%d, VMIN:%d\n", s_termios->c_cc[VTIME],
-                s_termios->c_cc[VMIN]);
+        SNPRINTF(message, sizeof(message), "VTIME:%d, VMIN:%d\n",
+                 s_termios->c_cc[VTIME],
+                 s_termios->c_cc[VMIN]);
         report(message);
     }
 #endif /* DEBUG_VERBOSE */
@@ -2812,20 +2793,20 @@ int tcsetattr(int fd, int when, struct termios *s_termios)
 #ifdef DEBUG_VERBOSE
     {
         char message[64];
-        sprintf(message, "ReadIntervalTimeout=%ld\n",
-                timeouts.ReadIntervalTimeout);
+        SNPRINTF(message, sizeof(message), "ReadIntervalTimeout=%ld\n",
+                 timeouts.ReadIntervalTimeout);
         report(message);
-        sprintf(message, "c_cc[VTIME] = %d, c_cc[VMIN] = %d\n",
-                s_termios->c_cc[VTIME], s_termios->c_cc[VMIN]);
+        SNPRINTF(message, sizeof(message), "c_cc[VTIME] = %d, c_cc[VMIN] = %d\n",
+                 s_termios->c_cc[VTIME], s_termios->c_cc[VMIN]);
         report(message);
-        sprintf(message, "ReadTotalTimeoutConstant: %ld\n",
-                timeouts.ReadTotalTimeoutConstant);
+        SNPRINTF(message, sizeof(message), "ReadTotalTimeoutConstant: %ld\n",
+                 timeouts.ReadTotalTimeoutConstant);
         report(message);
-        sprintf(message, "ReadIntervalTimeout : %ld\n",
-                timeouts.ReadIntervalTimeout);
+        SNPRINTF(message, sizeof(message), "ReadIntervalTimeout : %ld\n",
+                 timeouts.ReadIntervalTimeout);
         report(message);
-        sprintf(message, "ReadTotalTimeoutMultiplier: %ld\n",
-                timeouts.ReadTotalTimeoutMultiplier);
+        SNPRINTF(message, sizeof(message), "ReadTotalTimeoutMultiplier: %ld\n",
+                 timeouts.ReadTotalTimeoutMultiplier);
         report(message);
     }
 #endif /* DEBUG_VERBOSE */
@@ -2862,7 +2843,7 @@ int tcsendbreak(int fd, int duration)
 
     ENTER("tcsendbreak");
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -2907,7 +2888,7 @@ int tcdrain(int fd)
     int old_flag;
 
     ENTER("tcdrain");
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -2932,8 +2913,8 @@ int tcdrain(int fd)
               Something funky is happening on NT.  GetLastError =
               0.
         */
-        sprintf(message,  "FlushFileBuffers() %i\n",
-                (int) GetLastError());
+        SNPRINTF(message, sizeof(message),  "FlushFileBuffers() %i\n",
+                 (int) GetLastError());
         report(message);
 
         if (GetLastError() == 0)
@@ -2949,7 +2930,7 @@ int tcdrain(int fd)
     }
 
     /*
-        sprintf( message,  "FlushFileBuffers() %i\n",
+        SNPRINTF( message, sizeof(message),  "FlushFileBuffers() %i\n",
             (int) GetLastError() );
         report( message );
     */
@@ -2984,7 +2965,7 @@ int tcflush(int fd, int queue_selector)
 
     ENTER("tcflush");
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -3165,7 +3146,7 @@ int win32_serial_ioctl(int fd, int request, ...)
         return 0;
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -3347,7 +3328,8 @@ int win32_serial_ioctl(int fd, int request, ...)
             report("DTR is unchanged\n");
         }
 
-        sprintf(message, "DTR %i %i\n", *arg & TIOCM_DTR, index->MSR & TIOCM_DTR);
+        SNPRINTF(message, sizeof(message), "DTR %i %i\n", *arg & TIOCM_DTR,
+                 index->MSR & TIOCM_DTR);
         report(message);
 
         if (*arg & TIOCM_DTR)
@@ -3375,7 +3357,8 @@ int win32_serial_ioctl(int fd, int request, ...)
             report("RTS is unchanged\n");
         }
 
-        sprintf(message, "RTS %i %i\n", *arg & TIOCM_RTS, index->MSR & TIOCM_RTS);
+        SNPRINTF(message, sizeof(message), "RTS %i %i\n", *arg & TIOCM_RTS,
+                 index->MSR & TIOCM_RTS);
         report(message);
 
         if (*arg & TIOCM_RTS)
@@ -3404,7 +3387,7 @@ int win32_serial_ioctl(int fd, int request, ...)
     case TIOCGSERIAL:
         report("TIOCGSERIAL\n");
 
-        dcb = malloc(sizeof(DCB));
+        dcb = calloc(1, sizeof(DCB));
 
         if (!dcb)
         {
@@ -3435,7 +3418,7 @@ int win32_serial_ioctl(int fd, int request, ...)
     case TIOCSSERIAL:
         report("TIOCSSERIAL\n");
 
-        dcb = malloc(sizeof(DCB));
+        dcb = calloc(1, sizeof(DCB));
 
         if (!dcb)
         {
@@ -3573,13 +3556,13 @@ int win32_serial_ioctl(int fd, int request, ...)
 
         *arg = (int) Stat.cbInQue;
 #ifdef DEBUG_VERBOSE
-        sprintf(message, "FIONREAD:  %i bytes available\n",
-                (int) Stat.cbInQue);
+        SNPRINTF(message, sizeof(message), "FIONREAD:  %i bytes available\n",
+                 (int) Stat.cbInQue);
         report(message);
 
         if (*arg)
         {
-            sprintf(message, "FIONREAD: %i\n", *arg);
+            SNPRINTF(message, sizeof(message), "FIONREAD: %i\n", *arg);
             report(message);
         }
 
@@ -3594,9 +3577,9 @@ int win32_serial_ioctl(int fd, int request, ...)
         return -ENOIOCTLCMD;
 
     default:
-        sprintf(message,
-                "FIXME:  ioctl: unknown request: %#x\n",
-                request);
+        SNPRINTF(message, sizeof(message),
+                 "FIXME:  ioctl: unknown request: %#x\n",
+                 request);
         report(message);
         va_end(ap);
         return -ENOIOCTLCMD;
@@ -3632,7 +3615,7 @@ int win32_serial_fcntl(int fd, int command, ...)
         return 0;
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -3651,7 +3634,7 @@ int win32_serial_fcntl(int fd, int command, ...)
 
     case F_SETFL:   /* set operating flags */
 #ifdef DEBUG
-        sprintf(message, "F_SETFL fd=%d flags=%d\n", fd, arg);
+        SNPRINTF(message, sizeof(message), "F_SETFL fd=%d flags=%d\n", fd, arg);
         report(message);
 #endif
         index->open_flags = arg;
@@ -3662,7 +3645,7 @@ int win32_serial_fcntl(int fd, int command, ...)
         break;
 
     default:
-        sprintf(message, "unknown fcntl command %#x\n", command);
+        SNPRINTF(message, sizeof(message), "unknown fcntl command %#x\n", command);
         report(message);
         break;
     }
@@ -3685,7 +3668,7 @@ termios_interrupt_event_loop()
 ----------------------------------------------------------*/
 static void termios_interrupt_event_loop(int fd, int flag)
 {
-    struct termios_list *index = find_port(fd);
+    struct termios_list *index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -3735,7 +3718,7 @@ int  win32_serial_select(int  n,  fd_set  *readfds,  fd_set  *writefds,
         goto fail;
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -3786,7 +3769,8 @@ int  win32_serial_select(int  n,  fd_set  *readfds,  fd_set  *writefds,
 
         while (timeout_usec > 0)
         {
-            sprintf(message, "wait for data in read buffer%d\n", (int)Stat.cbInQue);
+            SNPRINTF(message, sizeof(message), "wait for data in read buffer%d\n",
+                     (int)Stat.cbInQue);
             report(message);
 
             if (Stat.cbInQue != 0)
@@ -3794,9 +3778,9 @@ int  win32_serial_select(int  n,  fd_set  *readfds,  fd_set  *writefds,
                 goto end;
             }
 
-            hl_usleep(10000);
+            hl_usleep(1000);
             /* FIXME: not very accurate wrt process time */
-            timeout_usec -= 10000;
+            timeout_usec -= 1000;
 
             report("sleep...\n");
 
@@ -3867,7 +3851,7 @@ timeout:
     return (0);
 fail:
     YACK();
-    sprintf(message, "< select called error %i\n", n);
+    SNPRINTF(message, sizeof(message), "< select called error %i\n", n);
     report(message);
     errno = EBADFD;
     LEAVE("serial_select");
@@ -3891,7 +3875,7 @@ int  win32_serial_select(int  n,  fd_set  *readfds,  fd_set  *writefds,
         return 1;
     }
 
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -3933,7 +3917,8 @@ int  win32_serial_select(int  n,  fd_set  *readfds,  fd_set  *writefds,
 
             if (GetLastError() != ERROR_IO_PENDING)
             {
-                sprintf(message, "WaitCommEvent filename = %s\n", index->filename);
+                SNPRINTF(message, sizeof(message), "WaitCommEvent filename = %s\n",
+                         index->filename);
                 report(message);
                 return (1);
                 /*
@@ -3993,7 +3978,7 @@ end:
 #ifdef asdf
     /* FIXME this needs to be cleaned up... */
 fail:
-    sprintf(message, "< select called error %i\n", n);
+    SNPRINTF(message, sizeof(message), "< select called error %i\n", n);
     YACK();
     report(message);
     set_errno(EBADFD);
@@ -4023,7 +4008,7 @@ static int termiosGetParityErrorChar(int fd)
     DCB dcb;
 
     ENTER("termiosGetParityErrorChar");
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {
@@ -4053,7 +4038,7 @@ static void termiosSetParityError(int fd, char value)
     struct termios_list *index;
 
     ENTER("termiosSetParityErrorChar");
-    index = find_port(fd);
+    index = win32_serial_find_port(fd);
 
     if (!index)
     {

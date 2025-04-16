@@ -24,14 +24,10 @@
 
 #include "hamlib/rig.h"
 
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-
 #define EOM "\r"
 #define TRUE 1
 #define FALSE 0
 
-extern const struct rig_caps flrig_caps;
+extern struct rig_caps flrig_caps;
 
 #endif /* _FLRIG_H */

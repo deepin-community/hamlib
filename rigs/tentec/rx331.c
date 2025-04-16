@@ -19,19 +19,13 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "hamlib/rig.h"
-#include "bandplan.h"
 #include "serial.h"
-#include "misc.h"
 #include "num_stdio.h"
-#include "token.h"
 
 #include "rx331.h"
 
@@ -73,8 +67,8 @@ static const struct confparams rx331_cfg_params[] =
 
 static int rx331_init(RIG *rig);
 static int rx331_cleanup(RIG *rig);
-static int rx331_set_conf(RIG *rig, token_t token, const char *val);
-static int rx331_get_conf(RIG *rig, token_t token, char *val);
+static int rx331_set_conf(RIG *rig, hamlib_token_t token, const char *val);
+static int rx331_get_conf(RIG *rig, hamlib_token_t token, char *val);
 static int rx331_open(RIG *rig);
 static int rx331_close(RIG *rig);
 static int rx331_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
@@ -94,14 +88,14 @@ static const char *rx331_get_info(RIG *rig);
  *
  * TODO: from/to memory
  */
-const struct rig_caps rx331_caps =
+struct rig_caps rx331_caps =
 {
     RIG_MODEL(RIG_MODEL_RX331),
     .model_name = "RX-331",
     .mfg_name =  "Ten-Tec",
-    .version =  "20200323.0",
+    .version =  "20200911.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -192,7 +186,7 @@ const struct rig_caps rx331_caps =
     .get_level =  rx331_get_level,
     .vfo_op =     rx331_vfo_op,
     .get_info =   rx331_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -238,7 +232,7 @@ const struct rig_caps rx331_caps =
 /*
  * rx331_transaction
  * read exactly data_len bytes
- * We assume that rig!=NULL, rig->state!= NULL, data!=NULL, data_len!=NULL
+ * We assume that rig!=NULL, STATE(rig)!= NULL, data!=NULL, data_len!=NULL
  * Otherwise, you'll get a nice seg fault. You've been warned!
  */
 static int rx331_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
@@ -248,15 +242,13 @@ static int rx331_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
     int retval;
     char str[BUFSZ];
     char fmt[16];
-    struct rig_state *rs;
-    struct rx331_priv_data *priv = (struct rx331_priv_data *)rig->state.priv;
+    hamlib_port_t *rp = RIGPORT(rig);
+    const struct rx331_priv_data *priv = (struct rx331_priv_data *)STATE(rig)->priv;
 
-    rs = &rig->state;
-
-    rig_flush(&rs->rigport);
+    rig_flush(rp);
 
     num_snprintf(str, BUFSZ, "$%u%s", priv->receiver_id, cmd);
-    retval = write_block(&rs->rigport, str, strlen(str));
+    retval = write_block(rp, (unsigned char *) str, strlen(str));
 
     if (retval != RIG_OK)
     {
@@ -269,14 +261,14 @@ static int rx331_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
         return RIG_OK;
     }
 
-    retval = read_string(&rs->rigport, data, BUFSZ, EOM, 1);
+    retval = read_string(rp, (unsigned char *) data, BUFSZ, EOM, 1, 0, 1);
 
     if (retval < 0)
     {
         return retval;
     }
 
-    snprintf(fmt, sizeof(fmt) - 1, "%%i%%%ds", BUFSZ);
+    SNPRINTF(fmt, sizeof(fmt) - 1, "%%i%%%ds", BUFSZ);
     sscanf(data + 1, fmt, &rig_id, data);
 
     if (rig_id != priv->receiver_id)
@@ -297,16 +289,16 @@ int rx331_init(RIG *rig)
 {
     struct rx331_priv_data *priv;
 
-    rig->state.priv = (struct rx331_priv_data *)malloc(sizeof(
-                          struct rx331_priv_data));
+    STATE(rig)->priv = (struct rx331_priv_data *)calloc(1, sizeof(
+                           struct rx331_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         /* whoops! memory shortage! */
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     memset(priv, 0, sizeof(struct rx331_priv_data));
 
@@ -319,19 +311,19 @@ int rx331_init(RIG *rig)
  */
 int rx331_cleanup(RIG *rig)
 {
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
 
-int rx331_set_conf(RIG *rig, token_t token, const char *val)
+int rx331_set_conf(RIG *rig, hamlib_token_t token, const char *val)
 {
-    struct rx331_priv_data *priv = (struct rx331_priv_data *)rig->state.priv;
+    struct rx331_priv_data *priv = (struct rx331_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
@@ -346,14 +338,14 @@ int rx331_set_conf(RIG *rig, token_t token, const char *val)
     return RIG_OK;
 }
 
-int rx331_get_conf(RIG *rig, token_t token, char *val)
+int rx331_get_conf2(RIG *rig, hamlib_token_t token, char *val, int val_len)
 {
-    struct rx331_priv_data *priv = (struct rx331_priv_data *)rig->state.priv;
+    const struct rx331_priv_data *priv = (struct rx331_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
     case TOK_RIGID:
-        sprintf(val, "%u", priv->receiver_id);
+        SNPRINTF(val, val_len, "%u", priv->receiver_id);
         break;
 
     default:
@@ -363,6 +355,12 @@ int rx331_get_conf(RIG *rig, token_t token, char *val)
     return RIG_OK;
 }
 
+int rx331_get_conf(RIG *rig, hamlib_token_t token, char *val)
+{
+    return rx331_get_conf2(rig, token, val, 128);
+}
+
+// cppcheck-suppress constParameterCallback
 int rx331_open(RIG *rig)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -378,6 +376,7 @@ int rx331_open(RIG *rig)
 /*
  * rig_close
  */
+// cppcheck-suppress constParameterCallback
 int rx331_close(RIG *rig)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -392,16 +391,15 @@ int rx331_close(RIG *rig)
 
 int rx331_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct rx331_priv_data *priv = (struct rx331_priv_data *)rig->state.priv;
+    const struct rx331_priv_data *priv = (struct rx331_priv_data *)STATE(rig)->priv;
 
-    struct rig_state *rs = &rig->state;
     int freq_len, retval;
     char freqbuf[16];
 
-    freq_len = num_sprintf(freqbuf, "$%uF%.6f" EOM,
-                           priv->receiver_id, freq / 1e6);
+    freq_len = num_snprintf(freqbuf, sizeof(freqbuf), "$%uF%.6f" EOM,
+                            priv->receiver_id, freq / 1e6);
 
-    retval = write_block(&rs->rigport, freqbuf, freq_len);
+    retval = write_block(RIGPORT(rig), (unsigned char *) freqbuf, freq_len);
 
     return retval;
 }
@@ -441,8 +439,7 @@ int rx331_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
  */
 int rx331_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
-    struct rx331_priv_data *priv = (struct rx331_priv_data *)rig->state.priv;
-    struct rig_state *rs = &rig->state;
+    const struct rx331_priv_data *priv = (struct rx331_priv_data *)STATE(rig)->priv;
     char dmode;
     int mdbuf_len, retval;
     char mdbuf[32];
@@ -480,18 +477,20 @@ int rx331_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         /*
          * Set DETECTION MODE and IF FILTER
          */
-        mdbuf_len = num_sprintf(mdbuf,  "$%uD%cI%.02f" EOM, priv->receiver_id,
-                                dmode, (float)width / 1e3);
+        mdbuf_len = num_snprintf(mdbuf, sizeof(mdbuf),  "$%uD%cI%.02f" EOM,
+                                 priv->receiver_id,
+                                 dmode, (float)width / 1e3);
     }
     else
     {
         /*
          * Set DETECTION MODE
          */
-        mdbuf_len = num_sprintf(mdbuf,  "$%uD%c" EOM, priv->receiver_id, dmode);
+        mdbuf_len = num_snprintf(mdbuf, sizeof(mdbuf),  "$%uD%c" EOM, priv->receiver_id,
+                                 dmode);
     }
 
-    retval = write_block(&rs->rigport, mdbuf, mdbuf_len);
+    retval = write_block(RIGPORT(rig), (unsigned char *) mdbuf, mdbuf_len);
 
     return retval;
 }
@@ -561,23 +560,22 @@ int rx331_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
  */
 int rx331_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
-    struct rx331_priv_data *priv = (struct rx331_priv_data *)rig->state.priv;
-    struct rig_state *rs = &rig->state;
-    int cmd_len, retval = RIG_OK;
+    const struct rx331_priv_data *priv = (struct rx331_priv_data *)STATE(rig)->priv;
+    int retval = RIG_OK;
     char cmdbuf[32];
 
     switch (level)
     {
     case RIG_LEVEL_ATT:
-        cmd_len = sprintf(cmdbuf, "$%uK%i" EOM,
-                          priv->receiver_id,
-                          val.i ? RX331_ATT_ON : RX331_ATT_OFF);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "$%uK%i" EOM,
+                 priv->receiver_id,
+                 val.i ? RX331_ATT_ON : RX331_ATT_OFF);
         break;
 
     case RIG_LEVEL_PREAMP:
-        cmd_len = sprintf(cmdbuf, "$%uK%i" EOM,
-                          priv->receiver_id,
-                          val.i ? RX331_PREAMP_ON : RX331_PREAMP_OFF);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "$%uK%i" EOM,
+                 priv->receiver_id,
+                 val.i ? RX331_PREAMP_ON : RX331_PREAMP_OFF);
         break;
 
     case RIG_LEVEL_AGC:
@@ -598,34 +596,34 @@ int rx331_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        cmd_len = sprintf(cmdbuf, "$%uM%i" EOM,
-                          priv->receiver_id, val.i);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "$%uM%i" EOM,
+                 priv->receiver_id, val.i);
         break;
 
     case RIG_LEVEL_RF:
-        cmd_len = sprintf(cmdbuf, "$%uA%d" EOM, priv->receiver_id,
-                          120 - (int)(val.f * 120));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "$%uA%d" EOM, priv->receiver_id,
+                 120 - (int)(val.f * 120));
         break;
 
     case RIG_LEVEL_SQL:
-        cmd_len = sprintf(cmdbuf, "$%uQ%d" EOM, priv->receiver_id,
-                          120 - (int)(val.f * 120));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "$%uQ%d" EOM, priv->receiver_id,
+                 120 - (int)(val.f * 120));
         break;
 
     case RIG_LEVEL_NOTCHF:
-        cmd_len = num_sprintf(cmdbuf, "$%uN%f" EOM, priv->receiver_id,
-                              ((float)val.i) / 1e3);
+        num_snprintf(cmdbuf, sizeof(cmdbuf), "$%uN%f" EOM, priv->receiver_id,
+                     ((float)val.i) / 1e3);
         break;
 
     case RIG_LEVEL_IF:
-        cmd_len = num_sprintf(cmdbuf, "$%uP%f" EOM, priv->receiver_id,
-                              ((float)val.i) / 1e3);
+        num_snprintf(cmdbuf, sizeof(cmdbuf), "$%uP%f" EOM, priv->receiver_id,
+                     ((float)val.i) / 1e3);
         break;
 
     case RIG_LEVEL_CWPITCH:
         /* only in CW mode */
-        cmd_len = num_sprintf(cmdbuf, "$%uB%f" EOM, priv->receiver_id,
-                              ((float)val.i) / 1e3);
+        num_snprintf(cmdbuf, sizeof(cmdbuf), "$%uB%f" EOM, priv->receiver_id,
+                     ((float)val.i) / 1e3);
         break;
 
     default:
@@ -634,7 +632,7 @@ int rx331_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         return -RIG_EINVAL;
     }
 
-    retval = write_block(&rs->rigport, cmdbuf, cmd_len);
+    retval = write_block(RIGPORT(rig), (unsigned char *) cmdbuf, strlen(cmdbuf));
     return retval;
 }
 
@@ -646,6 +644,7 @@ int rx331_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 int rx331_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     int retval, lvl_len;
+    double f;
     char lvlbuf[BUFSZ];
 
     switch (level)
@@ -780,7 +779,8 @@ int rx331_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EPROTO;
         }
 
-        val->f = 1.0 - (float)(val->i / 120.0);
+        f = val->i / 120.0;
+        val->f = 1.0 - f;
 
         break;
 
@@ -805,7 +805,8 @@ int rx331_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EPROTO;
         }
 
-        val->i = (int)(val->f * 1000.0);
+        f = val->f * 1000.0;
+        val->i = (int)f;
 
         break;
 
@@ -830,7 +831,8 @@ int rx331_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EPROTO;
         }
 
-        val->f = 1.0 - (val->i / 120.0);
+        f = val->i / 120.0;
+        val->f = 1.0 - f;
 
         break;
 
@@ -855,7 +857,8 @@ int rx331_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EPROTO;
         }
 
-        val->i = (val->f *  1000.0);
+        f = val->f * 1000.0;
+        val->i = f;
 
         break;
 
@@ -880,7 +883,8 @@ int rx331_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EPROTO;
         }
 
-        val->i = (val->f *  1000.0);
+        f = val->f * 1000.0;
+        val->i = f;
 
         break;
 

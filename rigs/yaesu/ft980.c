@@ -83,20 +83,13 @@
 *      get_conf
 */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <sys/time.h> /* for timeofday call */
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
-#include "bandplan.h"
 #include "yaesu.h"
 #include "ft980.h"
 
@@ -567,39 +560,41 @@ int ft980_transaction(RIG *rig, const unsigned char *cmd, unsigned char *data,
                       int expected_len)
 {
     int retval;
-    char echo_back[YAESU_CMD_LENGTH];
+    hamlib_port_t *rp = RIGPORT(rig);
+    unsigned char echo_back[YAESU_CMD_LENGTH];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    rig_flush(&rig->state.rigport);
+    rig_flush(rp);
 
-    retval = write_block(&rig->state.rigport, (const char *)cmd, YAESU_CMD_LENGTH);
-
-    if (retval < 0)
-    {
-        return retval;
-    }
-
-    retval = read_block(&rig->state.rigport, echo_back, YAESU_CMD_LENGTH);
+    retval = write_block(rp, cmd, YAESU_CMD_LENGTH);
 
     if (retval < 0)
     {
         return retval;
     }
 
-    if (retval != YAESU_CMD_LENGTH || memcmp(echo_back, cmd, YAESU_CMD_LENGTH))
+    retval = read_block(rp, echo_back, YAESU_CMD_LENGTH);
+
+    if (retval < 0)
+    {
+        return retval;
+    }
+
+    if (retval != YAESU_CMD_LENGTH
+            || (memcmp(echo_back, cmd, YAESU_CMD_LENGTH) != 0))
     {
         return -RIG_EPROTO;
     }
 
-    retval = write_block(&rig->state.rigport, cmd_OK, YAESU_CMD_LENGTH);
+    retval = write_block(rp, cmd_OK, YAESU_CMD_LENGTH);
 
     if (retval < 0)
     {
         return retval;
     }
 
-    retval = read_block(&rig->state.rigport, (char *)data, expected_len);
+    retval = read_block(rp, data, expected_len);
 
     if (retval < 0)
     {
@@ -616,8 +611,8 @@ int ft980_transaction(RIG *rig, const unsigned char *cmd, unsigned char *data,
 
 int ft980_get_status_data(RIG *rig)
 {
-    unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x01 };
-    struct ft980_priv_data *priv = (struct ft980_priv_data *)rig->state.priv;
+    const unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x01 };
+    struct ft980_priv_data *priv = (struct ft980_priv_data *)STATE(rig)->priv;
     int retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -668,15 +663,15 @@ int ft980_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct ft980_priv_data *) calloc(1,
-                      sizeof(struct ft980_priv_data));
+    STATE(rig)->priv = (struct ft980_priv_data *) calloc(1,
+                       sizeof(struct ft980_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         return -RIG_ENOMEM;
     }
 
-    priv = (struct ft980_priv_data *)rig->state.priv;
+    priv = (struct ft980_priv_data *)STATE(rig)->priv;
 
     memset(priv, 0, sizeof(struct ft980_priv_data));
 
@@ -710,12 +705,12 @@ int ft980_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
@@ -739,11 +734,12 @@ int ft980_open(RIG *rig)
 {
     unsigned char echo_back[YAESU_CMD_LENGTH];
     struct ft980_priv_data *priv;
+    hamlib_port_t *rp = RIGPORT(rig);
     int retry_count1 = 0;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    priv = (struct ft980_priv_data *)rig->state.priv;
+    priv = (struct ft980_priv_data *)STATE(rig)->priv;
 
     /* send Ext Cntl ON: Activate CAT */
     do
@@ -753,18 +749,17 @@ int ft980_open(RIG *rig)
 
         do
         {
-            write_block(&rig->state.rigport, (char *) cmd_ON_OFF,
-                        YAESU_CMD_LENGTH);
-            retval = read_block(&rig->state.rigport, (char *) echo_back, YAESU_CMD_LENGTH);
+            write_block(rp, cmd_ON_OFF, YAESU_CMD_LENGTH);
+            retval = read_block(rp, echo_back, YAESU_CMD_LENGTH);
         }
-        while (retval != 5 && retry_count2++ < rig->state.rigport.retry);
+        while (retval != 5 && retry_count2++ < rp->retry);
 
-        write_block(&rig->state.rigport, (char *) cmd_OK, YAESU_CMD_LENGTH);
-        retval = read_block(&rig->state.rigport, (char *) &priv->update_data,
-                            FT980_ALL_STATUS_LENGTH);
+        write_block(rp, cmd_OK, YAESU_CMD_LENGTH);
+        read_block(rp, (unsigned char *) &priv->update_data,
+                   FT980_ALL_STATUS_LENGTH);
     }
     while (!priv->update_data.ext_ctl_flag
-            && retry_count1++ < rig->state.rigport.retry);
+            && retry_count1++ < rp->retry);
 
     return RIG_OK;
 }
@@ -787,7 +782,8 @@ int ft980_open(RIG *rig)
 int ft980_close(RIG *rig)
 {
     unsigned char echo_back[YAESU_CMD_LENGTH];
-    struct ft980_priv_data *priv = (struct ft980_priv_data *)rig->state.priv;
+    struct ft980_priv_data *priv = (struct ft980_priv_data *)STATE(rig)->priv;
+    hamlib_port_t *rp = RIGPORT(rig);
     int retry_count1 = 0;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -799,18 +795,17 @@ int ft980_close(RIG *rig)
 
         do
         {
-            write_block(&rig->state.rigport, (char *) cmd_ON_OFF,
-                        YAESU_CMD_LENGTH);
-            retval = read_block(&rig->state.rigport, (char *) echo_back, YAESU_CMD_LENGTH);
+            write_block(rp, cmd_ON_OFF, YAESU_CMD_LENGTH);
+            retval = read_block(rp, echo_back, YAESU_CMD_LENGTH);
         }
-        while (retval != 5 && retry_count2++ < rig->state.rigport.retry);
+        while (retval != 5 && retry_count2++ < rp->retry);
 
-        write_block(&rig->state.rigport, (char *) cmd_OK, YAESU_CMD_LENGTH);
-        retval = read_block(&rig->state.rigport, (char *) &priv->update_data,
-                            FT980_ALL_STATUS_LENGTH);
+        write_block(rp, cmd_OK, YAESU_CMD_LENGTH);
+        read_block(rp, (unsigned char *) &priv->update_data,
+                   FT980_ALL_STATUS_LENGTH);
     }
     while (priv->update_data.ext_ctl_flag
-            && retry_count1++ < rig->state.rigport.retry);
+            && retry_count1++ < rp->retry);
 
     return RIG_OK;
 }
@@ -847,7 +842,7 @@ int ft980_close(RIG *rig)
 int ft980_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x08};
-    struct ft980_priv_data *priv = (struct ft980_priv_data *)rig->state.priv;
+    struct ft980_priv_data *priv = (struct ft980_priv_data *)STATE(rig)->priv;
     int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
@@ -908,7 +903,7 @@ int ft980_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
  */
 int ft980_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct ft980_priv_data *priv = (struct ft980_priv_data *)rig->state.priv;
+    struct ft980_priv_data *priv = (struct ft980_priv_data *)STATE(rig)->priv;
     int retval;
     freq_t f;
 
@@ -982,7 +977,7 @@ int ft980_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 int ft980_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x0A};
-    struct ft980_priv_data *priv = (struct ft980_priv_data *)rig->state.priv;
+    struct ft980_priv_data *priv = (struct ft980_priv_data *)STATE(rig)->priv;
     unsigned char md;
     int err;
 
@@ -1099,7 +1094,7 @@ int ft980_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 int ft980_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
     unsigned char my_mode;              /* ft890 mode, mode offset */
-    struct ft980_priv_data *priv = (struct ft980_priv_data *)rig->state.priv;
+    struct ft980_priv_data *priv = (struct ft980_priv_data *)STATE(rig)->priv;
     int retval, norm;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
@@ -1223,7 +1218,7 @@ int ft980_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
      */
     cmd[4] = split == RIG_SPLIT_ON ? 0x0e : 0x8e;
 
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), (char *) cmd, YAESU_CMD_LENGTH);
 #endif
 }
 
@@ -1241,7 +1236,7 @@ int ft980_set_split_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 int ft980_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x0A };
-    struct ft980_priv_data *priv = (struct ft980_priv_data *)rig->state.priv;
+    struct ft980_priv_data *priv = (struct ft980_priv_data *)STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -1274,7 +1269,7 @@ int ft980_set_mem(RIG *rig, vfo_t vfo, int ch)
  */
 int ft980_get_mem(RIG *rig, vfo_t vfo, int *ch)
 {
-    struct ft980_priv_data *priv = (struct ft980_priv_data *)rig->state.priv;
+    struct ft980_priv_data *priv = (struct ft980_priv_data *)STATE(rig)->priv;
     int retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -1326,7 +1321,7 @@ int ft980_set_vfo(RIG *rig, vfo_t vfo)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = %s\n", __func__, rig_strvfo(vfo));
 
-    priv = (struct ft980_priv_data *)rig->state.priv;
+    priv = (struct ft980_priv_data *)STATE(rig)->priv;
 
     switch (vfo)
     {
@@ -1412,7 +1407,7 @@ int ft980_get_vfo(RIG *rig, vfo_t *vfo)
         return -RIG_EARG;
     }
 
-    priv = (struct ft980_priv_data *)rig->state.priv;
+    priv = (struct ft980_priv_data *)STATE(rig)->priv;
 
     /* Get flags for VFO status */
     err = ft980_get_status_data(rig);

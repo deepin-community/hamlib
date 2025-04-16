@@ -1,0 +1,12 @@
+#!/bin/sh
+# postinst script for lihamlib
+
+set -e
+
+dpkg-maintscript-helper rm_conffile /etc/udev/60-libhamlib4.rules -- "$@"
+
+rm -f /etc/udev/rules.d/60-libhamlib4.rules
+
+#DEBHELPER#
+
+exit 0

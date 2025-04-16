@@ -22,6 +22,7 @@
 #ifndef _ROT_DUMMY_H
 #define _ROT_DUMMY_H 1
 
+#include "rotator.h"
 #include "token.h"
 
 /* backend conf */
@@ -36,7 +37,9 @@
 #define TOK_EL_ROT_MAGICCOMBO    TOKEN_BACKEND(5)
 #define TOK_EL_ROT_MAGICEXTFUNC  TOKEN_BACKEND(6)
 
-extern const struct rot_caps dummy_rot_caps;
-extern const struct rot_caps netrotctl_caps;
+extern struct rot_caps dummy_rot_caps;
+extern struct rot_caps netrotctl_caps;
+extern struct rot_caps pstrotator;
+extern struct rot_caps satrotctl_caps;
 
 #endif /* _ROT_DUMMY_H */

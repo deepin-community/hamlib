@@ -19,12 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-
 #include "hamlib/rig.h"
 #include "icom.h"
 #include "bandplan.h"
@@ -68,14 +62,14 @@ static const struct icom_priv_caps ic78_priv_caps =
     ic706_ts_sc_list
 };
 
-const struct rig_caps ic78_caps =
+struct rig_caps ic78_caps =
 {
     RIG_MODEL(RIG_MODEL_IC78),
     .model_name = "IC-78",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -96,9 +90,9 @@ const struct rig_caps ic78_caps =
     .has_set_level =  RIG_LEVEL_SET(IC78_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
     .parm_gran =  {},
     .preamp =   { 10, 20, RIG_DBLST_END, },
@@ -186,6 +180,7 @@ const struct rig_caps ic78_caps =
     .scan =  icom_scan,
     .get_dcd =  icom_get_dcd,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

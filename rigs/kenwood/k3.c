@@ -22,20 +22,19 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <math.h>
 
 #include <hamlib/rig.h>
+
 #include "idx_builtin.h"
 #include "kenwood.h"
+#include "misc.h"
 #include "bandplan.h"
 #include "elecraft.h"
-#include "token.h"
 #include "cal.h"
-#include "iofunc.h"
 
 #define K3_MODES (RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|\
     RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM|RIG_MODE_AM|RIG_MODE_PKTUSB|\
@@ -43,7 +42,9 @@
 
 #define K3_FUNC_ALL (RIG_FUNC_NB|RIG_FUNC_VOX|RIG_FUNC_APF|\
     RIG_FUNC_DUAL_WATCH|RIG_FUNC_DIVERSITY|\
-    RIG_FUNC_LOCK|RIG_FUNC_RIT|RIG_FUNC_XIT)
+    RIG_FUNC_LOCK|RIG_FUNC_RIT|RIG_FUNC_XIT|RIG_FUNC_SEND_MORSE)
+
+#define K4_FUNC_ALL (K3_FUNC_ALL|RIG_FUNC_MUTE)
 
 #define K3_LEVEL_ALL (RIG_LEVEL_ATT|RIG_LEVEL_PREAMP|RIG_LEVEL_AGC|RIG_LEVEL_SQL|\
     RIG_LEVEL_STRENGTH|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER|RIG_LEVEL_KEYSPD|\
@@ -51,7 +52,7 @@
     RIG_LEVEL_NR|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_RAWSTR|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS)
 
 #define K3_VFO (RIG_VFO_A|RIG_VFO_B)
-#define K3_VFO_OP (RIG_OP_UP|RIG_OP_DOWN)
+#define K3_VFO_OP (RIG_OP_UP|RIG_OP_DOWN|RIG_OP_TUNE)
 
 #define K3_ANTS (RIG_ANT_1|RIG_ANT_2)
 #define K4_ANTS (RIG_ANT_1|RIG_ANT_2|RIG_ANT_3|RIG_ANT_4)
@@ -62,7 +63,8 @@
 #define KX3_LEVEL_ALL (RIG_LEVEL_ATT|RIG_LEVEL_PREAMP|RIG_LEVEL_AGC|RIG_LEVEL_SQL|\
     RIG_LEVEL_STRENGTH|RIG_LEVEL_RFPOWER|RIG_LEVEL_KEYSPD|\
     RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_MICGAIN|RIG_LEVEL_COMP|\
-    RIG_LEVEL_NR|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_RAWSTR|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS)
+    RIG_LEVEL_NR|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_RAWSTR|RIG_LEVEL_RFPOWER_METER|\
+    RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_SWR)
 
 /*
  * Elecraft K3/K3S extra level definitions
@@ -141,12 +143,13 @@ static struct kenwood_priv_caps k3_priv_caps  =
 
 
 /* K3 specific function declarations */
+int k3_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 int k3_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
 int k3_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
 int k3_get_vfo(RIG *rig, vfo_t *vfo);
 int k3_set_vfo(RIG *rig, vfo_t vfo);
-int k3_set_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t val);
-int k3_get_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t *val);
+int k3_set_ext_level(RIG *rig, vfo_t vfo, hamlib_token_t token, value_t val);
+int k3_get_ext_level(RIG *rig, vfo_t vfo, hamlib_token_t token, value_t *val);
 int k3_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit);
 int k3_set_xit(RIG *rig, vfo_t vfo, shortfreq_t rit);
 int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width);
@@ -158,6 +161,9 @@ int kx3_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
 int kx3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
 int k3_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
 int k3_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status);
+int k3_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
+int k3_power2mW(RIG *rig, unsigned int *mwpower, float power, freq_t freq,
+                rmode_t mode);
 
 /* Private helper functions */
 int set_rit_xit(RIG *rig, shortfreq_t rit);
@@ -165,8 +171,40 @@ int k3_set_nb_level(RIG *rig, float dsp_nb, float if_nb);
 int k3_get_nb_level(RIG *rig, float *dsp_nb, float *if_nb);
 int k3_get_bar_graph_level(RIG *rig, float *smeter, float *pwr, float *alc,
                            int *mode_tx);
+int k4_get_bar_graph_level(RIG *rig, float *swr, float *pwr, float *alc,
+                           int *mode_tx);
 int kx3_get_bar_graph_level(RIG *rig, float *level);
+int k3_send_voice_mem(RIG *rig, vfo_t vfo, int ch);
+int k3_stop_voice_mem(RIG *rig, vfo_t vfo);
+int k3_stop_morse(RIG *rig, vfo_t vfo);
 
+/* K4 functions */
+int k4_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
+int k4_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
+int k4_send_voice_mem(RIG *rig, vfo_t vfo, int ch);
+int k4_stop_voice_mem(RIG *rig, vfo_t vfo);
+int k4_stop_morse(RIG *rig, vfo_t vfo);
+
+/*
+ * K3 rig capabilities.
+ * This kit can recognize a large subset of TS-570/K2 commands and has many
+ * extensions of its own.  Extension backend functions to standard Kenwood
+ * command are defined in elecraft.c (shared with K2) and in this file.
+ *
+ * Part of info comes from http://www.elecraft.com/K2_Manual_Download_Page.htm#K3
+ * look for K3 Programmer's Reference PDF
+ */
+int kx3_get_bar_graph_level(RIG *rig, float *level);
+int k3_send_voice_mem(RIG *rig, vfo_t vfo, int ch);
+int k3_stop_voice_mem(RIG *rig, vfo_t vfo);
+int k3_stop_morse(RIG *rig, vfo_t vfo);
+
+/* K4 functions */
+int k4_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
+int k4_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
+int k4_send_voice_mem(RIG *rig, vfo_t vfo, int ch);
+int k4_stop_voice_mem(RIG *rig, vfo_t vfo);
+int k4_stop_morse(RIG *rig, vfo_t vfo);
 
 /*
  * K3 rig capabilities.
@@ -178,12 +216,12 @@ int kx3_get_bar_graph_level(RIG *rig, float *level);
  * look for K3 Programmer's Reference PDF
  *
  */
-const struct rig_caps k3_caps =
+struct rig_caps k3_caps =
 {
     RIG_MODEL(RIG_MODEL_K3),
     .model_name =       "K3",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".16",
+    .version =      BACKEND_VER ".31",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -197,7 +235,7 @@ const struct rig_caps k3_caps =
     .serial_parity =    RIG_PARITY_NONE,
     .serial_handshake = RIG_HANDSHAKE_NONE,
     .write_delay =      0,  /* Timing between bytes */
-    .post_write_delay = 0,  /* Timing between command strings */
+    .post_write_delay = 10,  /* Timing between command strings */
     .timeout =      1000,   /* FA and FB make take up to 500 ms on band change */
     .retry =        5,
 
@@ -209,7 +247,7 @@ const struct rig_caps k3_caps =
     .has_set_parm =     RIG_PARM_NONE,  /* FIXME: parms */
     .level_gran = {
         // cppcheck-suppress *
-        [LVL_KEYSPD] = { .min = { .i = 8 }, .max = { .i = 50 }, .step = { .i = 1 } },
+#include "level_gran_elecraft.h"
     },
     .parm_gran =        {},
     .extlevels =        k3_ext_levels,
@@ -225,7 +263,11 @@ const struct rig_caps k3_caps =
     .bank_qty =     0,
     .chan_desc_sz =     0,
 
-    .chan_list =        { RIG_CHAN_END },
+    .chan_list =    {
+        {   1, 4, RIG_MTYPE_VOICE },
+        {   1, 4, RIG_MTYPE_MORSE },
+        RIG_CHAN_END
+    },
 
     .rx_range_list1 =  {
         {kHz(500), MHz(30), K3_MODES, -1, -1, K3_VFO, K3_ANTS},
@@ -291,8 +333,8 @@ const struct rig_caps k3_caps =
     .rig_init =     kenwood_init,
     .rig_cleanup =      kenwood_cleanup,
     .rig_open =     elecraft_open,
-    .rig_close =        kenwood_close,
-    .set_freq =     kenwood_set_freq,
+    .rig_close =        elecraft_close,
+    .set_freq =     k3_set_freq,
     .get_freq =     kenwood_get_freq,
     .set_mode =     k3_set_mode,
     .get_mode =     k3_get_mode,
@@ -306,8 +348,8 @@ const struct rig_caps k3_caps =
     .get_rit =      kenwood_get_rit,
     .set_xit =      k3_set_xit,
     .get_xit =      kenwood_get_xit,
-    .get_ptt =      kenwood_get_ptt,
-    .set_ptt =      kenwood_set_ptt,
+    .get_ptt =      k4_get_ptt,
+    .set_ptt =      k4_set_ptt,
     .get_dcd =      kenwood_get_dcd,
     .set_func =     k3_set_func,
     .get_func =     k3_get_func,
@@ -317,7 +359,7 @@ const struct rig_caps k3_caps =
     .get_level =        k3_get_level,
     .set_ext_level =    k3_set_ext_level,
     .get_ext_level =    k3_get_ext_level,
-    .vfo_op =       kenwood_vfo_op,
+    .vfo_op =       k3_vfo_op,
     .set_trn =      kenwood_set_trn,
     .get_trn =      kenwood_get_trn,
     .set_powerstat =    kenwood_set_powerstat,
@@ -325,16 +367,21 @@ const struct rig_caps k3_caps =
     .set_ant =      kenwood_set_ant_no_ack,
     .get_ant =      kenwood_get_ant,
     .send_morse =       kenwood_send_morse,
-    .wait_morse =       rig_wait_morse
-
+    .wait_morse =       rig_wait_morse,
+    .stop_morse =       k3_stop_morse,
+    .send_voice_mem =   k3_send_voice_mem,
+    .stop_voice_mem =   k3_stop_voice_mem,
+    .power2mW =     k3_power2mW,
+    .morse_qsize = 24,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
-const struct rig_caps k3s_caps =
+struct rig_caps k3s_caps =
 {
     RIG_MODEL(RIG_MODEL_K3S),
     .model_name =       "K3S",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".14",
+    .version =      BACKEND_VER ".25",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -348,7 +395,7 @@ const struct rig_caps k3s_caps =
     .serial_parity =    RIG_PARITY_NONE,
     .serial_handshake = RIG_HANDSHAKE_NONE,
     .write_delay =      0,  /* Timing between bytes */
-    .post_write_delay = 0,  /* Timing between command strings */
+    .post_write_delay = 10,  /* Timing between command strings */
     .timeout =      1000,   /* FA and FB make take up to 500 ms on band change */
     .retry =        5,
 
@@ -359,7 +406,10 @@ const struct rig_caps k3s_caps =
     .has_get_parm =     RIG_PARM_NONE,
     .has_set_parm =     RIG_PARM_NONE,  /* FIXME: parms */
     .level_gran = {
-        [LVL_KEYSPD] = { .min = { .i = 8 }, .max = { .i = 50 }, .step = { .i = 1 } },
+#define NO_LVL_ATT
+#include "level_gran_elecraft.h"
+#undef NO_LVL_ATT
+        [LVL_ATT] = { .min = { .i = 0 }, .max = { .i = 15 }, .step = { .i = 5 } },
     },
     .parm_gran =        {},
     .extlevels =        k3_ext_levels,
@@ -375,7 +425,11 @@ const struct rig_caps k3s_caps =
     .bank_qty =     0,
     .chan_desc_sz =     0,
 
-    .chan_list =        { RIG_CHAN_END },
+    .chan_list =    {
+        {   1, 4, RIG_MTYPE_VOICE },
+        {   1, 4, RIG_MTYPE_MORSE },
+        RIG_CHAN_END
+    },
 
     .rx_range_list1 =  {
         {kHz(500), MHz(30), K3_MODES, -1, -1, K3_VFO, K3_ANTS},
@@ -441,8 +495,8 @@ const struct rig_caps k3s_caps =
     .rig_init =     kenwood_init,
     .rig_cleanup =      kenwood_cleanup,
     .rig_open =     elecraft_open,
-    .rig_close =        kenwood_close,
-    .set_freq =     kenwood_set_freq,
+    .rig_close =        elecraft_close,
+    .set_freq =     k3_set_freq,
     .get_freq =     kenwood_get_freq,
     .set_mode =     k3_set_mode,
     .get_mode =     k3_get_mode,
@@ -456,8 +510,8 @@ const struct rig_caps k3s_caps =
     .get_rit =      kenwood_get_rit,
     .set_xit =      k3_set_xit,
     .get_xit =      kenwood_get_xit,
-    .get_ptt =      kenwood_get_ptt,
-    .set_ptt =      kenwood_set_ptt,
+    .get_ptt =      k4_get_ptt,
+    .set_ptt =      k4_set_ptt,
     .get_dcd =      kenwood_get_dcd,
     .set_func =     k3_set_func,
     .get_func =     k3_get_func,
@@ -467,7 +521,7 @@ const struct rig_caps k3s_caps =
     .get_level =        k3_get_level,
     .set_ext_level =    k3_set_ext_level,
     .get_ext_level =    k3_get_ext_level,
-    .vfo_op =       kenwood_vfo_op,
+    .vfo_op =       k3_vfo_op,
     .set_trn =      kenwood_set_trn,
     .get_trn =      kenwood_get_trn,
     .set_powerstat =    kenwood_set_powerstat,
@@ -475,16 +529,22 @@ const struct rig_caps k3s_caps =
     .set_ant =      kenwood_set_ant_no_ack,
     .get_ant =      kenwood_get_ant,
     .send_morse =       kenwood_send_morse,
-    .wait_morse =       rig_wait_morse
+    .wait_morse =       rig_wait_morse,
+    .stop_morse =       k3_stop_morse,
+    .send_voice_mem =   k3_send_voice_mem,
+    .stop_voice_mem =   k3_stop_voice_mem,
+    .power2mW =     k3_power2mW,
+    .morse_qsize = 24,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 // How similar is this to the K3S?
-const struct rig_caps k4_caps =
+struct rig_caps k4_caps =
 {
     RIG_MODEL(RIG_MODEL_K4),
     .model_name =       "K4",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".14",
+    .version =      BACKEND_VER ".32",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -497,24 +557,36 @@ const struct rig_caps k4_caps =
     .serial_stop_bits = 1,
     .serial_parity =    RIG_PARITY_NONE,
     .serial_handshake = RIG_HANDSHAKE_NONE,
-    .write_delay =      0,  /* Timing between bytes */
+    .write_delay =      0, /* Timing between bytes */
     .post_write_delay = 0,  /* Timing between command strings */
     .timeout =      1000,   /* FA and FB make take up to 500 ms on band change */
     .retry =        5,
 
-    .has_get_func =     K3_FUNC_ALL,
-    .has_set_func =     K3_FUNC_ALL,
+    .has_get_func =     K4_FUNC_ALL,
+    .has_set_func =     K4_FUNC_ALL,
     .has_get_level =    K3_LEVEL_ALL,
     .has_set_level =    RIG_LEVEL_SET(K3_LEVEL_ALL),
     .has_get_parm =     RIG_PARM_NONE,
     .has_set_parm =     RIG_PARM_NONE,  /* FIXME: parms */
     .level_gran = {
-        [LVL_KEYSPD] = { .min = { .i = 8 }, .max = { .i = 50 }, .step = { .i = 1 } },
+#define NO_LVL_ATT
+#define NO_LVL_CWPITCH
+#define NO_LVL_VOXDELAY
+#define NO_LVL_PREAMP
+#include "level_gran_elecraft.h"
+#undef NO_LVL_ATT
+#undef NO_LVL_CWPITCH
+#undef NO_LVL_VOXDELAY
+#undef NO_LVL_PREAMP
+        [LVL_CWPITCH]  = { .min = { .i = 250 }, .max = { .i = 950 }, .step = { .i = 10 } },
+        [LVL_ATT]      = { .min = { .i = 0 },   .max = { .i = 15 },  .step = { .i = 5 }  },
+        [LVL_VOXDELAY] = { .min = { .i = 0 },   .max = { .i = 255 }, .step = { .i = 10 } },
+        [LVL_PREAMP]   = { .min = { .i = 0 },   .max = { .i = 30},   .step = { .i = 10 } },
     },
     .parm_gran =        {},
     .extlevels =        k3_ext_levels,
     .extparms =     kenwood_cfg_params,
-    .preamp =       { 1, RIG_DBLST_END, },
+    .preamp =       { 10, 20, 30, RIG_DBLST_END, },
     .attenuator =       { 5, 10, 15, RIG_DBLST_END, },
     .max_rit =      Hz(9990),
     .max_xit =      Hz(9990),
@@ -522,10 +594,16 @@ const struct rig_caps k4_caps =
     .vfo_ops =      K3_VFO_OP,
     .targetable_vfo =   RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE,
     .transceive =       RIG_TRN_RIG,
+    .agc_level_count = 3,
+    .agc_levels = { RIG_AGC_OFF, RIG_AGC_SLOW, RIG_AGC_FAST },
     .bank_qty =     0,
     .chan_desc_sz =     0,
 
-    .chan_list =        { RIG_CHAN_END },
+    .chan_list =    {
+        {   1,  4, RIG_MTYPE_VOICE },
+        {   1,  4, RIG_MTYPE_MORSE },
+        RIG_CHAN_END
+    },
 
     .rx_range_list1 =  {
         {kHz(500), MHz(30), K3_MODES, -1, -1, K3_VFO, K4_ANTS},
@@ -591,13 +669,13 @@ const struct rig_caps k4_caps =
     .rig_init =     kenwood_init,
     .rig_cleanup =      kenwood_cleanup,
     .rig_open =     elecraft_open,
-    .rig_close =        kenwood_close,
+    .rig_close =        elecraft_close,
     .set_freq =     kenwood_set_freq,
     .get_freq =     kenwood_get_freq,
     .set_mode =     k3_set_mode,
     .get_mode =     k3_get_mode,
     .set_vfo =      k3_set_vfo,
-    .get_vfo =      k3_get_vfo,
+    .get_vfo =      elecraft_get_vfo_tq,
     .set_split_mode =   k3_set_split_mode,
     .get_split_mode =   k3_get_split_mode,
     .set_split_vfo =    kenwood_set_split_vfo,
@@ -606,8 +684,8 @@ const struct rig_caps k4_caps =
     .get_rit =      kenwood_get_rit,
     .set_xit =      k3_set_xit,
     .get_xit =      kenwood_get_xit,
-    .get_ptt =      kenwood_get_ptt,
-    .set_ptt =      kenwood_set_ptt,
+    .get_ptt =      k4_get_ptt,
+    .set_ptt =      k4_set_ptt,
     .get_dcd =      kenwood_get_dcd,
     .set_func =     k3_set_func,
     .get_func =     k3_get_func,
@@ -617,7 +695,7 @@ const struct rig_caps k4_caps =
     .get_level =        k3_get_level,
     .set_ext_level =    k3_set_ext_level,
     .get_ext_level =    k3_get_ext_level,
-    .vfo_op =       kenwood_vfo_op,
+    .vfo_op =       k3_vfo_op,
     .set_trn =      kenwood_set_trn,
     .get_trn =      kenwood_get_trn,
     .set_powerstat =    kenwood_set_powerstat,
@@ -625,15 +703,21 @@ const struct rig_caps k4_caps =
     .set_ant =      kenwood_set_ant_no_ack,
     .get_ant =      kenwood_get_ant,
     .send_morse =       kenwood_send_morse,
-    .wait_morse =       rig_wait_morse
+    .wait_morse =       rig_wait_morse,
+    .stop_morse =       k4_stop_morse,
+    .send_voice_mem =   k4_send_voice_mem,
+    .stop_voice_mem =   k4_stop_voice_mem,
+    .power2mW =     k3_power2mW,
+    .morse_qsize = 24,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
-const struct rig_caps kx3_caps =
+struct rig_caps kx3_caps =
 {
     RIG_MODEL(RIG_MODEL_KX3),
     .model_name =       "KX3",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".14",
+    .version =      BACKEND_VER ".22",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -658,7 +742,7 @@ const struct rig_caps kx3_caps =
     .has_get_parm =     RIG_PARM_NONE,
     .has_set_parm =     RIG_PARM_NONE,  /* FIXME: parms */
     .level_gran = {
-        [LVL_KEYSPD] = { .min = { .i = 8 }, .max = { .i = 50 }, .step = { .i = 1 } },
+#include "level_gran_elecraft.h"
     },
     .parm_gran =        {},
     .extlevels =        kx3_ext_levels,
@@ -674,7 +758,11 @@ const struct rig_caps kx3_caps =
     .bank_qty =     0,
     .chan_desc_sz =     0,
 
-    .chan_list =        { RIG_CHAN_END },
+    .chan_list =    {
+        {   1, 4, RIG_MTYPE_VOICE },
+        {   1, 4, RIG_MTYPE_MORSE },
+        RIG_CHAN_END
+    },
 
     .rx_range_list1 =  {
         {kHz(500), MHz(30), K3_MODES, -1, -1, K3_VFO, K3_ANTS},
@@ -740,7 +828,7 @@ const struct rig_caps kx3_caps =
     .rig_init =     kenwood_init,
     .rig_cleanup =      kenwood_cleanup,
     .rig_open =     elecraft_open,
-    .rig_close =        kenwood_close,
+    .rig_close =        elecraft_close,
     .set_freq =     kenwood_set_freq,
     .get_freq =     kenwood_get_freq,
     .set_mode =     k3_set_mode,
@@ -755,8 +843,8 @@ const struct rig_caps kx3_caps =
     .get_rit =      kenwood_get_rit,
     .set_xit =      k3_set_xit,
     .get_xit =      kenwood_get_xit,
-    .get_ptt =      kenwood_get_ptt,
-    .set_ptt =      kenwood_set_ptt,
+    .get_ptt =      k4_get_ptt,
+    .set_ptt =      k4_set_ptt,
     .get_dcd =      kenwood_get_dcd,
     .set_func =     k3_set_func,
     .get_func =     k3_get_func,
@@ -766,7 +854,7 @@ const struct rig_caps kx3_caps =
     .get_level =        kx3_get_level,
     .set_ext_level =    k3_set_ext_level,
     .get_ext_level =    k3_get_ext_level,
-    .vfo_op =       kenwood_vfo_op,
+    .vfo_op =       k3_vfo_op,
     .set_trn =      kenwood_set_trn,
     .get_trn =      kenwood_get_trn,
     .set_powerstat =    kenwood_set_powerstat,
@@ -774,15 +862,21 @@ const struct rig_caps kx3_caps =
     .set_ant =      kenwood_set_ant_no_ack,
     .get_ant =      kenwood_get_ant,
     .send_morse =       kenwood_send_morse,
-    .wait_morse =       rig_wait_morse
+    .wait_morse =       rig_wait_morse,
+    .stop_morse =       k3_stop_morse,
+    .send_voice_mem =   k3_send_voice_mem,
+    .stop_voice_mem =   k3_stop_voice_mem,
+    .power2mW =     k3_power2mW,
+    .morse_qsize = 24,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
-const struct rig_caps kx2_caps =
+struct rig_caps kx2_caps =
 {
     RIG_MODEL(RIG_MODEL_KX2),
     .model_name =       "KX2",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".14",
+    .version =      BACKEND_VER ".21",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -807,7 +901,7 @@ const struct rig_caps kx2_caps =
     .has_get_parm =     RIG_PARM_NONE,
     .has_set_parm =     RIG_PARM_NONE,  /* FIXME: parms */
     .level_gran = {
-        [LVL_KEYSPD] = { .min = { .i = 8 }, .max = { .i = 50 }, .step = { .i = 1 } },
+#include "level_gran_elecraft.h"
     },
     .parm_gran =        {},
     .extlevels =        kx3_ext_levels,
@@ -823,7 +917,10 @@ const struct rig_caps kx2_caps =
     .bank_qty =     0,
     .chan_desc_sz =     0,
 
-    .chan_list =        { RIG_CHAN_END },
+    .chan_list =    {
+        {   1, 4, RIG_MTYPE_MORSE },
+        RIG_CHAN_END
+    },
 
     .rx_range_list1 =  {
         {kHz(500), MHz(30), K3_MODES, -1, -1, K3_VFO, K3_ANTS},
@@ -831,8 +928,8 @@ const struct rig_caps kx2_caps =
         RIG_FRNG_END,
     }, /* rx range */
     .tx_range_list1 =  {
-        FRQ_RNG_HF(1, K3_MODES, mW(10), W(10), K3_VFO, K3_ANTS),
-        FRQ_RNG_6m(1, K3_MODES, mW(10), W(10), K3_VFO, K3_ANTS),
+        FRQ_RNG_HF(1, K3_MODES, mW(10), W(12), K3_VFO, K3_ANTS),
+        FRQ_RNG_6m(1, K3_MODES, mW(10), W(12), K3_VFO, K3_ANTS),
         RIG_FRNG_END,
     }, /* tx range */
 
@@ -842,8 +939,8 @@ const struct rig_caps kx2_caps =
         RIG_FRNG_END,
     }, /* rx range */
     .tx_range_list2 =  {
-        FRQ_RNG_HF(2, K3_MODES, mW(10), W(10), K3_VFO, K3_ANTS),
-        FRQ_RNG_6m(2, K3_MODES, mW(10), W(10), K3_VFO, K3_ANTS),
+        FRQ_RNG_HF(2, K3_MODES, mW(10), W(12), K3_VFO, K3_ANTS),
+        FRQ_RNG_6m(2, K3_MODES, mW(10), W(12), K3_VFO, K3_ANTS),
         RIG_FRNG_END,
     }, /* tx range */
     .tuning_steps =  {
@@ -889,7 +986,7 @@ const struct rig_caps kx2_caps =
     .rig_init =     kenwood_init,
     .rig_cleanup =      kenwood_cleanup,
     .rig_open =     elecraft_open,
-    .rig_close =        kenwood_close,
+    .rig_close =        elecraft_close,
     .set_freq =     kenwood_set_freq,
     .get_freq =     kenwood_get_freq,
     .set_mode =     k3_set_mode,
@@ -915,7 +1012,7 @@ const struct rig_caps kx2_caps =
     .get_level =        kx3_get_level,
     .set_ext_level =    k3_set_ext_level,
     .get_ext_level =    k3_get_ext_level,
-    .vfo_op =       kenwood_vfo_op,
+    .vfo_op =       k3_vfo_op,
     .set_trn =      kenwood_set_trn,
     .get_trn =      kenwood_get_trn,
     .set_powerstat =    kenwood_set_powerstat,
@@ -923,7 +1020,10 @@ const struct rig_caps kx2_caps =
     .set_ant =      kenwood_set_ant_no_ack,
     .get_ant =      kenwood_get_ant,
     .send_morse =       kenwood_send_morse,
-    .wait_morse =       rig_wait_morse
+    .wait_morse =       rig_wait_morse,
+    .stop_morse =       k3_stop_morse,
+    .power2mW =     k3_power2mW,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -943,8 +1043,25 @@ int k3_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     int err;
     rmode_t temp_m;
     pbwidth_t temp_w;
+    char *cmd_data = "DT";
+    char *cmd_bw = "BW";
+    int cmd_bw_len = 6;
+    const struct kenwood_priv_data *priv = STATE(rig)->priv;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called vfo=%s\n", __func__, rig_strvfo(vfo));
+
+    if ((priv->is_k3 || priv->is_k3s || priv->is_k4 || priv->is_k4d
+            || priv->is_k4hd)  && vfo == RIG_VFO_B)
+    {
+        if (!(priv->is_k3 || priv->is_k3s))
+        {
+            cmd_data = "DT$";
+        }
+
+        cmd_bw = "BW$";
+        cmd_bw_len = 7;
+
+    }
 
     if (!mode || !width)
     {
@@ -953,7 +1070,7 @@ int k3_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
     if (vfo == RIG_VFO_CURR)
     {
-        vfo = rig->state.current_vfo;
+        vfo = STATE(rig)->current_vfo;
     }
 
     err = kenwood_get_mode(rig, vfo, &temp_m, &temp_w);
@@ -965,7 +1082,8 @@ int k3_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
     if (temp_m == RIG_MODE_RTTY)
     {
-        err = kenwood_safe_transaction(rig, "DT", buf, KENWOOD_MAX_BUF_LEN, 3);
+        err = kenwood_safe_transaction(rig, cmd_data, buf, KENWOOD_MAX_BUF_LEN,
+                                       strlen(cmd_data) + 1);
 
         if (err != RIG_OK)
         {
@@ -992,7 +1110,8 @@ int k3_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     }
     else if (temp_m == RIG_MODE_RTTYR)
     {
-        err = kenwood_safe_transaction(rig, "DT", buf, KENWOOD_MAX_BUF_LEN, 3);
+        err = kenwood_safe_transaction(rig, cmd_data, buf, KENWOOD_MAX_BUF_LEN,
+                                       strlen(cmd_data) + 1);
 
         if (err != RIG_OK)
         {
@@ -1026,14 +1145,8 @@ int k3_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     /* The K3 is not limited to specific filter widths so we can query
      * the actual bandwidth using the BW command
      */
-    if (vfo == RIG_VFO_B)
-    {
-        err = kenwood_safe_transaction(rig, "BW$", buf, KENWOOD_MAX_BUF_LEN, 7);
-    }
-    else
-    {
-        err = kenwood_safe_transaction(rig, "BW", buf, KENWOOD_MAX_BUF_LEN, 6);
-    }
+    err = kenwood_safe_transaction(rig, cmd_bw, buf, KENWOOD_MAX_BUF_LEN,
+                                   cmd_bw_len);
 
     if (err != RIG_OK)
     {
@@ -1041,14 +1154,7 @@ int k3_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
         return err;
     }
 
-    if (vfo == RIG_VFO_B)
-    {
-        *width = atoi(&buf[3]) * 10;
-    }
-    else
-    {
-        *width = atoi(&buf[2]) * 10;
-    }
+    *width = atoi(&buf[cmd_bw_len - 4]) * 10;
 
     return RIG_OK;
 }
@@ -1087,65 +1193,82 @@ int k3_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
 int k3_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
-    int err;
-    char cmd_m[4];
+    int err, err2;
+    char cmd_m[5];
     char buf[KENWOOD_MAX_BUF_LEN];
+    char *dtcmd;
     struct kenwood_priv_caps *caps = kenwood_caps(rig);
+    struct kenwood_priv_data *priv = STATE(rig)->priv;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC;
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called vfo=%s mode=%s width=%d\n", __func__,
+              rig_strvfo(vfo), rig_strrmode(mode), (int)width);
 
     if (vfo == RIG_VFO_CURR)
     {
-        vfo = rig->state.current_vfo;
+        vfo = STATE(rig)->current_vfo;
     }
 
-    rmode_t tmode;
+    rmode_t tmodeA, tmodeB;
     pbwidth_t twidth;
-    err = k3_get_mode(rig, vfo, &tmode, &twidth);
+    err = k3_get_mode(rig, RIG_VFO_A, &tmodeA, &twidth);
+    err2 = k3_get_mode(rig, RIG_VFO_B, &tmodeB, &twidth);
 
-    if (err == RIG_OK && tmode == mode && width == RIG_PASSBAND_NOCHANGE)
+    // we keep both vfos in the same mode -- any reason they should ever be different?  If so, fix this
+    // if we change mode on one VFO we'll also change the other
+    if (err == RIG_OK && err2 == RIG_OK && tmodeA == mode && tmodeB == mode
+            && width == RIG_PASSBAND_NOCHANGE)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s(%d): mode/width no change, skipping\n", __FILE__,
                   __LINE__);
-        return RIG_OK;
+        RETURNFUNC(RIG_OK);
     }
     else
     {
         rig_debug(RIG_DEBUG_TRACE,
-                  "%s(%d): changing mode=%s, oldmode=%s, width=%ld, oldwidth=%ld\n", __FILE__,
-                  __LINE__, rig_strrmode(tmode), rig_strrmode(mode), twidth, width);
+                  "%s(%d): changing oldmode=A=%s B=%s, to mode=%s, oldwidth=%ld, to width=%ld\n",
+                  __FILE__,
+                  __LINE__, rig_strrmode(tmodeA), rig_strrmode(tmodeB), rig_strrmode(mode),
+                  twidth, width);
+    }
+
+    dtcmd = "DT";
+
+    if ((priv->is_k4 || priv->is_k4d || priv->is_k4hd)  && vfo == RIG_VFO_B)
+    {
+        dtcmd = "DT$";
     }
 
     switch (mode)
     {
     case RIG_MODE_PKTLSB:
         mode = RIG_MODE_RTTYR; // in "DT0" Subband RIG_MODE_RTTYR = USB and RIG_MODE_RTTY = LSB
-        snprintf(cmd_m, sizeof(cmd_m),
-                 "DT0"); /* DATA A mode - DATA (REV) on LSB optimized for HF Packet, VFO dial is suppressed carrier QRG */
+        SNPRINTF(cmd_m, sizeof(cmd_m),
+                 "%s0", dtcmd); /* DATA A mode - DATA (REV) on LSB optimized for HF Packet, VFO dial is suppressed carrier QRG */
         break;
 
     case RIG_MODE_PKTUSB:
         mode = RIG_MODE_RTTY; // in "DT0" Subband RIG_MODE_RTTYR = USB and RIG_MODE_RTTY = LSB
-        snprintf(cmd_m, sizeof(cmd_m),
-                 "DT0"); /* DATA A mode - DATA on USB general, VFO dial is suppressed carrier QRG */
+        SNPRINTF(cmd_m, sizeof(cmd_m),
+                 "%s0", dtcmd); /* DATA A mode - DATA on USB general, VFO dial is suppressed carrier QRG */
         break;
 
     case RIG_MODE_RTTY:
         mode = RIG_MODE_RTTY; // in "DT1" Subband RIG_MODE_RTTY = LSB and RIG_MODE_RTTYR = USB
-        snprintf(cmd_m, sizeof(cmd_m),
-                 "DT2"); /* FSK D mode - direct FSK on LSB optimized for RTTY, VFO dial is MARK */
+        SNPRINTF(cmd_m, sizeof(cmd_m),
+                 "%s2", dtcmd); /* FSK D mode - direct FSK on LSB optimized for RTTY, VFO dial is MARK */
         break;
 
     case RIG_MODE_RTTYR:
         mode = RIG_MODE_RTTYR; // in "DT2" Subband RIG_MODE_RTTY = LSB and RIG_MODE_RTTYR = USB
-        snprintf(cmd_m, sizeof(cmd_m),
-                 "DT1"); /* FSK D mode - direct FSK keying, LSB is "normal", VFO dial is MARK */
+        SNPRINTF(cmd_m, sizeof(cmd_m),
+                 "%s1", dtcmd); /* FSK D mode - direct FSK keying, LSB is "normal", VFO dial is MARK */
         break;
 
     case RIG_MODE_PSK:
         mode = RIG_MODE_PSK; // in "DT3" subband RIG_MODE_PSK = USB # kenwood.c mode but may need kenwwod.c mode table review.
-        snprintf(cmd_m, sizeof(cmd_m),
-                 "DT3"); /* PSK D Mode - direct PSK keying, USB is "normal", VFO dial is MARK */
+        SNPRINTF(cmd_m, sizeof(cmd_m),
+                 "%s3", dtcmd); /* PSK D Mode - direct PSK keying, USB is "normal", VFO dial is MARK */
         break;
 
     default:
@@ -1172,15 +1295,21 @@ int k3_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         c = 'A' + kmode - 10;
     }
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s: kmode=%d, cmode=%c\n", __func__, kmode, c)
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: kmode=%d, cmode=%c\n", __func__, kmode, c);
 
     if (vfo == RIG_VFO_B)
     {
-        snprintf(buf, sizeof(buf), "MD$%c", c);
+        SNPRINTF(buf, sizeof(buf), "MD$%c", c);
     }
     else
     {
-        snprintf(buf, sizeof(buf), "MD%c", c);
+        SNPRINTF(buf, sizeof(buf), "MD%c", c);
+    }
+
+    if (priv->split)
+    {
+        // then we keep both VFOS in the same mode
+        SNPRINTF(buf, sizeof(buf), "MD%c;MD$%c", c, c);
     }
 
     err = kenwood_transaction(rig, buf, NULL, 0);
@@ -1225,34 +1354,24 @@ int k3_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         }
 
 #endif
-        // width is 50Hz rounded down
-        struct kenwood_priv_data *priv = rig->state.priv;
-
-        if (priv->is_k4d || priv->is_k4hd)
-        {
-            width += 9;  // rounds to 10Hz
-        }
-        else
-        {
-            width += 49;
-        }
+        width += 9;  // rounds to 10Hz
 
         if (width > 99999) { width = 99999; }
 
         if (vfo == RIG_VFO_B)
         {
-            snprintf(cmd_s, sizeof(cmd_s), "BW$%04ld", width / 10);
+            SNPRINTF(cmd_s, sizeof(cmd_s), "BW$%04ld", width / 10);
         }
         else
         {
-            snprintf(cmd_s, sizeof(cmd_s), "BW%04ld", width / 10);
+            SNPRINTF(cmd_s, sizeof(cmd_s), "BW%04ld", width / 10);
         }
 
         err = kenwood_transaction(rig, cmd_s, NULL, 0);
 
         if (err != RIG_OK)
         {
-            return err;
+            RETURNFUNC(err);
         }
     }
 
@@ -1266,11 +1385,11 @@ int k3_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
         if (err != RIG_OK)
         {
-            return err;
+            RETURNFUNC(err);
         }
     }
 
-    return RIG_OK;
+    RETURNFUNC(RIG_OK);
 }
 
 /* Elecraft rigs don't really know about swappings vfos.
@@ -1282,7 +1401,7 @@ int k3_set_vfo(RIG *rig, vfo_t vfo)
     ENTERFUNC;
 
     // we emulate vfo selection for Elecraft
-    rig->state.current_vfo = vfo;
+    STATE(rig)->current_vfo = vfo;
 
     RETURNFUNC(RIG_OK);
 }
@@ -1291,7 +1410,7 @@ int k3_get_vfo(RIG *rig, vfo_t *vfo)
 {
     ENTERFUNC;
 
-    *vfo = rig->state.current_vfo;
+    *vfo = STATE(rig)->current_vfo;
 
     RETURNFUNC(RIG_OK);
 }
@@ -1308,7 +1427,7 @@ int k3_get_vfo(RIG *rig, vfo_t *vfo)
  * See Private Elecraft extra levels definitions in elecraft.c and
  * private token #define in elecraft.h
  */
-int k3_set_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t val)
+int k3_set_ext_level(RIG *rig, vfo_t vfo, hamlib_token_t token, value_t val)
 {
     char buf[10];
 
@@ -1320,19 +1439,19 @@ int k3_set_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t val)
         return kenwood_transaction(rig, "RC", NULL, 0);
 
     case TOK_ESSB:
-        snprintf(buf, sizeof(buf), "ES%c", (val.i == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "ES%c", (val.i == 0) ? '0' : '1');
         return kenwood_transaction(rig, buf, NULL, 0);
 
     case TOK_RX_ANT:
-        snprintf(buf, sizeof(buf), "AR%c", (val.i == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "AR%c", (val.i == 0) ? '0' : '1');
         return kenwood_transaction(rig, buf, NULL, 0);
 
     case TOK_LINK_VFOS:
-        snprintf(buf, sizeof(buf), "LN%c", (val.i == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "LN%c", (val.i == 0) ? '0' : '1');
         return kenwood_transaction(rig, buf, NULL, 0);
 
     case TOK_TX_METER:
-        snprintf(buf, sizeof(buf), "TM%c", val.i + '0');
+        SNPRINTF(buf, sizeof(buf), "TM%c", val.i + '0');
         return kenwood_transaction(rig, buf, NULL, 0);
 
     case TOK_IF_NB:
@@ -1357,7 +1476,7 @@ int k3_set_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t val)
  *      STRING: val.cs for set, val.s for get
  *      CHECKBUTTON: val.i 0/1
  */
-int k3_get_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t *val)
+int k3_get_ext_level(RIG *rig, vfo_t vfo, hamlib_token_t token, value_t *val)
 {
     char buf[KENWOOD_MAX_BUF_LEN];
     int err;
@@ -1473,7 +1592,7 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
     char kmode;
     int err;
     char cmd_m[16];
-    struct kenwood_priv_data *priv = rig->state.priv;
+    const struct kenwood_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -1481,7 +1600,7 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
     {
     case RIG_MODE_PKTLSB:
         tx_mode = RIG_MODE_RTTYR; // "DT0" RIG_MODE_RTTY = LSB
-        snprintf(cmd_m, sizeof(cmd_m),
+        SNPRINTF(cmd_m, sizeof(cmd_m),
                  "DT0;"); /* DATA A mode - DATA-R LSB, suppressed carrier */
 
         if (priv->is_k4d || priv->is_k4hd)
@@ -1493,7 +1612,7 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
 
     case RIG_MODE_PKTUSB:
         tx_mode = RIG_MODE_RTTY; // "DT0" RIG_MODE_RTTYR = USB
-        snprintf(cmd_m, sizeof(cmd_m),
+        SNPRINTF(cmd_m, sizeof(cmd_m),
                  "DT0;"); /* DATA A mode - DATA on USB, suppressed carrier */
 
         if (priv->is_k4d || priv->is_k4hd)
@@ -1505,7 +1624,7 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
 
     case RIG_MODE_RTTY:
         tx_mode = RIG_MODE_RTTY; // DT1" RIG_MODE_RTTY = LSB and RIG_MODE_RTTYR = USB
-        snprintf(cmd_m, sizeof(cmd_m),
+        SNPRINTF(cmd_m, sizeof(cmd_m),
                  "DT2;"); /* FSK D mode - direct FSK on LSB optimized for RTTY, VFO dial is MARK */
 
         if (priv->is_k4d || priv->is_k4hd)
@@ -1517,7 +1636,7 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
 
     case RIG_MODE_RTTYR:
         tx_mode = RIG_MODE_RTTYR; // "DT2" RIG_MODE_RTTY = USB and RIG_MODE_RTTYR = USB
-        snprintf(cmd_m, sizeof(cmd_m),
+        SNPRINTF(cmd_m, sizeof(cmd_m),
                  "DT1;"); /* FSK D mode - direct FSK on USB optimized for RTTY, VFO dial is MARK */
 
         if (priv->is_k4d || priv->is_k4hd)
@@ -1529,7 +1648,7 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
 
     case RIG_MODE_PSK:
         tx_mode = RIG_MODE_PSK;
-        snprintf(cmd_m, sizeof(cmd_m),
+        SNPRINTF(cmd_m, sizeof(cmd_m),
                  "DT3;FT1;"); /* PSK D Mode - direct PSK keying, USB is "normal", VFO dial is MARK */
 
         if (priv->is_k4d || priv->is_k4hd)
@@ -1549,7 +1668,7 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
     if (priv->is_k4d || priv->is_k4hd)
     {
         // split can get turned off when modes are changing
-        // so if the rig did this independtly of us we turn it back on
+        // so if the rig did this independently of us we turn it back on
         // even if the rig changes the split status should be the last thing we did
         if (priv->split) { strcat(cmd_m, "FT1;"); }
 
@@ -1579,7 +1698,7 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
         return -RIG_EINVAL;
     }
 
-    sprintf(buf, "MD$%c", '0' + kmode);
+    SNPRINTF(buf, sizeof(buf), "MD$%c", '0' + kmode);
     err = kenwood_transaction(rig, buf, NULL, 0);
 
     if (err != RIG_OK)
@@ -1626,7 +1745,7 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
 
 #endif
 
-        snprintf(cmd_s, sizeof(cmd_s), "BW$%04ld", tx_width / 10);
+        SNPRINTF(cmd_s, sizeof(cmd_s), "BW$%04ld", tx_width / 10);
         err = kenwood_transaction(rig, cmd_s, NULL, 0);
 
         if (err != RIG_OK)
@@ -1746,19 +1865,23 @@ int k3_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
 
 static int k3_get_maxpower(RIG *rig)
 {
-    int retval;
-    int maxpower = 12; // K3 default power level
-    char levelbuf[KENWOOD_MAX_BUF_LEN];
-    struct kenwood_priv_data *priv = rig->state.priv;
+    //int retval;
+    int maxpower = 15; // K3 default power level
+    //char levelbuf[KENWOOD_MAX_BUF_LEN];
+    const struct kenwood_priv_data *priv = STATE(rig)->priv;
 
-    // default range is 0-12 if there is no KPA3 installed
-    if (priv->has_kpa3 || priv->has_kpa100) { maxpower = 110; }
-
-    if (RIG_IS_KX2 || RIG_IS_KX3)
+    // default range is 0-15 if there is no KPA3 installed
+    if (priv->has_kpa3 || priv->has_kpa100)
+    {
+        maxpower = 110;
+    }
+    else if (RIG_IS_KX2 || RIG_IS_KX3)
     {
 
         int bandnum = -1;
-        retval = kenwood_safe_transaction(rig, "BN", levelbuf, KENWOOD_MAX_BUF_LEN, 4);
+        char levelbuf[KENWOOD_MAX_BUF_LEN];
+        int retval = kenwood_safe_transaction(rig, "BN", levelbuf, KENWOOD_MAX_BUF_LEN,
+                                              4);
 
         if (retval != RIG_OK) { return retval; }
 
@@ -1796,10 +1919,23 @@ static int k3_get_maxpower(RIG *rig)
     return maxpower;
 }
 
+int k3_power2mW(RIG *rig,
+                unsigned int *mwpower,
+                float power,
+                freq_t freq,
+                rmode_t mode)
+{
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.0f", power * k3_get_maxpower(rig) * 1000);
+    *mwpower = atoi(buf);
+    return RIG_OK;
+}
+
 int k3_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
     char levelbuf[16];
     int kenwood_val;
+    float pwr;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -1836,28 +1972,28 @@ int k3_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        snprintf(levelbuf, sizeof(levelbuf), "GT%03d", kenwood_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "GT%03d", kenwood_val);
         break;
 
     case RIG_LEVEL_ATT:
         if (val.i == 0)
         {
-            snprintf(levelbuf, sizeof(levelbuf), "RA00");
+            SNPRINTF(levelbuf, sizeof(levelbuf), "RA00");
         }
         else if (val.i == 10)
         {
-            snprintf(levelbuf, sizeof(levelbuf), "RA01");
+            SNPRINTF(levelbuf, sizeof(levelbuf), "RA01");
         }
         else
         {
             int i;
             int foundit = 0;
 
-            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && rig->state.attenuator[i]; i++)
+            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && STATE(rig)->attenuator[i]; i++)
             {
-                if (val.i == rig->state.attenuator[i])
+                if (val.i == STATE(rig)->attenuator[i])
                 {
-                    snprintf(levelbuf, sizeof(levelbuf), "RA%02d", i + 1);
+                    SNPRINTF(levelbuf, sizeof(levelbuf), "RA%02d", i + 1);
                     foundit = 1;
                     break;
                 }
@@ -1872,35 +2008,36 @@ int k3_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         break;
 
     case RIG_LEVEL_MICGAIN:
-        snprintf(levelbuf, sizeof(levelbuf), "MG%03d", (int)(val.f * 60.0f));
+        SNPRINTF(levelbuf, sizeof(levelbuf), "MG%03d", (int)(val.f * 60.0f));
         break;
 
     case RIG_LEVEL_COMP:
-        snprintf(levelbuf, sizeof(levelbuf), "CP%03d", (int)(val.f * 40.0f));
+        SNPRINTF(levelbuf, sizeof(levelbuf), "CP%03d", (int)(val.f * 40.0f));
         break;
 
     case RIG_LEVEL_SQL:
-        snprintf(levelbuf, sizeof(levelbuf), "SQ%03d", (int)(val.f * 29.0f));
+        SNPRINTF(levelbuf, sizeof(levelbuf), "SQ%03d", (int)(val.f * 29.0f));
         break;
 
     case RIG_LEVEL_AF:
-        snprintf(levelbuf, sizeof(levelbuf), "AG%03d", (int)(val.f * 250.0f));
+        SNPRINTF(levelbuf, sizeof(levelbuf), "AG%03d", (int)(val.f * 250.0f));
         break;
 
     case RIG_LEVEL_RF:
-        snprintf(levelbuf, sizeof(levelbuf), "RG%03d", (int)(val.f * 250.0f));
+        SNPRINTF(levelbuf, sizeof(levelbuf), "RG%03d", (int)(val.f * 250.0f));
         break;
 
     case RIG_LEVEL_NR:
         return k3_set_nb_level(rig, val.f, -1);
 
     case RIG_LEVEL_MONITOR_GAIN:
-        snprintf(levelbuf, sizeof(levelbuf), "ML%03d", (int)(val.f * 60.0f));
+        SNPRINTF(levelbuf, sizeof(levelbuf), "ML%03d", (int)(val.f * 60.0f));
         break;
 
     case RIG_LEVEL_RFPOWER:
-        snprintf(levelbuf, sizeof(levelbuf), "PC%03d",
-                 (int)(val.f * k3_get_maxpower(rig)));
+        pwr = val.f * k3_get_maxpower(rig);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "PC%03.f%c", pwr > 15.0 ? pwr : 10.0 * pwr,
+                 pwr > 15.0 ? '1' : '0');
         break;
 
     default:
@@ -1918,7 +2055,8 @@ int k3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     char levelbuf[16];
     int retval;
     int lvl;
-    struct kenwood_priv_data *priv = rig->state.priv;
+    size_t len;
+    const struct kenwood_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -1981,7 +2119,15 @@ int k3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         int tx_mode;
         float alc;
 
-        retval = k3_get_bar_graph_level(rig, NULL, NULL, &alc, &tx_mode);
+        if (RIG_IS_K4)
+        {
+            retval = k4_get_bar_graph_level(rig, NULL, NULL, &alc, &tx_mode);
+            tx_mode = 1;  // Assume ALC is zero when in Tx so we don't care about ptt status
+        }
+        else
+        {
+            retval = k3_get_bar_graph_level(rig, NULL, NULL, &alc, &tx_mode);
+        }
 
         if (retval != RIG_OK)
         {
@@ -2009,7 +2155,15 @@ int k3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         int tx_mode;
         float pwr;
 
-        retval = k3_get_bar_graph_level(rig, NULL, &pwr, NULL, &tx_mode);
+        if (RIG_IS_K4)
+        {
+            retval = k4_get_bar_graph_level(rig, NULL, &pwr, NULL, &tx_mode);
+            tx_mode = 1;  // Does K4 return pwr=0 when in Rx?  Hope so.
+        }
+        else
+        {
+            retval = k3_get_bar_graph_level(rig, NULL, &pwr, NULL, &tx_mode);
+        }
 
         if (retval != RIG_OK)
         {
@@ -2090,7 +2244,7 @@ int k3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
             for (i = 0; i < lvl && i < HAMLIB_MAXDBLSTSIZ; i++)
             {
-                if (rig->state.attenuator[i] == 0)
+                if (STATE(rig)->attenuator[i] == 0)
                 {
                     rig_debug(RIG_DEBUG_ERR, "%s: unexpected att level %d\n", __func__, lvl);
                     return -RIG_EPROTO;
@@ -2102,7 +2256,7 @@ int k3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
                 return -RIG_EINTERNAL;
             }
 
-            val->i = rig->state.attenuator[i - 1];
+            val->i = STATE(rig)->attenuator[i - 1];
         }
 
         break;
@@ -2183,15 +2337,55 @@ int k3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_RFPOWER:
-        retval = kenwood_safe_transaction(rig, "PC", levelbuf, sizeof(levelbuf), 5);
+        retval = kenwood_transaction(rig, "PC", levelbuf, sizeof(levelbuf));
 
         if (retval != RIG_OK)
         {
             return retval;
         }
 
-        sscanf(levelbuf + 2, "%d", &lvl);
-        val->f = (float) lvl / k3_get_maxpower(rig);
+        len = strlen(levelbuf);
+
+        if (len == 5 || len == 6)
+        {
+            sscanf(levelbuf + 2, "%3d", &lvl);
+        }
+        else
+        {
+            return RIG_EPROTO;
+        }
+
+        // extended K22 format PCnnnx where 0=.1W units and 1=1W units
+        if (len == 6 && levelbuf[5] == '0')
+        {
+            val->f = (float) lvl / 10.0 / k3_get_maxpower(rig);
+        }
+        else
+        {
+            val->f = (float) lvl / k3_get_maxpower(rig);
+        }
+
+        break;
+
+    case RIG_LEVEL_SWR:
+        if (RIG_IS_K4)
+        {
+            retval = k4_get_bar_graph_level(rig, &val->f, NULL, NULL, NULL);
+            return RIG_OK;
+        }
+        else
+        {
+            retval = kenwood_safe_transaction(rig, "SW", levelbuf, sizeof(levelbuf), 5);
+
+            if (retval != RIG_OK)
+            {
+                return retval;
+            }
+
+            sscanf(levelbuf + 2, "%d", &val->i);
+        }
+
+        val->f = (float) val->i / 10.0f;
         break;
 
     default:
@@ -2214,17 +2408,17 @@ int kx3_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     {
     case RIG_LEVEL_RF:
         ival = val.f * (250.0 - 190.0) + 190.0;
-        snprintf(cmdbuf, sizeof(cmdbuf) - 1, "RG%03d", ival);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf) - 1, "RG%03d", ival);
         return kenwood_transaction(rig, cmdbuf, NULL, 0);
 
     case RIG_LEVEL_AF:
         // manual says 0-255 as of Rev G5 but experiment says 0-60
-        snprintf(cmdbuf, sizeof(cmdbuf), "AG%03d", (int)(val.f * 60.0f));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "AG%03d", (int)(val.f * 60.0f));
         return kenwood_transaction(rig, cmdbuf, NULL, 0);
 
     case RIG_LEVEL_MICGAIN:
         // manual says 0-255 as of Rev G5 but experiment says 0-80
-        snprintf(cmdbuf, sizeof(cmdbuf), "MG%03d", (int)(val.f * 80.0f));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "MG%03d", (int)(val.f * 80.0f));
         return kenwood_transaction(rig, cmdbuf, NULL, 0);
     }
 
@@ -2234,6 +2428,7 @@ int kx3_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 int kx3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     int retval;
+    float f;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -2245,7 +2440,8 @@ int kx3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         if (retval != RIG_OK) { return retval; }
 
         // manual says 0-255 as of Rev G5 but experiment says 0-60
-        val->f = val->i / 60.0;
+        f = val->i / 60.0;
+        val->f = f;
         return retval;
 
     case RIG_LEVEL_RF:
@@ -2253,7 +2449,8 @@ int kx3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
         if (retval != RIG_OK) { return retval; }
 
-        val->f = (val->i - 190.0) / (250.0 - 190.0);
+        f = (val->i - 190.0) / (250.0 - 190.0);
+        val->f = f;
         return retval;
 
     case RIG_LEVEL_MICGAIN:
@@ -2261,7 +2458,8 @@ int kx3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
         if (retval != RIG_OK) { return retval; }
 
-        val->f = val->i / 80.0;
+        f = val->i / 80.0;
+        val->f = f;
         return retval;
 
     case RIG_LEVEL_RFPOWER_METER:
@@ -2296,7 +2494,7 @@ int kx3_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
     case RIG_LEVEL_RFPOWER_METER_WATTS:
     {
-        struct kenwood_priv_data *priv = rig->state.priv;
+        struct kenwood_priv_data *priv = STATE(rig)->priv;
         char levelbuf[KENWOOD_MAX_BUF_LEN];
         int pwr;
 
@@ -2326,15 +2524,28 @@ int k3_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
     switch (func)
     {
     case RIG_FUNC_APF:
-        snprintf(buf, sizeof(buf), "AP%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "AP%c", (status == 0) ? '0' : '1');
         break;
 
     case RIG_FUNC_DUAL_WATCH:
-        snprintf(buf, sizeof(buf), "SB%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "SB%c", (status == 0) ? '0' : '1');
         break;
 
     case RIG_FUNC_DIVERSITY:
-        snprintf(buf, sizeof(buf), "DV%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "DV%c", (status == 0) ? '0' : '1');
+        break;
+
+    case RIG_FUNC_SEND_MORSE:
+        // Transmit a CW character - K3 does not return any response
+        snprintf(buf, sizeof(buf), "KYW%c", status);
+        break;
+
+    case RIG_FUNC_MUTE: // K4 Only that we know of
+        SNPRINTF(buf, sizeof(buf), "AG%c", (status == 0) ? '/' : '0');
+        break;
+
+    case RIG_FUNC_TUNER: // K2 KX2 K3 K3S KX3 K4
+        SNPRINTF(buf, sizeof(buf), "SWT16");
         break;
 
     default:
@@ -2342,6 +2553,39 @@ int k3_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
     }
 
     return kenwood_transaction(rig, buf, NULL, 0);
+}
+
+int k3_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
+{
+    char buf[32];
+    ENTERFUNC;
+
+    switch (op)
+    {
+    case RIG_OP_TUNE: // KX2 K3 K3S KX3 K4 -- K2 needs SWH20 to it's in k2.c
+        switch (rig->caps->rig_model)
+        {
+        case RIG_MODEL_KX2: SNPRINTF(buf, sizeof(buf), "SWT20"); break;
+
+        case RIG_MODEL_K3S:
+        case RIG_MODEL_K3:  SNPRINTF(buf, sizeof(buf), "SWT19"); break;
+
+        case RIG_MODEL_KX3: SNPRINTF(buf, sizeof(buf), "SWT44"); break;
+
+        case RIG_MODEL_K4:  SNPRINTF(buf, sizeof(buf), "SW40"); break;
+
+        default:
+            rig_debug(RIG_DEBUG_ERR, "%s: unknown rig=%d\n", __func__,
+                      rig->caps->rig_model);
+            RETURNFUNC(-RIG_EINVAL);
+        }
+
+        break;
+
+    default: RETURNFUNC(kenwood_vfo_op(rig, vfo, op));
+    }
+
+    RETURNFUNC(kenwood_transaction(rig, buf, NULL, 0));
 }
 
 /*
@@ -2412,7 +2656,7 @@ int set_rit_xit(RIG *rig, shortfreq_t rit)
         char cmd[16];
         char offs;
         offs = (rit < 0) ? '-' : '+';
-        snprintf(cmd, 8, "RO%c%04d", offs, abs((int)rit));
+        SNPRINTF(cmd, 8, "RO%c%04d", offs, abs((int)rit));
 
         err = kenwood_transaction(rig, cmd, NULL, 0);
 
@@ -2473,7 +2717,7 @@ int k3_set_nb_level(RIG *rig, float dsp_nb, float if_nb)
         }
     }
 
-    snprintf(levelbuf, sizeof(levelbuf), "NL%02d%02d", dsp_nb_raw, if_nb_raw);
+    SNPRINTF(levelbuf, sizeof(levelbuf), "NL%02d%02d", dsp_nb_raw, if_nb_raw);
 
     return kenwood_transaction(rig, levelbuf, NULL, 0);
 }
@@ -2509,6 +2753,33 @@ int k3_get_nb_level(RIG *rig, float *dsp_nb, float *if_nb)
     return RIG_OK;
 }
 
+int k4_get_bar_graph_level(RIG *rig, float *swr, float *pwr, float *alc,
+                           int *mode_tx)
+{
+    int retval;
+    int ialc, icmp, ifwd, iswr;
+    char levelbuf[16];
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    retval = kenwood_safe_transaction(rig, "TM", levelbuf, sizeof(levelbuf), 14);
+
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
+
+    sscanf(levelbuf, "TM%03d%03d%03d%03d", &ialc, &icmp, &ifwd, &iswr);
+
+    if (swr) { *swr = iswr / 10.0; }
+
+    if (pwr) { *pwr = ifwd / 100.0; } // pwr is returned in 0-1 sscale
+
+    if (alc) { *alc = ialc; }
+
+    return RIG_OK;
+}
+
 int k3_get_bar_graph_level(RIG *rig, float *smeter, float *pwr, float *alc,
                            int *mode_tx)
 {
@@ -2520,7 +2791,7 @@ int k3_get_bar_graph_level(RIG *rig, float *smeter, float *pwr, float *alc,
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    // Determine transmit metering mode: 0 = RF POWER, 1 = ALC
+// Determine transmit metering mode: 0 = RF POWER, 1 = ALC
     retval = get_kenwood_func(rig, "TM", &tm_raw);
 
     if (retval != RIG_OK)
@@ -2644,4 +2915,171 @@ int kx3_get_bar_graph_level(RIG *rig, float *level)
     }
 
     return RIG_OK;
+}
+
+int k4_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
+{
+    char pttbuf[6];
+    int retval;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (!ptt)
+    {
+        return -RIG_EINVAL;
+    }
+
+    retval = kenwood_safe_transaction(rig, "TQ", pttbuf, 6, 3);
+
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
+
+    *ptt = pttbuf[2] == '1' ? RIG_PTT_ON : RIG_PTT_OFF;
+    // we're not caching this for now
+    return RIG_OK;
+}
+
+
+// The K4 has a problem in Fake It mode where the FA command is ignored
+// We will use its special TQ command to try and ensure PTT is really off
+int k4_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
+{
+    char pttbuf[6];
+    int i;
+    int retval;
+    ptt_t ptt2 = -1;
+    char cmd[4];
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    SNPRINTF(cmd, sizeof(cmd), "RX");
+
+    if (ptt) { cmd[0] = 'T'; }
+
+    retval = kenwood_transaction(rig, cmd, NULL, 0);
+
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
+
+    for (i = 0; i < 5 && ptt2 != ptt; ++i)
+    {
+        retval = kenwood_safe_transaction(rig, "TQ", pttbuf, 6, 3);
+
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
+
+        ptt2 = pttbuf[2] == '1' ? RIG_PTT_ON : RIG_PTT_OFF;
+
+        if (ptt2 != ptt)
+        {
+            hl_usleep(100 * 1000);
+            rig_debug(RIG_DEBUG_TRACE, "%s: ptt=%d, expected=%d\n", __func__, ptt2, ptt);
+        }
+    }
+
+    // had one report of Fake It not returning to RX freq after TX -- so a little more time for the K4
+    if (ptt == RIG_PTT_OFF) { hl_usleep(100 * 1000); }
+
+    return RIG_OK;
+}
+
+// K3S band memory needs some time to do its thing after freq change
+// K3 probably does too
+// But what about the K4?
+int k3_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
+{
+    int retval;
+    freq_t tfreq;
+    retval = kenwood_get_freq(rig, vfo, &tfreq);
+
+    if (retval != RIG_OK) { return retval; }
+
+    retval = kenwood_set_freq(rig, vfo, freq);
+
+    // if more than 1MHz probably a band change so give it some time
+    // before continuing
+    if (fabs(tfreq - freq) > 1e6)
+    {
+        hl_usleep(200 * 1000);    // give 200ms for rig to do band switch if needed
+    }
+
+    return retval;
+}
+
+int k3_send_voice_mem(RIG *rig, vfo_t vfo, int ch)
+{
+    char *cmd;
+    int retval;
+
+    if (ch < 1 || ch > 4)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: expected 1<=ch<=4, got %d\n", __func__, ch);
+        return (-RIG_EINVAL);
+    }
+
+    switch (ch)
+    {
+    case 1: cmd = "SWT21;"; break;
+
+    case 2: cmd = "SWT31;"; break;
+
+    case 3: cmd = "SWT35;"; break;
+
+    case 4: cmd = "SWT39;"; break;
+    }
+
+    retval = kenwood_transaction(rig, cmd, NULL, 0);
+    return retval;
+}
+
+int k3_stop_voice_mem(RIG *rig, vfo_t vfo)
+{
+    int retval;
+    retval = kenwood_transaction(rig, "SWT37;", NULL, 0);
+    return retval;
+}
+
+int k4_send_voice_mem(RIG *rig, vfo_t vfo, int ch)
+{
+    int retval;
+    char cmd[32];
+
+    if (ch < 1 || ch > 8)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: expected 1<=ch<=8, got %d\n", __func__, ch);
+        return (-RIG_EINVAL);
+    }
+
+    sprintf(cmd, "DAMP%d00000;", ch);
+    retval = kenwood_transaction(rig, cmd, NULL, 0);
+    return retval;
+}
+
+int k4_stop_voice_mem(RIG *rig, vfo_t vfo)
+{
+    int retval;
+    retval = kenwood_transaction(rig, "DA0;", NULL, 0);
+    return retval;
+}
+
+int k4_stop_morse(RIG *rig, vfo_t vfo)
+{
+    int retval;
+    retval = kenwood_transaction(rig, "KY @;", NULL, 0);
+    return retval;
+}
+
+int k3_stop_morse(RIG *rig, vfo_t vfo)
+{
+    int retval;
+    char cmd[32];
+    SNPRINTF(cmd, sizeof(cmd), "KY %c;", 0x04);
+    retval = kenwood_transaction(rig, cmd, NULL, 0);
+    return retval;
 }

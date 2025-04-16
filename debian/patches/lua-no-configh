@@ -1,0 +1,11 @@
+--- a/bindings/hamlib.swg
++++ b/bindings/hamlib.swg
+@@ -27,8 +27,6 @@
+  *
+  */
+ 
+-#include <hamlib/config.h>
+-
+ #include <hamlib/rig.h>
+ #include <hamlib/rotator.h>
+ #include <hamlib/amplifier.h>

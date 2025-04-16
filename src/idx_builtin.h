@@ -139,6 +139,8 @@
 #define LVL_SWR           setting2idx_builtin(RIG_LEVEL_SWR)
 #define LVL_ALC           setting2idx_builtin(RIG_LEVEL_ALC)
 #define LVL_STRENGTH      setting2idx_builtin(RIG_LEVEL_STRENGTH)
+#define LVL_USB_AF        setting2idx_builtin(RIG_LEVEL_USB_AF)
+#define LVL_USB_AF_INPUT  setting2idx_builtin(RIG_LEVEL_USB_AF_INPUT)
 /*#define LVL_BWC          setting2idx_builtin(RIG_LEVEL_BWC)*/
 
 #define LVL_RFPOWER_METER setting2idx_builtin(RIG_LEVEL_RFPOWER_METER)
@@ -163,9 +165,9 @@
 #define LVL_SPECTRUM_AVG       setting2idx_builtin(RIG_LEVEL_SPECTRUM_AVG)
 #define LVL_SPECTRUM_ATT       setting2idx_builtin(RIG_LEVEL_SPECTRUM_ATT)
 
-#define LVL_48            setting2idx_builtin(RIG_LEVEL_48)
-#define LVL_49            setting2idx_builtin(RIG_LEVEL_49)
-#define LVL_50            setting2idx_builtin(RIG_LEVEL_50)
+#define LVL_USB_AF             setting2idx_builtin(RIG_LEVEL_USB_AF)
+#define LVL_AGC_TIME           setting2idx_builtin(RIG_LEVEL_AGC_TIME)
+#define LVL_BAND_SELECT        setting2idx_builtin(RIG_LEVEL_BAND_SELECT)
 #define LVL_51            setting2idx_builtin(RIG_LEVEL_51)
 #define LVL_52            setting2idx_builtin(RIG_LEVEL_52)
 #define LVL_53            setting2idx_builtin(RIG_LEVEL_53)
@@ -187,6 +189,9 @@
 #define PARM_TIME      setting2idx_builtin(RIG_PARM_TIME)
 #define PARM_BAT       setting2idx_builtin(RIG_PARM_BAT)
 #define PARM_KEYLIGHT  setting2idx_builtin(RIG_PARM_KEYLIGHT)
+#define PARM_BANDSELECT setting2idx_builtin(RIG_PARM_BANDSELECT)
+#define PARM_SCREENSAVER setting2idx_builtin(RIG_PARM_SCREENSAVER)
+#define PARM_KEYERTYPE setting2idx_builtin(RIG_PARM_KEYERTYPE)
 
 /* Rotator levels */
 

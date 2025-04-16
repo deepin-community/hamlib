@@ -5,32 +5,36 @@ Maintainer: Debian Hamradio Maintainers <debian-hams@lists.debian.org>
 Uploaders:
  Ervin Hegedus <airween@gmail.com>,
  Christoph Berg <myon@debian.org>,
-Build-Depends:
+Build-Depends: dpkg-dev (>= 1.22.5),
  debhelper-compat (= 13),
  dh-lua,
  dh-python,
- dpkg-dev (>= 1.16.0),
  libgd-dev,
+ libindi-dev,
  libltdl3-dev,
+ libnova-dev,
  libperl-dev,
+ libtool-bin,
  libusb-1.0-0-dev [linux-any hurd-any],
- pkg-config,
+ pkgconf,
  python3-all-dev,
  source-highlight,
- swig (>= 3.0.12),
+ swig,
  tcl-dev,
  texinfo,
  zlib1g-dev,
 Build-Depends-Indep:
  doxygen,
  graphviz,
-Standards-Version: 4.5.0
-Homepage: https://sourceforge.net/projects/hamlib/
+Standards-Version: 4.7.0
+Homepage: http://www.hamlib.org
 Vcs-Browser: https://salsa.debian.org/debian-hamradio-team/hamlib
 Vcs-Git: https://salsa.debian.org/debian-hamradio-team/hamlib.git
 Rules-Requires-Root: no
 
-Package: libhamlib4
+Package: libhamlib4t64
+Provides: ${t64:Provides}
+Replaces: libhamlib4
 Architecture: any
 Section: libs
 Multi-Arch: same
@@ -39,7 +43,7 @@ Pre-Depends:
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
-Breaks:
+Breaks:libhamlib4 (<< ${source:Version}), 
  wsjtx (<< 2.4.0~),
  libhamlib-utils (<< 4.1),
 Description: Run-time library to control radio transceivers and receivers
@@ -55,7 +59,10 @@ Description: Run-time library to control radio transceivers and receivers
  This package provides the C run-time form of the library. If you wish to
  develop software using this library you need the 'libhamlib-dev' package.
 
-Package: libhamlib++4
+Package: libhamlib++4t64
+Provides: ${t64:Provides}
+Replaces: libhamlib++4
+Breaks: libhamlib++4 (<< ${source:Version})
 Architecture: any
 Section: libs
 Multi-Arch: same
@@ -83,7 +90,7 @@ Section: libdevel
 Multi-Arch: same
 Depends:
  libc6-dev,
- libhamlib4 (= ${binary:Version}),
+ libhamlib4t64 (= ${binary:Version}),
  libusb-1.0-0-dev [linux-any hurd-any],
  ${misc:Depends},
 Description: Development library to control radio transceivers and receivers
@@ -106,9 +113,9 @@ Section: libdevel
 Multi-Arch: same
 Depends:
  libc6-dev,
- libhamlib++4 (= ${binary:Version}),
+ libhamlib++4t64 (= ${binary:Version}),
  libhamlib-dev (= ${binary:Version}),
- libhamlib4 (= ${binary:Version}),
+ libhamlib4t64 (= ${binary:Version}),
  ${misc:Depends},
 Description: Development C++ library to control radio transceivers and receivers
  Most recent amateur radio transceivers allow external control of their
@@ -132,12 +139,6 @@ Depends:
  ${misc:Depends},
  ${perl:Depends},
  ${shlibs:Depends},
-Provides:
- libhamlib2-perl,
-Replaces:
- libhamlib2-perl (<< 4.0),
-Breaks:
- libhamlib2-perl (<< 4.0),
 Description: Run-time perl library to control radio transceivers and receivers
  Most recent amateur radio transceivers allow external control of their
  functions through a computer interface. Unfortunately, control commands are
@@ -150,16 +151,6 @@ Description: Run-time perl library to control radio transceivers and receivers
  .
  This package provides the perl bindings of the library.
 
-Package: libhamlib2-perl
-Architecture: all
-Section: oldlibs
-Depends:
- libhamlib-perl,
- ${misc:Depends},
-Description: Transitional package depending on libhamlib-perl
- The libhamlib2-perl package was renamed to libhamlib-perl; this package can
- safely be removed if nothing depends on it.
-
 Package: tcl-hamlib
 Architecture: any
 Section: interpreters
@@ -167,12 +158,6 @@ Multi-Arch: no
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
-Provides:
- libhamlib2-tcl,
-Replaces:
- libhamlib2-tcl (<< 4.0),
-Breaks:
- libhamlib2-tcl (<< 4.0),
 Description: Run-time Tcl library to control radio transceivers and receivers
  Most recent amateur radio transceivers allow external control of their
  functions through a computer interface. Unfortunately, control commands are
@@ -185,16 +170,6 @@ Description: Run-time Tcl library to control radio transceivers and receivers
  .
  This package provides the Tcl bindings of the library.
 
-Package: libhamlib2-tcl
-Architecture: all
-Section: oldlibs
-Depends:
- tcl-hamlib,
- ${misc:Depends},
-Description: Transitional package depending on tcl-hamlib
- The libhamlib2-tcl package was renamed to tcl-hamlib; this package can safely
- be removed.
-
 Package: python3-hamlib
 Architecture: any
 Section: python
@@ -204,12 +179,7 @@ Depends:
  ${python3:Depends},
  ${shlibs:Depends},
 Provides:
- python3-libhamlib2,
  ${python3:Provides},
-Replaces:
- python3-libhamlib2 (<< 4.0),
-Breaks:
- python3-libhamlib2 (<< 4.0),
 Description: Run-time Python3 library to control radio transceivers and receivers
  Most recent amateur radio transceivers allow external control of their
  functions through a computer interface. Unfortunately, control commands are
@@ -222,23 +192,13 @@ Description: Run-time Python3 library to control radio transceivers and receiver
  .
  This package provides the Python3 bindings of the library.
 
-Package: python3-libhamlib2
-Architecture: any
-Section: oldlibs
-Depends:
- python3-hamlib,
- ${misc:Depends},
-Description: Transitional package depending on python3-hamlib
- The python3-libhamlib2 package was renamed to python3-hamlib; this package can
- safely be removed.
-
 Package: libhamlib-utils
 Architecture: any
 Multi-Arch: no
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
- libhamlib4 (= ${binary:Version}),
+ libhamlib4t64 (= ${binary:Version}),
 Description: Utilities to support the hamlib radio control library
  Most recent amateur radio transceivers allow external control of their
  functions through a computer interface. Unfortunately, control commands are
@@ -282,12 +242,7 @@ Depends:
  ${misc:Depends},
  ${shlibs:Depends},
 Provides:
- lua-hamlib2,
  ${lua:Provides},
-Replaces:
- lua-hamlib2 (<< 4.0),
-Breaks:
- lua-hamlib2 (<< 4.0),
 XB-Lua-Version: ${lua:Versions}
 Description: Run-time Lua library to control radio transceivers and receivers
  Most recent amateur radio transceivers allow external control of their
@@ -300,13 +255,3 @@ Description: Run-time Lua library to control radio transceivers and receivers
  appropriate commands required by the radio in use.
  .
  This package provides the Lua bindings of the library.
-
-Package: lua-hamlib2
-Architecture: all
-Section: oldlibs
-Depends:
- lua-hamlib,
- ${misc:Depends},
-Description: Transitional package depending on lua-hamlib
- The lua-hamlib2 package was renamed to lua-hamlib; this package can safely be
- removed.

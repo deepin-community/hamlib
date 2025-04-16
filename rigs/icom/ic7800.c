@@ -19,19 +19,25 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <string.h>  /* String function definitions */
+#include <stdlib.h>
 
 #include <hamlib/rig.h>
+
+#include "frame.h"
+#include "misc.h"
 #include "token.h"
+#include "tones.h"
 #include "idx_builtin.h"
 
 #include "icom.h"
 #include "icom_defs.h"
 #include "bandplan.h"
+#include "ic7300.h"
+
+int ic7800_set_clock(RIG *rig, int year, int month, int day, int hour, int min,
+                     int sec, double msec, int utc_offset);
+int ic7800_get_clock(RIG *rig, int *year, int *month, int *day, int *hour,
+                     int *min, int *sec, double *msec, int *utc_offset);
 
 #define IC7800_ALL_RX_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM|RIG_MODE_PSK|RIG_MODE_PSKR|RIG_MODE_PKTLSB|RIG_MODE_PKTUSB|RIG_MODE_PKTAM|RIG_MODE_PKTFM)
 #define IC7800_1HZ_TS_MODES IC7800_ALL_RX_MODES
@@ -40,7 +46,7 @@
 
 #define IC7800_FUNCS (RIG_FUNC_NB|RIG_FUNC_COMP|RIG_FUNC_VOX|RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_SBKIN|RIG_FUNC_FBKIN|RIG_FUNC_NR|RIG_FUNC_MON|RIG_FUNC_MN|RIG_FUNC_ANF|RIG_FUNC_VSC|RIG_FUNC_LOCK|RIG_FUNC_RIT|RIG_FUNC_XIT|RIG_FUNC_TUNER|RIG_FUNC_APF|RIG_FUNC_DUAL_WATCH)
 
-#define IC7800_LEVELS (RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_AGC|RIG_LEVEL_COMP|RIG_LEVEL_BKINDL|RIG_LEVEL_BALANCE|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_SQL|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_APF|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_VOXDELAY|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_NB)
+#define IC7800_LEVELS (RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_AGC|RIG_LEVEL_COMP|RIG_LEVEL_BKINDL|RIG_LEVEL_BALANCE|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_SQL|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_APF|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_VOXDELAY|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_NB|RIG_LEVEL_AGC_TIME)
 
 #define IC7800_VFOS (RIG_VFO_MAIN|RIG_VFO_SUB|RIG_VFO_MEM)
 #define IC7800_PARMS (RIG_PARM_ANN|RIG_PARM_BACKLIGHT)
@@ -144,17 +150,24 @@ static const struct icom_priv_caps ic7800_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .extcmds = ic7800_extcmds,
+    .x25x26_always = 0,
+    .x25x26_possibly = 1,
+    .x1cx03_always = 0,
+    .x1cx03_possibly = 1,
+    .x1ax03_supported = 1,
+    .mode_with_filter = 1,
+    .data_mode_supported = 1
 };
 
-const struct rig_caps ic7800_caps =
+struct rig_caps ic7800_caps =
 {
     RIG_MODEL(RIG_MODEL_IC7800),
     .model_name = "IC-7800",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".2",
+    .version =  BACKEND_VER ".8",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -177,14 +190,22 @@ const struct rig_caps ic7800_caps =
     .has_set_level =  RIG_LEVEL_SET(IC7800_LEVELS),
     .has_get_parm =  IC7800_PARMS,
     .has_set_parm =  RIG_PARM_SET(IC7800_PARMS),    /* FIXME: parms */
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
+    .level_gran =
+    {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
+#include "level_gran_icom.h"
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BANDSELECT] = {.step = {.s = "BANDUNUSED,BAND160M,BAND80M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
+    },
+
     .ext_tokens = ic7800_ext_tokens,
     .ctcss_list =  common_ctcss_list,
     .dcs_list =  NULL,
@@ -205,6 +226,7 @@ const struct rig_caps ic7800_caps =
     .chan_list =  {
         {   1,  99, RIG_MTYPE_MEM  },
         { 100, 101, RIG_MTYPE_EDGE },    /* two by two */
+        {   1,  4, RIG_MTYPE_MORSE },
         RIG_CHAN_END,
     },
 
@@ -285,9 +307,10 @@ const struct rig_caps ic7800_caps =
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
-    .set_mode =  icom_set_mode_with_data,
-    .get_mode =  icom_get_mode_with_data,
+    .set_mode =  icom_set_mode,
+    .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
@@ -324,10 +347,13 @@ const struct rig_caps ic7800_caps =
     .set_split_vfo =  icom_set_split_vfo,
     .get_split_vfo =  icom_get_split_vfo,
     .set_powerstat = icom_set_powerstat,
-    .get_powerstat = icom_get_powerstat,
+//    .get_powerstat = icom_get_powerstat,
     .send_morse = icom_send_morse,
     .stop_morse = icom_stop_morse,
-    .wait_morse = rig_wait_morse
+    .wait_morse = rig_wait_morse,
+    .set_clock = ic7800_set_clock,
+    .get_clock = ic7800_get_clock,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -349,7 +375,7 @@ int ic7800_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
             for (i = 0; i < 7; i++)
             {
-                if (val.i == rig->state.attenuator[i])
+                if (val.i == STATE(rig)->attenuator[i])
                 {
                     val.i = i + 1;
                     break;
@@ -390,7 +416,7 @@ int ic7800_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
          */
         if (val->i > 0 && val->i <= 7)
         {
-            val->i = rig->state.attenuator[val->i - 1];
+            val->i = STATE(rig)->attenuator[val->i - 1];
         }
 
         break;
@@ -400,4 +426,116 @@ int ic7800_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     }
 
     return RIG_OK;
+}
+
+// if hour < 0 then only date will be set
+int ic7800_set_clock(RIG *rig, int year, int month, int day, int hour, int min,
+                     int sec, double msec, int utc_offset)
+{
+    int cmd = 0x1a;
+    int subcmd =  0x05;
+    int retval = RIG_OK;
+    unsigned char prmbuf[MAXFRAMELEN];
+
+    if (year >= 0)
+    {
+        prmbuf[0] = 0x00;
+        prmbuf[1] = 0x59;
+        to_bcd(&prmbuf[2], year / 100, 2);
+        to_bcd(&prmbuf[3], year % 100, 2);
+        to_bcd(&prmbuf[4], month, 2);
+        to_bcd(&prmbuf[5], day, 2);
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 6, NULL, NULL);
+
+        if (retval != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\b", __func__, __LINE__, rigerror(retval));
+        }
+    }
+
+    if (hour >= 0)
+    {
+        prmbuf[0] = 0x00;
+        prmbuf[1] = 0x60;
+        to_bcd(&prmbuf[2], hour, 2);
+        to_bcd(&prmbuf[3], min, 2);
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 4, NULL, NULL);
+
+        if (retval != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\b", __func__, __LINE__, rigerror(retval));
+        }
+
+        prmbuf[0] = 0x00;
+        prmbuf[1] = 0x62;
+        rig_debug(RIG_DEBUG_ERR, "%s: utc_offset=%d\n", __func__, utc_offset);
+        to_bcd(&prmbuf[2], abs(utc_offset) / 100, 2);
+        to_bcd(&prmbuf[3], abs(utc_offset) % 100, 2);
+        to_bcd(&prmbuf[4], utc_offset >= 0 ? 0 : 1, 2);
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 5, NULL, NULL);
+
+        if (retval != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\b", __func__, __LINE__, rigerror(retval));
+        }
+    }
+
+    return retval;
+}
+
+int ic7800_get_clock(RIG *rig, int *year, int *month, int *day, int *hour,
+                     int *min, int *sec, double *msec, int *utc_offset)
+{
+    int cmd = 0x1a;
+    int subcmd =  0x05;
+    int retval = RIG_OK;
+    int resplen;
+    unsigned char prmbuf[MAXFRAMELEN];
+    unsigned char respbuf[MAXFRAMELEN];
+
+    prmbuf[0] = 0x00;
+    prmbuf[1] = 0x59;
+    resplen = sizeof(respbuf);
+    retval = icom_transaction(rig, cmd, subcmd, prmbuf, 2, respbuf, &resplen);
+    *year = from_bcd(&respbuf[4], 2) * 100 + from_bcd(&respbuf[5], 2);
+    *month = from_bcd(&respbuf[6], 2);
+    *day = from_bcd(&respbuf[7], 2);
+
+    if (hour != NULL)
+    {
+        prmbuf[0] = 0x00;
+        prmbuf[1] = 0x60;
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 2, respbuf, &resplen);
+
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
+
+        *hour = from_bcd(&respbuf[4], 2);
+        *min = from_bcd(&respbuf[5], 2);
+        *sec = 0;
+        *msec = 0;
+
+        prmbuf[0] = 0x00;
+        prmbuf[1] = 0x62;
+        retval = icom_transaction(rig, cmd, subcmd, prmbuf, 2, respbuf, &resplen);
+
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
+
+        *utc_offset = from_bcd(&respbuf[4], 2) * 100;
+        *utc_offset += from_bcd(&respbuf[5], 2);
+
+        if (respbuf[6] != 0x00) { *utc_offset *= -1; }
+
+        //rig_debug(RIG_DEBUG_VERBOSE,
+        //          "%s: %02d-%02d-%02dT%02d:%02d:%06.3lf%s%04d\n'",
+        //          __func__, *year, *month, *day, *hour, *min, *sec + *msec / 1000,
+        //          *utc_offset >= 0 ? "+" : "-", (unsigned)abs(*utc_offset));
+    }
+
+    return retval;
 }

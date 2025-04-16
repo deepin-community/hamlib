@@ -19,22 +19,15 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-
 #include <hamlib/rig.h>
 #include "icom.h"
 #include "icom_defs.h"
-#include "frame.h"
 #include "idx_builtin.h"
 #include "bandplan.h"
-
+#include "tones.h"
 
 #define IC9100_MODES (RIG_MODE_SSB|RIG_MODE_CW|RIG_MODE_CWR|\
-        RIG_MODE_AM|RIG_MODE_FM|RIG_MODE_RTTY|RIG_MODE_RTTYR)
+        RIG_MODE_AM|RIG_MODE_FM|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_PKTUSB|RIG_MODE_PKTLSB)
 
 #define IC9100_OTHER_TX_MODES ((IC9100_MODES) & ~RIG_MODE_AM)
 
@@ -59,6 +52,7 @@
                             RIG_FUNC_FBKIN| \
                             RIG_FUNC_AFC| \
                             RIG_FUNC_SATMODE| \
+                            RIG_FUNC_DUAL_WATCH| \
                             RIG_FUNC_VSC| \
                             RIG_FUNC_MN| \
                             RIG_FUNC_LOCK| \
@@ -67,7 +61,6 @@
 #define IC9100_LEVEL_ALL    (RIG_LEVEL_AF| \
                             RIG_LEVEL_RF| \
                             RIG_LEVEL_SQL| \
-                            RIG_LEVEL_IF| \
                             RIG_LEVEL_NR| \
                             RIG_LEVEL_CWPITCH| \
                             RIG_LEVEL_RFPOWER| \
@@ -84,7 +77,8 @@
                             RIG_LEVEL_NOTCHF_RAW| \
                             RIG_LEVEL_ATT| \
                             RIG_LEVEL_PREAMP| \
-                            RIG_LEVEL_MONITOR_GAIN)
+                            RIG_LEVEL_MONITOR_GAIN| \
+                            RIG_LEVEL_AGC_TIME)
 
 #define IC9100_PARM_ALL (RIG_PARM_ANN|RIG_PARM_BACKLIGHT)
 
@@ -95,6 +89,7 @@
 struct cmdparams ic9100_extcmds[] =
 {
     { {.s = RIG_LEVEL_VOXDELAY}, CMD_PARAM_TYPE_LEVEL, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x27}, CMD_DAT_INT, 1 },
+    { {.s = RIG_PARM_KEYERTYPE}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x02}, CMD_DAT_INT, 1 },
     { {.s = RIG_PARM_NONE} }
 };
 
@@ -107,14 +102,24 @@ static const struct icom_priv_caps ic9100_priv_caps =
     .antack_len = 2,
     .ant_count = 2,
     .extcmds = ic9100_extcmds,
+    .x25x26_always = 0,
+    .x25x26_possibly = 0,
+    .x1cx03_always = 0,
+    .x1cx03_possibly = 0,
+    .x1ax03_supported = 1,
+    .mode_with_filter = 1,
+    .data_mode_supported = 1
 };
 
-const struct rig_caps ic9100_caps =
+// borrow this as they behave the same
+extern int ic9700_set_vfo(RIG *rig, vfo_t vfo);
+
+struct rig_caps ic9100_caps =
 {
     RIG_MODEL(RIG_MODEL_IC9100),
     .model_name = "IC-9100",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".6",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -137,12 +142,17 @@ const struct rig_caps ic9100_caps =
     .has_set_level =  IC9100_LEVEL_ALL,
     .has_get_parm =  IC9100_PARM_ALL,
     .has_set_parm =  IC9100_PARM_ALL,
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BANDSELECT] = {.step = {.s = "BANDUNUSED,BAND160M,BAND80M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
+        [PARM_KEYERTYPE] = {.step = {.s = "STRAIGHT,BUG,PADDLE"}},
+    },
+
     .ctcss_list =  common_ctcss_list,
     .dcs_list =  common_dcs_list,
     .preamp =   {20, RIG_DBLST_END, },
@@ -241,11 +251,10 @@ const struct rig_caps ic9100_caps =
     .get_freq =  icom_get_freq,
     .set_freq =  icom_set_freq,
 
-    .get_mode =  icom_get_mode_with_data,
-    .set_mode =  icom_set_mode_with_data,
-
-    .get_vfo =  NULL,
-    .set_vfo =  icom_set_vfo,
+    .get_mode =  icom_get_mode,
+    .set_mode =  icom_set_mode,
+    .set_vfo =  ic9700_set_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
     .get_ts =  icom_get_ts,
@@ -284,4 +293,5 @@ const struct rig_caps ic9100_caps =
     .set_split_mode = icom_set_split_mode,
     .get_split_mode = icom_get_split_mode,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

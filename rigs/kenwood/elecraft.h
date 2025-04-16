@@ -23,6 +23,7 @@
 #define _ELECRAFT_H 1
 
 #include <hamlib/rig.h>
+#include "token.h"
 
 /* The Elecraft Programmer's Reference details the extension level that
  * a K2 or K3 may have in effect which modify certain commands.
@@ -74,6 +75,7 @@ extern const struct confparams elecraft_ext_levels[];
 
 /* Elecraft extension function declarations */
 int elecraft_open(RIG *rig);
+int elecraft_close(RIG *rig);
 
 /* S-meter calibration tables */
 
@@ -132,5 +134,7 @@ int elecraft_open(RIG *rig);
 		{ 103, 60 }, \
 	} }
 
+// K4 is the only we know that has this as of 2021-11-09
+int elecraft_get_vfo_tq(RIG *rig, vfo_t *vfo);
 
 #endif /* _ELECRAFT_H */

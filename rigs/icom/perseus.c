@@ -19,19 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
-#include "serial.h"
-#include "misc.h"
-#include "idx_builtin.h"
 
 #include "icom.h"
-#include "icom_defs.h"
 #include "frame.h"
 
 
@@ -79,14 +71,14 @@ static struct icom_priv_caps perseus_priv_caps =
  * PERSEUS Receiver CAT Interface Reference Manual (Revision EN03) :
  *  http://microtelecom.it/perseus/PERSEUS_CI-V_Interface-EN03.pdf
  */
-const struct rig_caps perseus_caps =
+struct rig_caps perseus_caps =
 {
     RIG_MODEL(RIG_MODEL_PERSEUS),
     .model_name = "Perseus",
     .mfg_name =  "Microtelecom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_PCRECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -161,7 +153,7 @@ const struct rig_caps perseus_caps =
     .rig_init =   icom_init,
     .rig_cleanup =   icom_cleanup,
     .rig_open =  icom_rig_open,
-    .rig_close =  icom_rig_open,
+    .rig_close =  icom_rig_close,
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
@@ -172,6 +164,7 @@ const struct rig_caps perseus_caps =
     .set_level =  icom_set_level,
     .get_level =  icom_get_level,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

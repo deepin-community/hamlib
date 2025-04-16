@@ -54,16 +54,8 @@
  */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 // cppcheck-suppress *
 #include <stdlib.h>
-// cppcheck-suppress *
-#include <string.h>  /* String function definitions */
-// cppcheck-suppress *
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -130,14 +122,14 @@ static int  check_tuning_step(RIG *rig, vfo_t vfo, rmode_t mode,
  * vr5000 rigs capabilities.
  */
 
-const struct rig_caps vr5000_caps =
+struct rig_caps vr5000_caps =
 {
     RIG_MODEL(RIG_MODEL_VR5000),
     .model_name =         "VR-5000",
     .mfg_name =           "Yaesu",
     .version =            "20200505.0",
     .copyright =          "LGPL",
-    .status =             RIG_STATUS_ALPHA,
+    .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_RECEIVER,
     .ptt_type =           RIG_PTT_NONE,
     .dcd_type =           RIG_DCD_RIG,
@@ -155,9 +147,13 @@ const struct rig_caps vr5000_caps =
     .has_get_func =       RIG_FUNC_NONE,
     .has_set_func =       RIG_FUNC_NONE,
     .has_get_level =      RIG_LEVEL_RAWSTR,
-    .has_set_level =      RIG_LEVEL_NONE,
+    .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .vfo_ops =            RIG_OP_NONE,
     .preamp =             { RIG_DBLST_END, },
     .attenuator =         { RIG_DBLST_END, },
@@ -229,7 +225,7 @@ const struct rig_caps vr5000_caps =
     .get_mode =       vr5000_get_mode,
     .set_ts =         vr5000_set_ts,
     .get_ts =         vr5000_get_ts,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -250,10 +246,10 @@ struct vr5000_priv_data
 
 int vr5000_init(RIG *rig)
 {
-    rig->state.priv = (struct vr5000_priv_data *) calloc(1,
-                      sizeof(struct vr5000_priv_data));
+    STATE(rig)->priv = (struct vr5000_priv_data *) calloc(1,
+                       sizeof(struct vr5000_priv_data));
 
-    if (!rig->state.priv) { return -RIG_ENOMEM; }
+    if (!STATE(rig)->priv) { return -RIG_ENOMEM; }
 
     return RIG_OK;
 }
@@ -266,12 +262,12 @@ int vr5000_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
@@ -282,14 +278,15 @@ int vr5000_cleanup(RIG *rig)
  */
 int vr5000_open(RIG *rig)
 {
-    struct vr5000_priv_data *priv = rig->state.priv;
-    unsigned char cmd[YAESU_CMD_LENGTH]   = { 0x00, 0x00, 0x00, 0x00, 0x00};
-    unsigned char b_off[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x31};
+    struct vr5000_priv_data *priv = STATE(rig)->priv;
+    hamlib_port_t *rp = RIGPORT(rig);
+    const unsigned char cmd[YAESU_CMD_LENGTH]   = { 0x00, 0x00, 0x00, 0x00, 0x00};
+    const unsigned char b_off[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x31};
 
     int retval;
 
     /* CAT write command on */
-    retval =  write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    retval =  write_block(rp, cmd, YAESU_CMD_LENGTH);
 
     if (retval != RIG_OK)
     {
@@ -297,7 +294,7 @@ int vr5000_open(RIG *rig)
     }
 
     /* disable RIG_VFO_B  (only on display) */
-    retval =  write_block(&rig->state.rigport, (char *) b_off, YAESU_CMD_LENGTH);
+    retval =  write_block(rp, b_off, YAESU_CMD_LENGTH);
 
     if (retval != RIG_OK)
     {
@@ -326,15 +323,15 @@ int vr5000_open(RIG *rig)
 
 int vr5000_close(RIG *rig)
 {
-    unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x80};
+    const unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x80};
 
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), cmd, YAESU_CMD_LENGTH);
 }
 
 
 int vr5000_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct vr5000_priv_data *priv = rig->state.priv;
+    struct vr5000_priv_data *priv = STATE(rig)->priv;
 
     return set_vr5000(rig, vfo, freq, priv->curr_mode, priv->curr_width,
                       priv->curr_ts);
@@ -344,7 +341,7 @@ int vr5000_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 int vr5000_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
 
-    struct vr5000_priv_data *priv = rig->state.priv;
+    const struct vr5000_priv_data *priv = STATE(rig)->priv;
     *freq = priv->curr_freq;
 
     return RIG_OK;
@@ -353,7 +350,7 @@ int vr5000_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
 int vr5000_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
-    struct vr5000_priv_data *priv = rig->state.priv;
+    struct vr5000_priv_data *priv = STATE(rig)->priv;
 
     if (check_tuning_step(rig, vfo, mode, priv->curr_ts) != RIG_OK)
     {
@@ -367,7 +364,7 @@ int vr5000_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
 int vr5000_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct vr5000_priv_data *priv = rig->state.priv;
+    const struct vr5000_priv_data *priv = STATE(rig)->priv;
     *mode = priv->curr_mode;
     *width = priv->curr_width;
 
@@ -377,7 +374,7 @@ int vr5000_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
 int vr5000_set_ts(RIG *rig, vfo_t vfo, shortfreq_t ts)
 {
-    struct vr5000_priv_data *priv = rig->state.priv;
+    struct vr5000_priv_data *priv = STATE(rig)->priv;
     int retval;
 
     retval = check_tuning_step(rig, vfo, priv->curr_mode, ts);
@@ -395,7 +392,7 @@ int vr5000_set_ts(RIG *rig, vfo_t vfo, shortfreq_t ts)
 
 int vr5000_get_ts(RIG *rig, vfo_t vfo, shortfreq_t *ts)
 {
-    struct vr5000_priv_data *priv = rig->state.priv;
+    const struct vr5000_priv_data *priv = STATE(rig)->priv;
     *ts = priv->curr_ts;
 
     return RIG_OK;
@@ -406,16 +403,17 @@ int vr5000_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0xe7};
     int retval;
+    hamlib_port_t *rp = RIGPORT(rig);
 
     if (level != RIG_LEVEL_RAWSTR)
     {
         return -RIG_EINVAL;
     }
 
-    rig_flush(&rig->state.rigport);
+    rig_flush(rp);
 
     /* send READ STATUS(Meter only) cmd to rig  */
-    retval = write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    retval = write_block(rp, cmd, YAESU_CMD_LENGTH);
 
     if (retval < 0)
     {
@@ -423,7 +421,7 @@ int vr5000_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     }
 
     /* read back the 1 byte */
-    retval = read_block(&rig->state.rigport, (char *) cmd, 1);
+    retval = read_block(rp, cmd, 1);
 
     if (retval < 1)
     {
@@ -436,7 +434,6 @@ int vr5000_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     val->i = cmd[0] & 0x3f;
     rig_debug(RIG_DEBUG_ERR, "Read(%x) RawValue(%x): \n", cmd[0], val->i);
 
-
     return RIG_OK;
 }
 
@@ -445,11 +442,12 @@ int vr5000_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
 {
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0xe7};
     int retval;
+    hamlib_port_t *rp = RIGPORT(rig);
 
-    rig_flush(&rig->state.rigport);
+    rig_flush(rp);
 
     /* send READ STATUS(Meter only) cmd to rig  */
-    retval = write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    retval = write_block(rp, cmd, YAESU_CMD_LENGTH);
 
     if (retval < 0)
     {
@@ -457,7 +455,7 @@ int vr5000_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
     }
 
     /* read back the 1 byte */
-    retval = read_block(&rig->state.rigport, (char *) cmd, 1);
+    retval = read_block(rp, cmd, 1);
 
     if (retval < 1)
     {
@@ -525,7 +523,7 @@ int mode2rig(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 void correct_frequency(RIG *rig, vfo_t vfo, freq_t curr_freq, freq_t *freq)
 {
 
-    struct vr5000_priv_data *priv = rig->state.priv;
+    const struct vr5000_priv_data *priv = STATE(rig)->priv;
     shortfreq_t ts = priv->curr_ts;
     unsigned long long correct_freq = (unsigned long long)curr_freq;
 
@@ -574,7 +572,8 @@ void correct_frequency(RIG *rig, vfo_t vfo, freq_t curr_freq, freq_t *freq)
 int set_vr5000(RIG *rig, vfo_t vfo, freq_t freq, rmode_t mode, pbwidth_t width,
                shortfreq_t ts)
 {
-    struct vr5000_priv_data *priv = rig->state.priv;
+    struct vr5000_priv_data *priv = STATE(rig)->priv;
+    hamlib_port_t *rp = RIGPORT(rig);
     unsigned char cmd_mode_ts[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x07};
     unsigned char cmd_freq[YAESU_CMD_LENGTH]    = { 0x00, 0x00, 0x00, 0x00, 0x01};
     static const unsigned char steps[] =
@@ -617,8 +616,7 @@ int set_vr5000(RIG *rig, vfo_t vfo, freq_t freq, rmode_t mode, pbwidth_t width,
     /* fill in m2 */
     cmd_mode_ts[1] = steps[i];
 
-    retval =  write_block(&rig->state.rigport, (char *) cmd_mode_ts,
-                          YAESU_CMD_LENGTH);
+    retval =  write_block(rp, cmd_mode_ts, YAESU_CMD_LENGTH);
 
     if (retval != RIG_OK)
     {
@@ -637,7 +635,7 @@ int set_vr5000(RIG *rig, vfo_t vfo, freq_t freq, rmode_t mode, pbwidth_t width,
     cmd_freq[3] = frq & 0xff;
 
     /* frequency set */
-    return write_block(&rig->state.rigport, (char *) cmd_freq, YAESU_CMD_LENGTH);
+    return write_block(rp, cmd_freq, YAESU_CMD_LENGTH);
 }
 
 

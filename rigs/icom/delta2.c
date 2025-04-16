@@ -31,17 +31,8 @@
  * To Do: get the datasheet, and testing on real hardware!!
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-
 #include <hamlib/rig.h>
 #include "icom.h"
-#include "icom_defs.h"
-#include "frame.h"
-#include "misc.h"
 
 #define DELTAII_VFO_ALL (RIG_VFO_A|RIG_VFO_B|RIG_VFO_MEM)
 
@@ -61,14 +52,14 @@ static const struct icom_priv_caps delta2_priv_caps =
     ic737_ts_sc_list  /* TODO: ts_sc_list */
 };
 
-const struct rig_caps delta2_caps =
+struct rig_caps delta2_caps =
 {
     RIG_MODEL(RIG_MODEL_DELTAII),
     .model_name = "Delta II",
     .mfg_name =  "Ten-Tec",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -163,6 +154,7 @@ const struct rig_caps delta2_caps =
     .decode_event =  icom_decode_event,
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

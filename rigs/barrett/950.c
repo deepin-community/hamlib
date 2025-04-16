@@ -18,22 +18,11 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
 
 #include <hamlib/rig.h>
-#include "serial.h"
-#include "misc.h"
-#include "cal.h"
-#include "token.h"
-#include "register.h"
 
 #include "barrett.h"
 
@@ -46,7 +35,7 @@
 #define BARRETT950_LEVELS (RIG_LEVEL_NONE)
 
 
-static int barrett950_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
+int barrett950_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 
 static int barrett950_get_level(RIG *rig, vfo_t vfo, setting_t level,
                                 value_t *val);
@@ -63,28 +52,28 @@ struct chan_map_s
 };
 
 // Our 10 bands
-struct chan_map_s chan_map[] =
+static struct chan_map_s chan_map[] =
 {
-    { 1.8, 2.0, 0},
-    { 3.5, 4.0, 1},
-    { 5.3, 5.4, 2},
-    { 7.0, 7.3, 3},
-    { 10.1, 10.15, 4},
-    { 14.0, 14.35, 5},
-    { 18.068, 18.168, 6},
-    { 21.0, 21.45, 7},
-    { 24.89, 24.99, 8},
-    { 28.0, 29.7, 9}
+    { 0, 3.5, 0},
+    { 3.5, 5.3, 1},
+    { 5.3, 7.0, 2},
+    { 7.0, 10.1, 3},
+    { 10.1, 14.0, 4},
+    { 14.0, 18.068, 5},
+    { 18.068, 21.0, 6},
+    { 21.0, 24.89, 7},
+    { 24.89, 28.0, 8},
+    { 28.0, 30.0, 9}
 };
 
-const struct rig_caps barrett950_caps =
+struct rig_caps barrett950_caps =
 {
     RIG_MODEL(RIG_MODEL_BARRETT_950),
     .model_name =       "950",
     .mfg_name =         "Barrett",
-    .version =          BACKEND_VER ".0",
+    .version =          BACKEND_VER ".1",
     .copyright =        "LGPL",
-    .status =           RIG_STATUS_BETA,
+    .status =           RIG_STATUS_STABLE,
     .rig_type =         RIG_TYPE_TRANSCEIVER,
     .targetable_vfo =   RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE,
     .ptt_type =         RIG_PTT_RIG,
@@ -143,11 +132,12 @@ const struct rig_caps barrett950_caps =
     .set_split_freq =   barrett_set_split_freq,
     .set_split_vfo =    barrett_set_split_vfo,
     .get_split_vfo =    barrett_get_split_vfo,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
  * barrett950_set_freq
- * assumes rig!=NULL, rig->state.priv!=NULL
+ * assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
 int barrett950_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
@@ -158,7 +148,8 @@ int barrett950_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     freq_t freq_rx, freq_tx;
     freq_t freq_MHz;
     char *response = NULL;
-    //struct barrett_priv_data *priv = rig->state.priv;
+    const struct barrett_priv_data *priv = STATE(rig)->priv;
+    //struct barrett_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: vfo=%s freq=%.0f\n", __func__,
               rig_strvfo(vfo), freq);
@@ -173,9 +164,13 @@ int barrett950_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     for (i = 0; i < 10; ++i)
     {
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: Mhz=%lg, lo=%lg, hi=%lg\n", __func__,
+                  freq_MHz, chan_map[i].lo, chan_map[i].hi);
+
         if (freq_MHz >= chan_map[i].lo && freq_MHz <= chan_map[i].hi)
         {
-            chan = CHANNEL_BASE + chan_map[i].chan_offset;
+            int channel_base = priv->channel_base;
+            chan = channel_base + chan_map[i].chan_offset;
         }
     }
 
@@ -183,7 +178,7 @@ int barrett950_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
               chan, freq);
 
     // Set the channel
-    sprintf((char *) cmd_buf, "XC%04d", chan);
+    SNPRINTF((char *) cmd_buf, sizeof(cmd_buf), "XC%04d", chan);
     retval = barrett_transaction(rig, cmd_buf, 0, &response);
 
     if (retval < 0)
@@ -192,7 +187,7 @@ int barrett950_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     }
 
     // Read the current channel for the requested freq to see if it needs changing
-    sprintf((char *) cmd_buf, "IDC%04d", chan);
+    SNPRINTF((char *) cmd_buf, sizeof(cmd_buf), "IDC%04d", chan);
     retval = barrett_transaction(rig, cmd_buf, 0, &response);
 
     if (retval < 0)
@@ -200,7 +195,12 @@ int barrett950_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return retval;
     }
 
-    if (sscanf(response, "%4d%8lf%8lf", &chan, &freq_rx, &freq_tx) != 2)
+    if (strstr(response, "E5"))
+    {
+        freq_rx = freq_tx = 0;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: new channel being programmed\n", __func__);
+    }
+    else if (sscanf(response, "%4d%8lf%8lf", &chan, &freq_rx, &freq_tx) != 3)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: unable to parse chan/freq from %s\n", __func__,
                   response);
@@ -219,7 +219,8 @@ int barrett950_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     // New freq so let's update the channel
     // We do not support split mode -- too many writes to EEPROM to support it
-    sprintf((char *) cmd_buf, "PC%04dR%08.0lfT%08.0lf", chan, freq, freq);
+    SNPRINTF((char *) cmd_buf, sizeof(cmd_buf), "PC%04dR%08.0lfT%08.0lf", chan,
+             freq, freq);
     retval = barrett_transaction(rig, cmd_buf, 0, &response);
 
     if (retval != RIG_OK || strncmp(response, "OK", 2) != 0)

@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -70,7 +66,7 @@
  *
  * TODO:
  */
-const struct rig_caps rx320_caps =
+struct rig_caps rx320_caps =
 {
     RIG_MODEL(RIG_MODEL_RX320),
     .model_name = "RX-320",
@@ -104,7 +100,6 @@ const struct rig_caps rx320_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 10000 } },
         [LVL_AF] = { .min = { .f = 0 }, .max = { .f = 1 }, .step = { .f = 1.0 / 64 } },
         [LVL_IF] = { .min = { .i = -2000 }, .max = { .i = 2000 }, .step = { .i = 10} },
@@ -171,7 +166,7 @@ const struct rig_caps rx320_caps =
     .set_level =  tentec_set_level,
     .get_level =  tentec_get_level,
     .get_info =  tentec_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

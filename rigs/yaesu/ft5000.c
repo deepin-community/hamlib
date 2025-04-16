@@ -25,15 +25,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "hamlib/rig.h"
 #include "bandplan.h"
 #include "newcat.h"
+#include "yaesu.h"
 #include "ft5000.h"
-#include "idx_builtin.h"
 #include "tones.h"
 
 const struct newcat_priv_caps ftdx5000_priv_caps =
@@ -53,7 +49,7 @@ const struct newcat_priv_caps ftdx5000_priv_caps =
         { .index = 8, .set_value = 0, .get_value = '6', .width = 3000, .optional = 0 },
         { .index = 9, .set_value = 0, .get_value = '9', .width = 600, .optional = 0 },
         { .index = 10, .set_value = 0, .get_value = 'A', .width = 300, .optional = 0 },
-    }
+    },
 };
 
 const struct confparams ftdx5000_ext_levels[] =
@@ -75,24 +71,78 @@ const struct confparams ftdx5000_ext_levels[] =
             }
         }
     },
+    {
+        TOK_KEYER,
+        "KEYER",
+        "Keyer",
+        "Keyer on/off",
+        NULL,
+        RIG_CONF_CHECKBUTTON,
+    },
+    {
+        TOK_APF_WIDTH,
+        "APF_WIDTH",
+        "APF width",
+        "Audio peak filter width",
+        NULL,
+        RIG_CONF_COMBO,
+        { .c = { .combostr = { "S. Narrow", "Narrow", "Medium", "Wide", NULL } } },
+    },
+    {
+        TOK_CONTOUR,
+        "CONTOUR",
+        "Contour",
+        "Contour on/off",
+        NULL,
+        RIG_CONF_CHECKBUTTON,
+    },
+    {
+        TOK_CONTOUR_FREQ,
+        "CONTOUR_FREQ",
+        "Contour frequency",
+        "Contour frequency",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = 100, .max = 4000, .step = 100 } },
+    },
+    {
+        TOK_CONTOUR_LEVEL,
+        "CONTOUR_LEVEL",
+        "Contour level",
+        "Contour level (dB)",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = -40, .max = 20, .step = 1 } },
+    },
+    {
+        TOK_CONTOUR_WIDTH,
+        "CONTOUR_WIDTH",
+        "Contour width",
+        "Contour width",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = 1, .max = 11, .step = 1 } },
+    },
     { RIG_CONF_END, NULL, }
 };
 
 int ftdx5000_ext_tokens[] =
 {
-    TOK_ROOFING_FILTER, TOK_BACKEND_NONE
+    TOK_ROOFING_FILTER, TOK_KEYER, TOK_APF_WIDTH,
+    TOK_CONTOUR, TOK_CONTOUR_FREQ, TOK_CONTOUR_LEVEL, TOK_CONTOUR_WIDTH,
+    TOK_BACKEND_NONE
 };
 
-const struct rig_caps ftdx5000_caps =
+struct rig_caps ftdx5000_caps =
 {
     RIG_MODEL(RIG_MODEL_FTDX5000),
     .model_name =         "FTDX-5000",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".0",
+    .version =            NEWCAT_VER ".11",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
-    .ptt_type =           RIG_PTT_RIG,
+    .ptt_type =           RIG_PTT_RIG_MICDATA,
     .dcd_type =           RIG_DCD_NONE,
     .port_type =          RIG_PORT_SERIAL,
     .serial_rate_min =    4800,         /* Default rate per manual */
@@ -109,15 +159,25 @@ const struct rig_caps ftdx5000_caps =
     .has_set_func =       FTDX5000_FUNCS,
     .has_get_level =      FTDX5000_LEVELS,
     .has_set_level =      RIG_LEVEL_SET(FTDX5000_LEVELS),
-    .has_get_parm =       RIG_PARM_NONE,
-    .has_set_parm =       RIG_PARM_NONE,
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 10 } },
-        [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
+    .has_get_parm =       RIG_PARM_BANDSELECT,
+    .has_set_parm =       RIG_PARM_BANDSELECT,
+    .level_gran =
+    {
+#define NO_LVL_NOTCHF
+#define NO_LVL_COMP
+#define NO_LVL_VOXGAIN
+#include "level_gran_yaesu.h"
+#undef NO_LVL_NOTCHF
+#undef NO_LVL_COMP
+#undef NO_LVL_VOXGAIN
         [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 4000 }, .step = { .i = 10 } },
+        [LVL_COMP] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 255.0f } },
+        [LVL_VOXGAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 255.0f } },
     },
+    .parm_gran =  {
+        [PARM_BANDSELECT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.s = "BAND160M,BAND80M,BANDUNUSED,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}}
+    },
+
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           NULL,
     .preamp =             { 10, 20, RIG_DBLST_END, }, /* TBC: Not specified in manual */
@@ -125,15 +185,20 @@ const struct rig_caps ftdx5000_caps =
     .max_rit =            Hz(9999),
     .max_xit =            Hz(9999),
     .max_ifshift =        Hz(1000),
+    .agc_level_count =    5,
+    .agc_levels =         { RIG_AGC_OFF, RIG_AGC_FAST, RIG_AGC_MEDIUM, RIG_AGC_SLOW, RIG_AGC_AUTO },
     .vfo_ops =            FTDX5000_VFO_OPS,
+    .scan_ops =           RIG_SCAN_VFO,
     .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE | RIG_TARGETABLE_FUNC | RIG_TARGETABLE_LEVEL | RIG_TARGETABLE_ANT | RIG_TARGETABLE_ROOFING,
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 5000 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
+    .rfpower_meter_cal =  FT5000_RFPOWER_METER_CAL,
     .str_cal =            FTDX5000_STR_CAL,
     .chan_list =          {
         {   1,  99, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP },
         { 100, 117, RIG_MTYPE_EDGE, NEWCAT_MEM_CAP },    /* two by two */
+        {   1,  5,  RIG_MTYPE_MORSE },
         RIG_CHAN_END,
     },
 
@@ -208,7 +273,7 @@ const struct rig_caps ftdx5000_caps =
 
     .cfgparams =          newcat_cfg_params,
     .set_conf =           newcat_set_conf,
-    .get_conf =           newcat_get_conf,
+    .get_conf2 =          newcat_get_conf2,
     .set_freq =           newcat_set_freq,
     .get_freq =           newcat_get_freq,
     .set_mode =           newcat_set_mode,
@@ -253,5 +318,9 @@ const struct rig_caps ftdx5000_caps =
     .get_channel =        newcat_get_channel,
     .set_ext_level =      newcat_set_ext_level,
     .get_ext_level =      newcat_get_ext_level,
-
+    .send_morse =         newcat_send_morse,
+    .wait_morse =         rig_wait_morse,
+    .scan =               newcat_scan,
+    .morse_qsize =        50,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

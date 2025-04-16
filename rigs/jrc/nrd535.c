@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -93,12 +89,12 @@ static const struct jrc_priv_caps nrd535_priv_caps =
  * NRD-535 rig capabilities.
  *
  */
-const struct rig_caps nrd535_caps =
+struct rig_caps nrd535_caps =
 {
     RIG_MODEL(RIG_MODEL_NRD535),
     .model_name = "NRD-535D",
     .mfg_name =  "JRC",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
@@ -112,8 +108,8 @@ const struct rig_caps nrd535_caps =
     .serial_parity =  RIG_PARITY_NONE,
     .serial_handshake =  RIG_HANDSHAKE_NONE,
     .write_delay =  0,
-    .post_write_delay =  20,
-    .timeout =  200,
+    .post_write_delay =  21,
+    .timeout =  250,
     .retry =  3,
 
     .has_get_func =  NRD535_FUNC,
@@ -123,7 +119,6 @@ const struct rig_caps nrd535_caps =
     .has_get_parm =  RIG_PARM_TIME,
     .has_set_parm =  RIG_PARM_SET(NRD535_PARM),
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_ATT] = { .min = { .i = 0 }, .max = { .i = 20 } },
         [LVL_IF] = { .min = { .i = -2000 }, .max = { .i = 2000 } },
@@ -209,7 +204,7 @@ const struct rig_caps nrd535_caps =
     .set_powerstat =  jrc_set_powerstat,
     .get_powerstat =  jrc_get_powerstat,
     .decode_event =  jrc_decode_event,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

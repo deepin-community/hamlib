@@ -25,7 +25,7 @@
 #include <hamlib/rig.h>
 #include <hamlib/rotator.h>
 
-#define SPRINTF_MAX_SIZE 512
+#define SPRINTF_MAX_SIZE 2048
 
 __BEGIN_DECLS
 
@@ -33,6 +33,7 @@ extern HAMLIB_EXPORT( int ) rig_sprintf_mode(char *str, int len, rmode_t mode);
 extern HAMLIB_EXPORT( int ) rig_sprintf_vfo(char *str, int len, vfo_t vfo);
 extern HAMLIB_EXPORT( int ) rig_sprintf_ant(char *str, int len, ant_t ant);
 extern HAMLIB_EXPORT( int ) rig_sprintf_func(char *str, int len, setting_t func);
+extern HAMLIB_EXPORT( int ) rig_sprintf_agc_levels(RIG *rig, char *str, int len);
 extern HAMLIB_EXPORT( int ) rot_sprintf_func(char *str, int len, setting_t func);
 extern HAMLIB_EXPORT( int ) rig_sprintf_level(char *str, int len, setting_t level);
 extern HAMLIB_EXPORT( int ) rot_sprintf_level(char *str, int len, setting_t level);
@@ -50,6 +51,7 @@ extern HAMLIB_EXPORT( int ) rot_sprintf_status(char *str, int len, rot_status_t 
 extern HAMLIB_EXPORT( int ) rig_sprintf_spectrum_modes(char *str, int nlen, const enum rig_spectrum_mode_e *modes);
 extern HAMLIB_EXPORT( int ) rig_sprintf_spectrum_spans(char *str, int nlen, const freq_t *spans);
 extern HAMLIB_EXPORT( int )  rig_sprintf_spectrum_avg_modes(char *str, int nlen, const struct rig_spectrum_avg_mode *avg_modes);
+extern HAMLIB_EXPORT( int )  rig_sprintf_tuning_steps(char *str, int nlen, const struct tuning_step_list *tuning_step_list);
 extern HAMLIB_EXPORT( char *) get_rig_conf_type(enum rig_conf_e type);
 extern HAMLIB_EXPORT( int ) print_ext_param(const struct confparams *cfp, rig_ptr_t ptr);
 

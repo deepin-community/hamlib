@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -82,14 +78,14 @@
  *
  */
 
-const struct rig_caps r8a_caps =
+struct rig_caps r8a_caps =
 {
     RIG_MODEL(RIG_MODEL_DKR8A),
     .model_name = "R-8A",
     .mfg_name =  "Drake",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -187,7 +183,7 @@ const struct rig_caps r8a_caps =
     .set_powerstat = drake_set_powerstat,
     .get_powerstat = drake_get_powerstat,
     .get_info =  drake_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

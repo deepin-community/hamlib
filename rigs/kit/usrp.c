@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 /*
  * Compile only this model if usrp is available
  */
@@ -64,14 +60,14 @@ static const struct confparams usrp_cfg_params[] =
  *
  */
 
-const struct rig_caps usrp_caps =
+struct rig_caps usrp_caps =
 {
     RIG_MODEL(RIG_MODEL_USRP),
     .model_name = "USRP",
     .mfg_name =  "GNU Radio",
     .version =  "0.1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TUNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -143,7 +139,7 @@ const struct rig_caps usrp_caps =
     .set_freq =  usrp_set_freq,
     .get_freq =  usrp_get_freq,
     .get_info =  usrp_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 #endif  /* HAVE_USRP */

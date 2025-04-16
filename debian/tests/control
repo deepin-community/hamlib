@@ -14,13 +14,13 @@ Test-Command: tclsh /usr/share/doc/tcl-hamlib/examples/tcltest.tcl
 Features: test-name=tcl
 
 Depends:
- lua-hamlib2,
+ lua-hamlib,
  lua5.2,
 Test-Command: lua5.2 /usr/share/doc/lua-hamlib/examples/luatest.lua
 Features: test-name=lua5.2
 
 Depends:
- lua-hamlib2,
+ lua-hamlib,
  lua5.3,
 Test-Command: lua5.3 /usr/share/doc/lua-hamlib/examples/luatest.lua
 Features: test-name=lua5.3

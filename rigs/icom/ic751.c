@@ -19,14 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
-#include "bandplan.h"
 #include "icom.h"
 #include "idx_builtin.h"
 
@@ -84,14 +79,14 @@ static const struct icom_priv_caps ic751_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic751_caps =
+struct rig_caps ic751_caps =
 {
     RIG_MODEL(RIG_MODEL_IC751),
     .model_name = "IC-751",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG, /* Piexx UX-14px has a PTT option */
     .dcd_type =  RIG_DCD_NONE,
@@ -113,9 +108,9 @@ const struct rig_caps ic751_caps =
     .has_set_level =  RIG_LEVEL_NONE,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
     .parm_gran =  {},
     .ctcss_list =  NULL,
@@ -214,7 +209,7 @@ const struct rig_caps ic751_caps =
     .rig_init = icom_init,
     .rig_cleanup =  icom_cleanup,
     .rig_open =  icom_rig_open,
-    .rig_close =  icom_rig_open,
+    .rig_close =  icom_rig_close,
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
@@ -228,4 +223,5 @@ const struct rig_caps ic751_caps =
 
     .get_level =  icom_get_level,
     .set_ptt =  icom_set_ptt,/* Piexx UX-14px has no get_ptt only set_ptt */
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

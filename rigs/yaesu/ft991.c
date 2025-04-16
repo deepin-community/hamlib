@@ -29,27 +29,153 @@
  *
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 #include "hamlib/rig.h"
+#include "misc.h"
 #include "newcat.h"
+#include "yaesu.h"
 #include "ft991.h"
-#include "idx_builtin.h"
+
+/* Prototypes */
+static int ft991_init(RIG *rig);
+static int ft991_set_vfo(RIG *rig, vfo_t vfo);
+static int ft991_get_vfo(RIG *rig, vfo_t *vfo);
+static int ft991_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
+                                pbwidth_t *tx_width);
+static int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
+                                pbwidth_t tx_width);
+static int ft991_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq);
+static int ft991_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq);
+static void debug_ft991info_data(const ft991info *rdata);
+static int ft991_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone);
+static int ft991_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone);
+static int ft991_set_dcs_code(RIG *rig, vfo_t vfo, tone_t code);
+static int ft991_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code);
+static int ft991_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone);
+static int ft991_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone);
+static int ft991_get_dcs_sql(RIG *rig, vfo_t vfo, tone_t *code);
+static int ft991_set_dcs_sql(RIG *rig, vfo_t vfo, tone_t code);
+
+const struct confparams ft991_ext_levels[] =
+{
+    {
+        TOK_KEYER,
+        "KEYER",
+        "Keyer",
+        "Keyer on/off",
+        NULL,
+        RIG_CONF_CHECKBUTTON,
+    },
+    {
+        TOK_APF_FREQ,
+        "APF_FREQ",
+        "APF frequency",
+        "Audio peak filter frequency",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = -250, .max = 250, .step = 10 } },
+    },
+    {
+        TOK_APF_WIDTH,
+        "APF_WIDTH",
+        "APF width",
+        "Audio peak filter width",
+        NULL,
+        RIG_CONF_COMBO,
+        { .c = { .combostr = { "Narrow", "Medium", "Wide", NULL } } },
+    },
+    {
+        TOK_CONTOUR,
+        "CONTOUR",
+        "Contour",
+        "Contour on/off",
+        NULL,
+        RIG_CONF_CHECKBUTTON,
+    },
+    {
+        TOK_CONTOUR_FREQ,
+        "CONTOUR_FREQ",
+        "Contour frequency",
+        "Contour frequency",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = 10, .max = 3200, .step = 1 } },
+    },
+    {
+        TOK_CONTOUR_LEVEL,
+        "CONTOUR_LEVEL",
+        "Contour level",
+        "Contour level (dB)",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = -40, .max = 20, .step = 1 } },
+    },
+    {
+        TOK_CONTOUR_WIDTH,
+        "CONTOUR_WIDTH",
+        "Contour width",
+        "Contour width",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = 1, .max = 11, .step = 1 } },
+    },
+    {
+        TOK_MAXPOWER_HF,
+        "MAXPOWER_HF",
+        "Maxpower HF",
+        "Maxpower HF",
+        NULL,
+        RIG_CONF_INT,
+        { .n = { .min = 5, .max = 100, .step = 1 } },
+    },
+    {
+        TOK_MAXPOWER_6M,
+        "MAXPOWER_6M",
+        "Maxpower 6m",
+        "Maxpower 6m",
+        NULL,
+        RIG_CONF_INT,
+        { .n = { .min = 5, .max = 100, .step = 1 } },
+    },
+    {
+        TOK_MAXPOWER_VHF,
+        "MAXPOWER_VHF",
+        "Maxpower VHF",
+        "Maxpower VHF",
+        NULL,
+        RIG_CONF_INT,
+        { .n = { .min = 5, .max = 50, .step = 1 } },
+    },
+    {
+        TOK_MAXPOWER_UHF,
+        "MAXPOWER_UHF",
+        "Maxpower UHF",
+        "Maxpower UHF",
+        NULL,
+        RIG_CONF_NUMERIC,
+        { .n = { .min = 5, .max = 50, .step = 1 } },
+    },
+    { RIG_CONF_END, NULL, }
+};
+
+int ft991_ext_tokens[] =
+{
+    TOK_KEYER, TOK_APF_FREQ, TOK_APF_WIDTH,
+    TOK_CONTOUR, TOK_CONTOUR_FREQ, TOK_CONTOUR_LEVEL, TOK_CONTOUR_WIDTH,
+    TOK_MAXPOWER_HF, TOK_MAXPOWER_6M, TOK_MAXPOWER_UHF, TOK_MAXPOWER_VHF,
+    TOK_BACKEND_NONE
+};
 
 /*
  * FT-991 rig capabilities
  */
-const struct rig_caps ft991_caps =
+struct rig_caps ft991_caps =
 {
     RIG_MODEL(RIG_MODEL_FT991),
     .model_name =         "FT-991",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".3",
+    .version =            NEWCAT_VER ".18",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -70,15 +196,27 @@ const struct rig_caps ft991_caps =
     .has_set_func =       FT991_FUNCS,
     .has_get_level =      FT991_LEVELS,
     .has_set_level =      RIG_LEVEL_SET(FT991_LEVELS),
-    .has_get_parm =       RIG_PARM_NONE,
-    .has_set_parm =       RIG_PARM_NONE,
+    .has_get_parm =       RIG_PARM_BANDSELECT,
+    .has_set_parm =       RIG_PARM_BANDSELECT,
     .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 50 } },
-        [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
-        [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 3200 }, .step = { .i = 10 } },
+#define NO_LVL_MICGAIN
+#define NO_LVL_SQL
+#define NO_LVL_MONITOR_GAIN
+#define NO_LVL_RFPOWER
+#include "level_gran_yaesu.h"
+#undef NO_LVL_MICGAIN
+#undef NO_LVL_SQL
+#undef NO_LVL_MONITOR_GAIN
+#undef NO_LVL_RFPOWER
+        [LVL_MICGAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
+        [LVL_SQL] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
+        [LVL_MONITOR_GAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
+        [LVL_RFPOWER] = { .min = { .f = .05 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
     },
+    .parm_gran =  {
+        [PARM_BANDSELECT] = {.step = {.s = "BAND160M,BAND80M,BANDUNUSED,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN,BANDMW,BANDUNUSED,BANDAIR,BAND70CM,BAND33CM"}}
+    },
+
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           common_dcs_list,
     .preamp =             { 10, 20, RIG_DBLST_END, },
@@ -86,16 +224,25 @@ const struct rig_caps ft991_caps =
     .max_rit =            Hz(9999),
     .max_xit =            Hz(9999),
     .max_ifshift =        Hz(1200),
+    .agc_level_count = 5,
+    .agc_levels = { RIG_AGC_OFF, RIG_AGC_FAST, RIG_AGC_MEDIUM, RIG_AGC_SLOW, RIG_AGC_AUTO },
     .vfo_ops =            FT991_VFO_OPS,
-    .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE,
+    .scan_ops =           RIG_SCAN_VFO,
+    .targetable_vfo =     RIG_TARGETABLE_FREQ,
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 950 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
     .rfpower_meter_cal =  FT991_RFPOWER_METER_CAL,
     .str_cal =            FT991_STR_CAL,
+    .id_meter_cal =       FT991_ID_CAL,
+    .vd_meter_cal =       FT991_VD_CAL,
+    .comp_meter_cal =     FT991_COMP_CAL,
     .chan_list =          {
         {   1,  99, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP },
-        { 100, 117, RIG_MTYPE_EDGE, NEWCAT_MEM_CAP },    /* two by two */
+        {   100,  117, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP }, // P1L-P9U PMS channels
+        {   118,  127, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP }, // 5xx 5MHz band
+        {   1,      5, RIG_MTYPE_VOICE },
+        {   1,      5, RIG_MTYPE_MORSE },
         RIG_CHAN_END,
     },
 
@@ -110,9 +257,9 @@ const struct rig_caps ft991_caps =
     .tx_range_list1 =     {
         {MHz(1.8), MHz(54), FT991_OTHER_TX_MODES, W(5), W(100), FT991_VFO_ALL, FT991_ANTS, "Operating"},
         {MHz(1.8), MHz(54), FT991_AM_TX_MODES, W(2), W(25), FT991_VFO_ALL, FT991_ANTS, "Operating"}, /* AM class */
-        {MHz(144), MHz(148), FT991_OTHER_TX_MODES, W(5), W(100), FT991_VFO_ALL, FT991_ANTS, "Operating"},
+        {MHz(144), MHz(148), FT991_OTHER_TX_MODES, W(5), W(50), FT991_VFO_ALL, FT991_ANTS, "Operating"},
         {MHz(144), MHz(148), FT991_AM_TX_MODES, W(2), W(25), FT991_VFO_ALL, FT991_ANTS, "Operating"}, /* AM class */
-        {MHz(430), MHz(450), FT991_OTHER_TX_MODES, W(5), W(100), FT991_VFO_ALL, FT991_ANTS, "Operating"},
+        {MHz(430), MHz(450), FT991_OTHER_TX_MODES, W(5), W(50), FT991_VFO_ALL, FT991_ANTS, "Operating"},
         {MHz(430), MHz(450), FT991_AM_TX_MODES, W(2), W(25), FT991_VFO_ALL, FT991_ANTS, "Operating"}, /* AM class */
         RIG_FRNG_END,
     },
@@ -133,45 +280,70 @@ const struct rig_caps ft991_caps =
 
     /* mode/filter list, .remember =  order matters! */
     .filters =            {
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(1700)},    /* Normal CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(500)},     /* Narrow CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(2400)},    /* Wide   CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(2000)},    /*        CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(1400)},    /*        CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(1200)},    /*        CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(800)},     /*        CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(400)},     /*        CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(300)},     /*        CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(200)},     /*        CW, RTTY, PKT */
-        {FT991_CW_RTTY_PKT_RX_MODES,  Hz(100)},     /*        CW, RTTY, PKT */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(500)},     /* Normal RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(300)},     /* Narrow RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(3000)},    /* Wide   RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(2400)},    /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(2000)},    /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(1700)},    /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(1400)},    /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(1200)},    /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(800)},     /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(450)},     /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(400)},     /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(350)},     /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(250)},     /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(200)},     /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(150)},     /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(100)},     /*        RTTY, DATA */
+        {FT991_RTTY_DATA_RX_MODES,    Hz(50)},      /*        RTTY, DATA */
+        {FT991_CW_RX_MODES,           Hz(2400)},    /* Normal CW */
+        {FT991_CW_RX_MODES,           Hz(500)},     /* Narrow CW */
+        {FT991_CW_RX_MODES,           Hz(3000)},    /* Wide   CW */
+        {FT991_CW_RX_MODES,           Hz(2000)},    /*        CW */
+        {FT991_CW_RX_MODES,           Hz(1700)},    /*        CW */
+        {FT991_CW_RX_MODES,           Hz(1400)},    /*        CW */
+        {FT991_CW_RX_MODES,           Hz(1200)},    /*        CW */
+        {FT991_CW_RX_MODES,           Hz(800)},     /*        CW */
+        {FT991_CW_RX_MODES,           Hz(450)},     /*        CW */
+        {FT991_CW_RX_MODES,           Hz(400)},     /*        CW */
+        {FT991_CW_RX_MODES,           Hz(350)},     /*        CW */
+        {FT991_CW_RX_MODES,           Hz(300)},     /*        CW */
+        {FT991_CW_RX_MODES,           Hz(250)},     /*        CW */
+        {FT991_CW_RX_MODES,           Hz(200)},     /*        CW */
+        {FT991_CW_RX_MODES,           Hz(150)},     /*        CW */
+        {FT991_CW_RX_MODES,           Hz(100)},     /*        CW */
+        {FT991_CW_RX_MODES,           Hz(50)},      /*        CW */
         {RIG_MODE_SSB,                Hz(2400)},    /* Normal SSB */
-        {RIG_MODE_SSB,                Hz(1800)},    /* Narrow SSB */
+        {RIG_MODE_SSB,                Hz(1500)},    /* Narrow SSB */
         {RIG_MODE_SSB,                Hz(3200)},    /* Wide   SSB */
-        {RIG_MODE_SSB,                Hz(3000)},    /* Wide   SSB */
+        {RIG_MODE_SSB,                Hz(3000)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(2900)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(2800)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(2700)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(2600)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(2500)},    /*        SSB */
-        {RIG_MODE_SSB,                Hz(2250)},    /*        SSB */
+        {RIG_MODE_SSB,                Hz(2300)},    /*        SSB */
+        {RIG_MODE_SSB,                Hz(2200)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(2100)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(1950)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(1650)},    /*        SSB */
-        {RIG_MODE_SSB,                Hz(1500)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(1350)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(1100)},    /*        SSB */
         {RIG_MODE_SSB,                Hz(850)},     /*        SSB */
         {RIG_MODE_SSB,                Hz(600)},     /*        SSB */
         {RIG_MODE_SSB,                Hz(400)},     /*        SSB */
         {RIG_MODE_SSB,                Hz(200)},     /*        SSB */
-        {FT991_CW_RTTY_PKT_RX_MODES | RIG_MODE_SSB, RIG_FLT_ANY },
         {RIG_MODE_AM,                 Hz(9000)},    /* Normal AM */
         {RIG_MODE_AMN,                Hz(6000)},    /* Narrow AM */
-        {FT991_FM_WIDE_RX_MODES,      Hz(16000)},   /* Normal FM */
+        {FT991_FM_WIDE_RX_MODES,      Hz(16000)},   /* Normal FM, PKTFM, C4FM */
         {RIG_MODE_FMN,                Hz(9000)},    /* Narrow FM */
 
         RIG_FLT_END,
     },
+
+    .ext_tokens =         ft991_ext_tokens,
+    .extlevels =          ft991_ext_levels,
 
     .priv =               NULL,           /* private data FIXME: */
 
@@ -184,6 +356,8 @@ const struct rig_caps ft991_caps =
     .get_freq =           newcat_get_freq,
     .set_mode =           newcat_set_mode,
     .get_mode =           newcat_get_mode,
+    .set_vfo =            ft991_set_vfo,
+    .get_vfo =            ft991_get_vfo,
     .set_ptt =            newcat_set_ptt,
     .get_ptt =            newcat_get_ptt,
     .set_split_vfo =      newcat_set_split_vfo,
@@ -198,6 +372,8 @@ const struct rig_caps ft991_caps =
     .get_xit =            newcat_get_xit,
     .get_func =           newcat_get_func,
     .set_func =           newcat_set_func,
+    .get_parm =           newcat_get_parm,
+    .set_parm =           newcat_set_parm,
     .get_level =          newcat_get_level,
     .set_level =          newcat_set_level,
     .get_mem =            newcat_get_mem,
@@ -226,7 +402,16 @@ const struct rig_caps ft991_caps =
     .get_trn =            newcat_get_trn,
     .set_channel =        newcat_set_channel,
     .get_channel =        newcat_get_channel,
-
+    .set_ext_level =      newcat_set_ext_level,
+    .get_ext_level =      newcat_get_ext_level,
+    .send_morse =         newcat_send_morse,
+    .wait_morse =         rig_wait_morse,
+    .scan =               newcat_scan,
+    .send_voice_mem =     newcat_send_voice_mem,
+    .set_clock =          newcat_set_clock,
+    .get_clock =          newcat_get_clock,
+    .morse_qsize =        50,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -279,6 +464,13 @@ ft991_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
     if (rval != RIG_OK)
     {
         return (rval);
+    }
+
+    if (CACHE(rig)->freqMainB == tx_freq)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: freq %.0f already set on VFOB\n", __func__,
+                  tx_freq);
+        return RIG_OK;
     }
 
     if (is_split == RIG_SPLIT_OFF)
@@ -349,8 +541,8 @@ ft991_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
  *
  */
 
-int ft991_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
-                         pbwidth_t *tx_width)
+static int ft991_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
+                                pbwidth_t *tx_width)
 {
     struct newcat_priv_data *priv;
     int err;
@@ -363,10 +555,10 @@ int ft991_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
         return -RIG_EINVAL;
     }
 
-    priv = (struct newcat_priv_data *)rig->state.priv;
+    priv = (struct newcat_priv_data *)STATE(rig)->priv;
     rdata = (ft991info *)priv->ret_data;
 
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "OI;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "OI;");
 
     if (RIG_OK != (err = newcat_get_cmd(rig)))
     {
@@ -435,8 +627,8 @@ static void debug_ft991info_data(const ft991info *rdata)
  *
  */
 
-int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
-                         pbwidth_t tx_width)
+static int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
+                                pbwidth_t tx_width)
 {
     struct newcat_priv_data *priv;
     struct rig_state *state;
@@ -451,6 +643,13 @@ int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
         return -RIG_EINVAL;
     }
 
+    if (CACHE(rig)->modeMainB == tx_mode)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: mode %s already set on VFOB\n", __func__,
+                  rig_strrmode(tx_mode));
+        return RIG_OK;
+    }
+
     err = ft991_get_tx_split(rig, &is_split);
 
     if (err != RIG_OK)
@@ -458,7 +657,7 @@ int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
         return (err);
     }
 
-    if (is_split == RIG_SPLIT_OFF)
+    if (is_split == RIG_SPLIT_ON)
     {
         err = newcat_set_tx_vfo(rig, RIG_VFO_B);
 
@@ -469,7 +668,7 @@ int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
     }
 
 
-    state = &rig->state;
+    state = STATE(rig);
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = %s\n", __func__,
               rig_strvfo(vfo));
@@ -482,7 +681,7 @@ int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
 
     /* append VFO A mode restore command first as we want to minimize
        any Rx glitches */
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "MD0;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "MD0;");
     rig_debug(RIG_DEBUG_TRACE, "cmd_str = %s\n", priv->cmd_str);
 
     if (RIG_OK != (err = newcat_get_cmd(rig)))
@@ -490,11 +689,11 @@ int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
         return err;
     }
 
-    snprintf(restore_commands, sizeof(restore_commands), "AB;%.*s",
+    SNPRINTF(restore_commands, sizeof(restore_commands), "AB;%.*s",
              (int)sizeof(restore_commands) - 4, priv->ret_data);
 
     /* append VFO B frequency restore command */
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "FB;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "FB;");
     rig_debug(RIG_DEBUG_TRACE, "cmd_str = %s\n", priv->cmd_str);
 
     if (RIG_OK != (err = newcat_get_cmd(rig)))
@@ -502,8 +701,9 @@ int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
         return err;
     }
 
-    strncat(restore_commands, priv->ret_data,
-            NEWCAT_DATA_LEN - strlen(restore_commands));
+    size_t len = strlen(restore_commands);
+    SNPRINTF(restore_commands + len, sizeof(restore_commands) - len, "%.*s",
+         (int)(sizeof(restore_commands) - len - 1), priv->ret_data);
 
     /* Change mode on VFOA */
     if (RIG_OK != (err = newcat_set_mode(rig, RIG_VFO_A, tx_mode,
@@ -513,11 +713,11 @@ int ft991_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
     }
 
     /* Send the copy VFO A to VFO B and restore commands */
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "%s", restore_commands);
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "%s", restore_commands);
     return newcat_set_cmd(rig);
 }
 
-int ft991_init(RIG *rig)
+static int ft991_init(RIG *rig)
 {
     int ret;
 
@@ -528,20 +728,20 @@ int ft991_init(RIG *rig)
 
     if (ret != RIG_OK) { return ret; }
 
-    rig->state.current_vfo = RIG_VFO_A;
+    STATE(rig)->current_vfo = RIG_VFO_A;
     return RIG_OK;
 }
 
 static int ft991_find_current_vfo(RIG *rig, vfo_t *vfo, tone_t *enc_dec_mode,
                                   rmode_t *mode)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     ft991info *info = (ft991info *)priv->ret_data;
     int err;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "IF;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "IF;");
 
     /* Get info */
     if (RIG_OK != (err = newcat_get_cmd(rig)))
@@ -585,12 +785,12 @@ static int ft991_find_current_vfo(RIG *rig, vfo_t *vfo, tone_t *enc_dec_mode,
 
 static int ft991_get_enabled_ctcss_dcs_mode(RIG *rig)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     int err;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CT0;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CT0;");
 
     /* Get enabled mode */
     if (RIG_OK != (err = newcat_get_cmd(rig)))
@@ -603,7 +803,7 @@ static int ft991_get_enabled_ctcss_dcs_mode(RIG *rig)
 
 static int ft991_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     int i;
     ncboolean tone_match;
 
@@ -628,11 +828,11 @@ static int ft991_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 
     if (tone == 0)     /* turn off ctcss */
     {
-        snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CT00;");
+        SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CT00;");
     }
     else
     {
-        snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CN00%3.3d;CT02;", i);
+        SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CN00%3.3d;CT02;", i);
     }
 
     return newcat_set_cmd(rig);
@@ -640,7 +840,7 @@ static int ft991_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 
 static int ft991_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     int ret;
     int t;
     int ret_data_len;
@@ -676,7 +876,7 @@ static int ft991_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
     }
 
     /* Get CTCSS TONE */
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CN00;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CN00;");
 
     if (RIG_OK != (ret = newcat_get_cmd(rig)))
     {
@@ -706,7 +906,7 @@ static int ft991_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 
 static int ft991_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     int err;
     rmode_t rmode;
 
@@ -726,7 +926,7 @@ static int ft991_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 
     if (tone == 0)
     {
-        snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CT00;");
+        SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CT00;");
     }
     else
     {
@@ -747,7 +947,7 @@ static int ft991_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
             return -RIG_EINVAL;   // Tone not on the list
         }
 
-        snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CN0%3.3d;CT01;", i);
+        SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CN0%3.3d;CT01;", i);
     }
 
     return newcat_set_cmd(rig);
@@ -755,7 +955,7 @@ static int ft991_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 
 static int ft991_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     int ret;
     int t;
     int ret_data_len;
@@ -778,7 +978,7 @@ static int ft991_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
     }
 
     /* Get CTCSS TONE */
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CN00;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CN00;");
 
     if (RIG_OK != (ret = newcat_get_cmd(rig)))
     {
@@ -808,7 +1008,7 @@ static int ft991_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 
 static int ft991_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     int err;
     int t;
     tone_t enc_dec_mode;
@@ -842,7 +1042,7 @@ static int ft991_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
         return RIG_OK;               // Any of the above not DCS return 0
     }
 
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CN01;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CN01;");
 
     /* Get DCS code */
     if (RIG_OK != (err = newcat_get_cmd(rig)))
@@ -873,7 +1073,7 @@ static int ft991_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
 
 static int ft991_set_dcs_code(RIG *rig, vfo_t vfo, tone_t code)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     int i;
     ncboolean code_match;
 
@@ -898,11 +1098,11 @@ static int ft991_set_dcs_code(RIG *rig, vfo_t vfo, tone_t code)
 
     if (code == 0)     /* turn off dcs */
     {
-        snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CT00;");
+        SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CT00;");
     }
     else
     {
-        snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CN01%3.3d;CT04;", i);
+        SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CN01%3.3d;CT04;", i);
     }
 
     return newcat_set_cmd(rig);
@@ -910,7 +1110,7 @@ static int ft991_set_dcs_code(RIG *rig, vfo_t vfo, tone_t code)
 
 static int ft991_set_dcs_sql(RIG *rig, vfo_t vfo, tone_t code)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     int i;
     ncboolean code_match;
 
@@ -935,11 +1135,11 @@ static int ft991_set_dcs_sql(RIG *rig, vfo_t vfo, tone_t code)
 
     if (code == 0)     /* turn off dcs */
     {
-        snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CT00;");
+        SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CT00;");
     }
     else
     {
-        snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CN01%3.3d;CT03;", i);
+        SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CN01%3.3d;CT03;", i);
     }
 
     return newcat_set_cmd(rig);
@@ -947,7 +1147,7 @@ static int ft991_set_dcs_sql(RIG *rig, vfo_t vfo, tone_t code)
 
 static int ft991_get_dcs_sql(RIG *rig, vfo_t vfo, tone_t *code)
 {
-    struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
+    struct newcat_priv_data *priv = (struct newcat_priv_data *)STATE(rig)->priv;
     int codeindex;
     int ret;
     int ret_data_len;
@@ -970,7 +1170,7 @@ static int ft991_get_dcs_sql(RIG *rig, vfo_t vfo, tone_t *code)
     }
 
     /* Get DCS CODE */
-    snprintf(priv->cmd_str, sizeof(priv->cmd_str), "CN01;");
+    SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "CN01;");
 
     if (RIG_OK != (ret = newcat_get_cmd(rig)))
     {
@@ -996,4 +1196,17 @@ static int ft991_get_dcs_sql(RIG *rig, vfo_t vfo, tone_t *code)
     *code = rig->caps->dcs_list[codeindex];
 
     return RIG_OK;
+}
+
+// VFO functions so rigctld can be used without --vfo argument
+static int ft991_set_vfo(RIG *rig, vfo_t vfo)
+{
+    STATE(rig)->current_vfo = vfo;
+    RETURNFUNC2(RIG_OK);
+}
+
+static int ft991_get_vfo(RIG *rig, vfo_t *vfo)
+{
+    *vfo = STATE(rig)->current_vfo;
+    RETURNFUNC2(RIG_OK);
 }

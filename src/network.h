@@ -29,9 +29,17 @@ __BEGIN_DECLS
 
 /* Hamlib internal use, see rig.c */
 int network_open(hamlib_port_t *p, int default_port);
-HAMLIB_EXPORT(int) network_multicast_server(RIG *rig, const char *multicast_addr, int default_port, enum multicast_item_e items);
 int network_close(hamlib_port_t *rp);
 void network_flush(hamlib_port_t *rp);
+int network_flush2(hamlib_port_t *rp, unsigned char *stopset, char *buf, int buf_len);
+int network_publish_rig_poll_data(RIG *rig);
+int network_publish_rig_transceive_data(RIG *rig);
+int network_publish_rig_spectrum_data(RIG *rig, struct rig_spectrum_line *line);
+int network_publish_rig_status_change(RIG *rig, int32_t status);
+HAMLIB_EXPORT(int) network_multicast_publisher_start(RIG *rig, const char *multicast_addr, int multicast_port, enum multicast_item_e items);
+HAMLIB_EXPORT(int) network_multicast_publisher_stop(RIG *rig);
+HAMLIB_EXPORT(int) network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int multicast_port);
+HAMLIB_EXPORT(int) network_multicast_receiver_stop(RIG *rig);
 
 __END_DECLS
 

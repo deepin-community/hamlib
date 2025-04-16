@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 
 #include <hamlib/rig.h>
@@ -89,20 +85,20 @@ int ts450_open(RIG *rig)
         return err;
     }
 
-    maxtries = rig->state.rigport.retry;
+    maxtries = RIGPORT(rig)->retry;
     /* no retry for this command that may be missing */
-    rig->state.rigport.retry = 0;
+    RIGPORT(rig)->retry = 0;
 
     err = kenwood_simple_transaction(rig, "TO", 3);
 
     if (err != RIG_OK)
     {
         rig_debug(RIG_DEBUG_VERBOSE, "%s: tone unit not detected\n", __func__);
-        rig->state.has_set_func &= ~RIG_FUNC_TONE;
-        rig->state.has_get_func &= ~RIG_FUNC_TONE;
+        STATE(rig)->has_set_func &= ~RIG_FUNC_TONE;
+        STATE(rig)->has_get_func &= ~RIG_FUNC_TONE;
     }
 
-    rig->state.rigport.retry = maxtries;
+    RIGPORT(rig)->retry = maxtries;
 
     return RIG_OK;
 }
@@ -110,7 +106,6 @@ int ts450_open(RIG *rig)
 /*
  * ts450s rig capabilities.
  * Notice that some rigs share the same functions.
- * Also this struct is READONLY!
  * RIT: Variable Range ±9.99 kHz
  *
  * TODO: protocol to be checked with manual (identical to TS690)
@@ -121,15 +116,14 @@ int ts450_open(RIG *rig)
  * specs: http://www.qsl.net/sm7vhs/radio/kenwood/ts450/specs.htm
  * infos comes from http://www.cnham.com/ts450/ts_450_ex_control.pdf
  */
-const struct rig_caps ts450s_caps =
+struct rig_caps ts450s_caps =
 {
-
     RIG_MODEL(RIG_MODEL_TS450S),
     .model_name = "TS-450S",
     .mfg_name   = "Kenwood",
     .version    = BACKEND_VER ".0",
     .copyright  = "LGPL",
-    .status     = RIG_STATUS_BETA,
+    .status     = RIG_STATUS_STABLE,
     .rig_type   = RIG_TYPE_TRANSCEIVER,
     .ptt_type   = RIG_PTT_RIG,
     .dcd_type   = RIG_DCD_RIG,
@@ -152,7 +146,10 @@ const struct rig_caps ts450s_caps =
     .has_set_level      = RIG_LEVEL_SET(TS450S_LEVEL_ALL),
     .has_get_parm       = 0,
     .has_set_parm       = 0,
-    .level_gran     = {},     /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran      = {},
     .extparms       = ts450_ext_parms,
     .ctcss_list     = NULL, /* hw dip-switch */
@@ -266,4 +263,5 @@ const struct rig_caps ts450s_caps =
     .scan = kenwood_scan,
     .get_channel = kenwood_get_channel,
     .set_channel = kenwood_set_channel,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

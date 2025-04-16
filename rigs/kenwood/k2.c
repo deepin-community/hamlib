@@ -22,10 +22,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -42,7 +38,7 @@
     RIG_LEVEL_STRENGTH|RIG_LEVEL_RFPOWER|RIG_LEVEL_KEYSPD)
 
 #define K2_VFO (RIG_VFO_A|RIG_VFO_B)
-#define K2_VFO_OP (RIG_OP_UP|RIG_OP_DOWN)
+#define K2_VFO_OP (RIG_OP_UP|RIG_OP_DOWN|RIG_OP_TUNE)
 
 #define K2_ANTS (RIG_ANT_1|RIG_ANT_2)
 
@@ -102,7 +98,8 @@ struct k2_filt_lst_s k2_fwmd_rtty;
 int k2_open(RIG *rig);
 int k2_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
 int k2_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
-int k2_get_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t *val);
+int k2_get_ext_level(RIG *rig, vfo_t vfo, hamlib_token_t token, value_t *val);
+int k2_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
 
 /* Private function declarations */
 int k2_probe_mdfw(RIG *rig, struct kenwood_priv_data *priv);
@@ -117,14 +114,14 @@ int k2_pop_fw_lst(RIG *rig, const char *cmd);
  * Part of info comes from http://www.elecraft.com/K2_Manual_Download_Page.htm#K2
  * look for KIO2 Programmer's Reference PDF
  */
-const struct rig_caps k2_caps =
+struct rig_caps k2_caps =
 {
     RIG_MODEL(RIG_MODEL_K2),
     .model_name =       "K2",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".0",
+    .version =      BACKEND_VER ".2",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_BETA,
+    .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
     .ptt_type =     RIG_PTT_RIG,
     .dcd_type =     RIG_DCD_RIG,
@@ -147,7 +144,9 @@ const struct rig_caps k2_caps =
     .has_set_level =    RIG_LEVEL_SET(K2_LEVEL_ALL),
     .has_get_parm =     RIG_PARM_NONE,
     .has_set_parm =     RIG_PARM_NONE,  /* FIXME: parms */
-    .level_gran =       {},     /* FIXME: granularity */
+    .level_gran =       {
+#include "level_gran_elecraft.h"
+    },     /* FIXME: granularity */
     .parm_gran =        {},
     .extlevels =        elecraft_ext_levels,
     .extparms =     kenwood_cfg_params,
@@ -162,7 +161,10 @@ const struct rig_caps k2_caps =
     .bank_qty =     0,
     .chan_desc_sz =     0,
 
-    .chan_list =        { RIG_CHAN_END },
+    .chan_list =        {
+        {   1, 8, RIG_MTYPE_MORSE },
+        RIG_CHAN_END
+    },
 
     .rx_range_list1 =  {
         {kHz(500), MHz(30), K2_MODES, -1, -1, K2_VFO, K2_ANTS},
@@ -212,9 +214,9 @@ const struct rig_caps k2_caps =
     .priv = (void *)& k2_priv_caps,
 
     .rig_init =     kenwood_init,
-    .rig_cleanup =      kenwood_cleanup,
+    .rig_cleanup =  kenwood_cleanup,
     .rig_open =     k2_open,
-    .rig_close =        kenwood_close,
+    .rig_close =    elecraft_close,
     .set_freq =     kenwood_set_freq,
     .get_freq =     kenwood_get_freq,
     .set_mode =     k2_set_mode,
@@ -237,14 +239,15 @@ const struct rig_caps k2_caps =
     .set_level =        kenwood_set_level,
     .get_level =        kenwood_get_level,
     .get_ext_level =    k2_get_ext_level,
-    .vfo_op =       kenwood_vfo_op,
+    .vfo_op =       k2_vfo_op,
     .set_trn =      kenwood_set_trn,
     .get_powerstat =    kenwood_get_powerstat,
     .get_trn =      kenwood_get_trn,
     .set_ant =      kenwood_set_ant,
     .get_ant =      kenwood_get_ant,
     .send_morse =       kenwood_send_morse,
-    .wait_morse =       rig_wait_morse
+    .wait_morse =       rig_wait_morse,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -258,7 +261,7 @@ const struct rig_caps k2_caps =
 int k2_open(RIG *rig)
 {
     int err;
-    struct kenwood_priv_data *priv = rig->state.priv;
+    struct kenwood_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -292,7 +295,7 @@ int k2_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     int err;
     char f = '*';
     struct k2_filt_lst_s *flt;
-    struct kenwood_priv_data *priv = rig->state.priv;
+    const struct kenwood_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -350,6 +353,7 @@ int k2_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
             width = flt->filt_list[0].width;
             f = '1';
         }
+        // cppcheck-suppress knownConditionTrueFalse
         else if ((flt->filt_list[1].width >= width)
                  && (width > flt->filt_list[2].width))
         {
@@ -393,7 +397,7 @@ int k2_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         }
 
         /* Construct the filter command and set the radio mode and width*/
-        snprintf(fcmd, 8, "FW0000%c", f);
+        SNPRINTF(fcmd, sizeof(fcmd), "FW0000%c", f);
 
         /* Set the filter slot */
         err = kenwood_transaction(rig, fcmd, NULL, 0);
@@ -487,7 +491,7 @@ int k2_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
  *      STRING: val.cs for set, val.s for get
  *      CHECKBUTTON: val.i 0/1
  */
-int k2_get_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t *val)
+int k2_get_ext_level(RIG *rig, vfo_t vfo, hamlib_token_t token, value_t *val)
 {
     char buf[KENWOOD_MAX_BUF_LEN];
     int err;
@@ -761,7 +765,7 @@ int k2_pop_fw_lst(RIG *rig, const char *cmd)
     {
         char *bufptr = buf;
 
-        snprintf(fcmd, 8, "FW0000%d", f);
+        SNPRINTF(fcmd, sizeof(fcmd), "FW0000%d", f);
 
         err = kenwood_transaction(rig, fcmd, NULL, 0);
 
@@ -801,4 +805,21 @@ int k2_pop_fw_lst(RIG *rig, const char *cmd)
 
     return RIG_OK;
 }
+
+int k2_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
+{
+    char buf[32];
+
+    switch (op)
+    {
+    case RIG_OP_TUNE: // K2
+        SNPRINTF(buf, sizeof(buf), "SWH20");
+        break;
+
+    default: return kenwood_vfo_op(rig, vfo, op);
+    }
+
+    return kenwood_transaction(rig, buf, NULL, 0);
+}
+
 

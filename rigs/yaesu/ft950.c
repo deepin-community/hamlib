@@ -25,18 +25,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "hamlib/rig.h"
 #include "bandplan.h"
-#include "serial.h"
-#include "misc.h"
 #include "yaesu.h"
 #include "newcat.h"
 #include "ft950.h"
-#include "idx_builtin.h"
 
 const struct newcat_priv_caps ft950_priv_caps =
 {
@@ -84,12 +77,12 @@ int ft950_ext_tokens[] =
 /*
  * FT-950 rig capabilities
  */
-const struct rig_caps ft950_caps =
+struct rig_caps ft950_caps =
 {
     RIG_MODEL(RIG_MODEL_FT950),
     .model_name =         "FT-950",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".1",
+    .version =            NEWCAT_VER ".5",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -110,15 +103,28 @@ const struct rig_caps ft950_caps =
     .has_set_func =       FT950_FUNCS,
     .has_get_level =      FT950_LEVELS,
     .has_set_level =      RIG_LEVEL_SET(FT950_LEVELS),
-    .has_get_parm =       RIG_PARM_NONE,
-    .has_set_parm =       RIG_PARM_NONE,
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .has_get_parm =       RIG_PARM_BANDSELECT,
+    .has_set_parm =       RIG_PARM_BANDSELECT,
+    .level_gran =
+    {
+#define NO_LVL_CWPITCH
+#define NO_LVL_KEYSPD
+#define NO_LVL_NOTCHF
+#define NO_LVL_RFPOWER
+#include "level_gran_yaesu.h"
+#undef NO_LVL_CWPITCH
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_NOTCHF
+#undef NO_LVL_RFPOWER
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 50 } },
         [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
         [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 3000 }, .step = { .i = 10 } },
+        [LVL_RFPOWER] = { .min = { .f = .05 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
     },
+    .parm_gran =  {
+        [PARM_BANDSELECT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.s = "BAND160M,BAND80M,BANDUNUSED,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}}
+    },
+
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           NULL,
     .preamp =             { 10, 17, RIG_DBLST_END, },
@@ -126,7 +132,10 @@ const struct rig_caps ft950_caps =
     .max_rit =            Hz(9999),
     .max_xit =            Hz(9999),
     .max_ifshift =        Hz(1000),
+    .agc_level_count =    5,
+    .agc_levels =         { RIG_AGC_OFF, RIG_AGC_FAST, RIG_AGC_MEDIUM, RIG_AGC_SLOW, RIG_AGC_AUTO },
     .vfo_ops =            FT950_VFO_OPS,
+    .scan_ops =           RIG_SCAN_VFO,
     .targetable_vfo =     RIG_TARGETABLE_FREQ,
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 950 has an Auto Info command */
     .bank_qty =           0,
@@ -139,7 +148,7 @@ const struct rig_caps ft950_caps =
         { 125, 128, RIG_MTYPE_BAND, NEWCAT_MEM_CAP },    /* 60M Channels U51-U54 or US1-US4, if available */
         { 130, 130, RIG_MTYPE_BAND, NEWCAT_MEM_CAP },    /* 60M Channel U55 or US5, if available */
         { 131, 131, RIG_MTYPE_BAND, NEWCAT_MEM_CAP },    /* EU5, 5167.5 KHz Alaska Emergency Freq, if available */
-
+        {   1,  5, RIG_MTYPE_MORSE },
         RIG_CHAN_END,
     },
 
@@ -238,7 +247,7 @@ const struct rig_caps ft950_caps =
 
     .cfgparams =          newcat_cfg_params,
     .set_conf =           newcat_set_conf,
-    .get_conf =           newcat_get_conf,
+    .get_conf2 =          newcat_get_conf2,
     .set_freq =           newcat_set_freq,
     .get_freq =           newcat_get_freq,
     .set_mode =           newcat_set_mode,
@@ -283,5 +292,9 @@ const struct rig_caps ft950_caps =
     .get_channel =        newcat_get_channel,
     .set_ext_level =      newcat_set_ext_level,
     .get_ext_level =      newcat_get_ext_level,
-
+    .send_morse =         newcat_send_morse,
+    .wait_morse =         rig_wait_morse,
+    .scan =               newcat_scan,
+    .morse_qsize =        50,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

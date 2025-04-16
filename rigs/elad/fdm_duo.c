@@ -20,15 +20,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <hamlib/rig.h>
-#include "idx_builtin.h"
 #include "elad.h"
 
 #define FDM_DUO_ALL_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_FM|RIG_MODE_RTTY|RIG_MODE_RTTYR)
@@ -105,22 +100,22 @@ elad_fdm_duo_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     {
     case RIG_LEVEL_RFPOWER:
         elad_val = val.f * 100;   /* level for FDM_DUOSAT is from 0.. 100W in SSB */
-        sprintf(levelbuf, "PC%03d", elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "PC%03d", elad_val);
         break;
 
     case RIG_LEVEL_AF:
         elad_val = val.f * 255;   /* possible values for FDM_DUO are 000.. 255 */
-        sprintf(levelbuf, "AG0%03d", elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "AG0%03d", elad_val);
         break;
 
     case RIG_LEVEL_RF:
         elad_val = val.f * 100;   /* possible values for FDM_DUO are 000.. 100 */
-        sprintf(levelbuf, "RG%03d", elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "RG%03d", elad_val);
         break;
 
     case RIG_LEVEL_SQL:
         elad_val = val.f * 255;   /* possible values for FDM_DUO are 000.. 255 */
-        sprintf(levelbuf, "SQ0%03d", elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "SQ0%03d", elad_val);
         break;
 
     case RIG_LEVEL_AGC: /* possible values for FDM_DUO 000(=off), 001(=fast), 002(=slow) */
@@ -145,7 +140,7 @@ elad_fdm_duo_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         };
 
-        sprintf(levelbuf, "GT%03d", elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "GT%03d", elad_val);
         break;
 
     default:
@@ -333,19 +328,19 @@ static struct elad_priv_caps fdm_duo_priv_caps =
  * Notice that some rigs share the same functions.
  * Also this struct is READONLY!
  */
-const struct rig_caps fdm_duo_caps =
+struct rig_caps fdm_duo_caps =
 {
     RIG_MODEL(RIG_MODEL_ELAD_FDM_DUO),
     .model_name = "FDM-DUO",
     .mfg_name = "ELAD",
     .version = BACKEND_VER ".0",
     .copyright = "LGPL",
-    .status = RIG_STATUS_UNTESTED,
+    .status = RIG_STATUS_STABLE,
     .rig_type = RIG_TYPE_TRANSCEIVER,
     .ptt_type = RIG_PTT_RIG_MICDATA,
     .dcd_type = RIG_DCD_RIG,
     .port_type = RIG_PORT_SERIAL,
-    .serial_rate_min = 4800,
+    .serial_rate_min = 9600,
     .serial_rate_max = 115200,
     .serial_data_bits = 8,
     .serial_stop_bits = 1,
@@ -479,6 +474,7 @@ const struct rig_caps fdm_duo_caps =
     .has_set_func = FDM_DUO_FUNC_ALL,
     .set_func = elad_set_func,
     .get_func = elad_get_func,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

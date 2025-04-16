@@ -21,10 +21,8 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
@@ -33,7 +31,6 @@
 #include <ctype.h>
 
 #include "hamlib/rig.h"
-#include "network.h"
 #include "serial.h"
 #include "misc.h"
 #include "register.h"
@@ -148,7 +145,7 @@ const struct confparams elad_cfg_params[] =
 
 /**
  * elad_transaction
- * Assumes rig!=NULL rig->state!=NULL rig->caps!=NULL
+ * Assumes rig!=NULL STATE(rig)!=NULL rig->caps!=NULL
  *
  * Parameters:
  * cmdstr:    Command to be sent to the rig. cmdstr can also be NULL,
@@ -167,13 +164,14 @@ const struct confparams elad_cfg_params[] =
  */
 int elad_transaction(RIG *rig, const char *cmdstr, char *data, size_t datasize)
 {
-    struct elad_priv_data *priv = rig->state.priv;
-    struct elad_priv_caps *caps = elad_caps(rig);
+    struct elad_priv_data *priv = STATE(rig)->priv;
+    const struct elad_priv_caps *caps = elad_caps(rig);
     struct rig_state *rs;
+    hamlib_port_t *rp = RIGPORT(rig);
     int retval;
     char cmdtrm[2];  /* Default Command/Reply termination char */
     char *cmd;
-    int len;
+    size_t len;
     int retry_read = 0;
 
     char buffer[ELAD_MAX_BUF_LEN]; /* use our own buffer since
@@ -187,12 +185,12 @@ int elad_transaction(RIG *rig, const char *cmdstr, char *data, size_t datasize)
         return -RIG_EINVAL;
     }
 
-    rs = &rig->state;
+    rs = STATE(rig);
 
-    rs->hold_decode = 1;
+    rs->transaction_active = 1;
 
     /* Emulators don't need any post_write_delay */
-    if (priv->is_emulation) { rs->rigport.post_write_delay = 0; }
+    if (priv->is_emulation) { rp->post_write_delay = 0; }
 
     cmdtrm[0] = caps->cmdtrm;
     cmdtrm[1] = '\0';
@@ -205,7 +203,7 @@ transaction_write:
 
         len = strlen(cmdstr);
 
-        cmd = malloc(len + 2);
+        cmd = calloc(1, len + 2);
 
         if (cmd == NULL)
         {
@@ -223,9 +221,9 @@ transaction_write:
         }
 
         /* flush anything in the read buffer before command is sent */
-        rig_flush(&rs->rigport);
+        rig_flush(rp);
 
-        retval = write_block(&rs->rigport, cmd, len);
+        retval = write_block(rp, (unsigned char *) cmd, len);
 
         free(cmd);
 
@@ -237,13 +235,13 @@ transaction_write:
 
     if (!datasize)
     {
-        rig->state.hold_decode = 0;
+        rs->transaction_active = 0;
 
         /* no reply expected so we need to write a command that always
            gives a reply so we can read any error replies from the actual
            command being sent without blocking */
-        if (RIG_OK != (retval = write_block(&rs->rigport, priv->verify_cmd
-                                            , strlen(priv->verify_cmd))))
+        if (RIG_OK != (retval = write_block(rp, (unsigned char *) priv->verify_cmd,
+                                            strlen(priv->verify_cmd))))
         {
             goto transaction_quit;
         }
@@ -253,11 +251,12 @@ transaction_read:
     /* allow one extra byte for terminator we don't return */
     len = min(datasize ? datasize + 1 : strlen(priv->verify_cmd) + 13,
               ELAD_MAX_BUF_LEN);
-    retval = read_string(&rs->rigport, buffer, len, cmdtrm, strlen(cmdtrm));
+    retval = read_string(rp, (unsigned char *) buffer, len,
+                         cmdtrm, strlen(cmdtrm), 0, 1);
 
     if (retval < 0)
     {
-        if (retry_read++ < rs->rigport.retry)
+        if (retry_read++ < rp->retry)
         {
             goto transaction_write;
         }
@@ -271,7 +270,7 @@ transaction_read:
         rig_debug(RIG_DEBUG_ERR, "%s: Command is not correctly terminated '%s'\n",
                   __func__, buffer);
 
-        if (retry_read++ < rs->rigport.retry)
+        if (retry_read++ < rp->retry)
         {
             goto transaction_write;
         }
@@ -303,7 +302,7 @@ transaction_read:
                 rig_debug(RIG_DEBUG_VERBOSE, "%s: Overflow for '%s'\n", __func__, cmdstr);
             }
 
-            if (retry_read++ < rs->rigport.retry)
+            if (retry_read++ < rp->retry)
             {
                 goto transaction_write;
             }
@@ -320,7 +319,7 @@ transaction_read:
                           cmdstr);
             }
 
-            if (retry_read++ < rs->rigport.retry)
+            if (retry_read++ < rp->retry)
             {
                 goto transaction_write;
             }
@@ -337,7 +336,7 @@ transaction_read:
                           cmdstr);
             }
 
-            if (retry_read++ < rs->rigport.retry)
+            if (retry_read++ < rp->retry)
             {
                 rig_debug(RIG_DEBUG_ERR, "%s: Retrying shortly\n", __func__);
                 hl_usleep(rig->caps->timeout * 1000);
@@ -367,7 +366,7 @@ transaction_read:
             rig_debug(RIG_DEBUG_ERR, "%s: Wrong reply %c%c for command %c%c\n",
                       __func__, buffer[0], buffer[1], cmdstr[0], cmdstr[1]);
 
-            if (retry_read++ < rs->rigport.retry)
+            if (retry_read++ < rp->retry)
             {
                 goto transaction_write;
             }
@@ -400,7 +399,7 @@ transaction_read:
                       __func__, buffer[0], buffer[1]
                       , priv->verify_cmd[0], priv->verify_cmd[1], (int)datasize);
 
-            if (retry_read++ < rs->rigport.retry)
+            if (retry_read++ < rp->retry)
             {
                 goto transaction_write;
             }
@@ -414,7 +413,7 @@ transaction_read:
 
 transaction_quit:
 
-    rs->hold_decode = 0;
+    rs->transaction_active = 0;
     return retval;
 }
 
@@ -472,7 +471,7 @@ int elad_safe_transaction(RIG *rig, const char *cmd, char *buf,
             hl_usleep(rig->caps->timeout * 1000);
         }
     }
-    while (err != RIG_OK && ++retry < rig->state.rigport.retry);
+    while (err != RIG_OK && ++retry < RIGPORT(rig)->retry);
 
     return err;
 }
@@ -516,14 +515,14 @@ int elad_init(RIG *rig)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    rig->state.priv = malloc(sizeof(struct elad_priv_data));
+    STATE(rig)->priv = calloc(1, sizeof(struct elad_priv_data));
 
-    if (rig->state.priv == NULL)
+    if (STATE(rig)->priv == NULL)
     {
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     memset(priv, 0x00, sizeof(struct elad_priv_data));
     strcpy(priv->verify_cmd, RIG_MODEL_XG3 == rig->caps->rig_model ? ";" : "ID;");
@@ -552,15 +551,15 @@ int elad_cleanup(RIG *rig)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    free(rig->state.priv);
-    rig->state.priv = NULL;
+    free(STATE(rig)->priv);
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
 
 int elad_open(RIG *rig)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    struct elad_priv_data *priv = STATE(rig)->priv;
     int err, i;
     char *idptr;
     char id[ELAD_MAX_BUF_LEN];
@@ -700,7 +699,7 @@ int elad_open(RIG *rig)
 
 int elad_close(RIG *rig)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -735,8 +734,8 @@ int elad_get_id(RIG *rig, char *buf)
  */
 static int elad_get_if(RIG *rig)
 {
-    struct elad_priv_data *priv = rig->state.priv;
-    struct elad_priv_caps *caps = elad_caps(rig);
+    struct elad_priv_data *priv = STATE(rig)->priv;
+    const struct elad_priv_caps *caps = elad_caps(rig);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -755,7 +754,7 @@ int elad_set_vfo(RIG *rig, vfo_t vfo)
     char cmdbuf[6];
     int retval;
     char vfo_function;
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -793,7 +792,7 @@ int elad_set_vfo(RIG *rig, vfo_t vfo)
     {
         char retbuf[20];
         rig_debug(RIG_DEBUG_VERBOSE, "%s: Checking Satellite mode status\n", __func__);
-        snprintf(cmdbuf, sizeof(cmdbuf), "SA");
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "SA");
 
         retval = elad_transaction(rig, cmdbuf, retbuf, 20);
 
@@ -813,7 +812,7 @@ int elad_set_vfo(RIG *rig, vfo_t vfo)
         }
     }
 
-    snprintf(cmdbuf, sizeof(cmdbuf), "FR%c", vfo_function);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "FR%c", vfo_function);
 
     if (rig->caps->rig_model == RIG_MODEL_TS50
             || rig->caps->rig_model == RIG_MODEL_TS940)
@@ -856,10 +855,12 @@ int elad_set_vfo_main_sub(RIG *rig, vfo_t vfo)
 
     switch (vfo)
     {
+    case RIG_VFO_A:
     case RIG_VFO_MAIN:
         vfo_function = '0';
         break;
 
+    case RIG_VFO_B:
     case RIG_VFO_SUB:
         vfo_function = '1';
         break;
@@ -872,7 +873,7 @@ int elad_set_vfo_main_sub(RIG *rig, vfo_t vfo)
         return -RIG_EINVAL;
     }
 
-    snprintf(cmdbuf, sizeof(cmdbuf), "CB%c", vfo_function);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "CB%c", vfo_function);
     return elad_transaction(rig, cmdbuf, NULL, 0);
 }
 
@@ -903,56 +904,48 @@ int elad_get_vfo_main_sub(RIG *rig, vfo_t *vfo)
  */
 int elad_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    // this is a bogus suppress which complains priv is not used -- but it is 20231012
+    // cppcheck-suppress unreadVariable
+    struct elad_priv_data *priv = STATE(rig)->priv;
     char cmdbuf[6];
     int retval;
     unsigned char vfo_function;
+    split_t tsplit;
+    vfo_t tvfo;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    if (RIG_MODEL_TS990S == rig->caps->rig_model)
+    retval = elad_get_split_vfo_if(rig, vfo, &tsplit, &tvfo);
+
+    if (retval != RIG_OK)
     {
-        if (split)
-        {
-            // Rx MAIN/Tx SUB is the only split method
-            retval = elad_set_vfo_main_sub(rig, RIG_VFO_MAIN);
-
-            if (retval != RIG_OK) { return retval; }
-        }
-
-        snprintf(cmdbuf, sizeof(cmdbuf), "TB%c", RIG_SPLIT_ON == split ? '1' : '0');
-        return elad_transaction(rig, cmdbuf, NULL, 0);
+        return retval;
     }
 
-    if (vfo != RIG_VFO_CURR)
+    if (split == tsplit)
     {
-        switch (vfo)
-        {
-        case RIG_VFO_A: vfo_function = '0'; break;
-
-        case RIG_VFO_B: vfo_function = '1'; break;
-
-        case RIG_VFO_MEM: vfo_function = '2'; break;
-
-        default:
-            rig_debug(RIG_DEBUG_ERR, "%s: unsupported VFO %s\n", __func__, rig_strvfo(vfo));
-            return -RIG_EINVAL;
-        }
-
-        /* set RX VFO */
-        snprintf(cmdbuf, sizeof(cmdbuf), "FR%c", vfo_function);
-        retval = elad_transaction(rig, cmdbuf, NULL, 0);
-
-        if (retval != RIG_OK)
-        {
-            return retval;
-        }
+        rig_debug(RIG_DEBUG_TRACE, "%s: No change detected...ignoring request\n",
+                  __func__);
     }
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: Change detected requested split %d!=%d\n",
+              __func__, split, tsplit);
+
+    if (split)
+    {
+        // Rx MAIN/Tx SUB is the only split method
+        retval = elad_set_vfo_main_sub(rig, RIG_VFO_MAIN);
+
+        if (retval != RIG_OK) { return retval; }
+    }
+
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "SP%c", RIG_SPLIT_ON == split ? '1' : '0');
+    return elad_transaction(rig, cmdbuf, NULL, 0);
 
     /* Split off means Rx and Tx are the same */
     if (split == RIG_SPLIT_OFF)
     {
-        txvfo = vfo;
+        txvfo = RIG_VFO_MAIN;
 
         if (txvfo == RIG_VFO_CURR)
         {
@@ -968,9 +961,11 @@ int elad_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
     switch (txvfo)
     {
     case RIG_VFO_VFO:
-    case RIG_VFO_A: vfo_function = '0'; break;
+    case RIG_VFO_MAIN:
+    case RIG_VFO_A: vfo_function = '0'; txvfo = RIG_VFO_MAIN; break;
 
-    case RIG_VFO_B: vfo_function = '1'; break;
+    case RIG_VFO_SUB:
+    case RIG_VFO_B: vfo_function = '1'; txvfo = RIG_VFO_SUB; break;
 
     case RIG_VFO_MEM: vfo_function = '2'; break;
 
@@ -980,21 +975,16 @@ int elad_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
         return -RIG_EINVAL;
     }
 
-    if (RIG_MODEL_K2 == rig->caps->rig_model
-            || RIG_MODEL_K3 == rig->caps->rig_model)
+    /* set TX VFO */
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "FT%c", vfo_function);
+    retval = elad_transaction(rig, cmdbuf, NULL, 0);
+
+    if (retval != RIG_OK)
     {
-        /* do not attempt redundant split change commands on Elecraft as
-           they impact output power when transmitting */
-        if (RIG_OK == (retval = elad_safe_transaction(rig, "FT", cmdbuf, sizeof(cmdbuf),
-                                3)))
-        {
-            if (cmdbuf[2] == vfo_function) { return RIG_OK; }
-        }
+        return retval;
     }
 
-    /* set TX VFO */
-    snprintf(cmdbuf, sizeof(cmdbuf), "FT%c", vfo_function);
-    retval = elad_transaction(rig, cmdbuf, NULL, 0);
+    retval = elad_set_split(rig, vfo, split, txvfo);
 
     if (retval != RIG_OK)
     {
@@ -1014,13 +1004,14 @@ int elad_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
  */
 int elad_set_split(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    struct elad_priv_data *priv = STATE(rig)->priv;
     char cmdbuf[6];
     int retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    snprintf(cmdbuf, sizeof(cmdbuf), "SP%c", RIG_SPLIT_ON == split ? '1' : '0');
+    // we want stand-alone split so we can control it
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "SP%c", RIG_SPLIT_ON == split ? '2' : '0');
 
     retval = elad_transaction(rig, cmdbuf, NULL, 0);
 
@@ -1042,7 +1033,7 @@ int elad_set_split(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
  */
 int elad_get_split_vfo_if(RIG *rig, vfo_t rxvfo, split_t *split, vfo_t *txvfo)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    struct elad_priv_data *priv = STATE(rig)->priv;
     int retval;
     int transmitting;
 
@@ -1058,7 +1049,7 @@ int elad_get_split_vfo_if(RIG *rig, vfo_t rxvfo, split_t *split, vfo_t *txvfo)
     {
         char buf[4];
 
-        if (RIG_OK == (retval = elad_safe_transaction(rig, "TB", buf, sizeof(buf), 3)))
+        if (RIG_OK == (retval = elad_safe_transaction(rig, "SP", buf, sizeof(buf), 3)))
         {
             if ('1' == buf[2])
             {
@@ -1141,7 +1132,7 @@ int elad_get_split_vfo_if(RIG *rig, vfo_t rxvfo, split_t *split, vfo_t *txvfo)
 int elad_get_vfo_if(RIG *rig, vfo_t *vfo)
 {
     int retval;
-    struct elad_priv_data *priv = rig->state.priv;
+    struct elad_priv_data *priv = STATE(rig)->priv;
     int split_and_transmitting;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -1193,13 +1184,13 @@ int elad_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     unsigned char vfo_letter = '\0';
     vfo_t tvfo;
     int err;
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = STATE(rig)->priv;
 
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     tvfo = (vfo == RIG_VFO_CURR
-            || vfo == RIG_VFO_VFO) ? rig->state.current_vfo : vfo;
+            || vfo == RIG_VFO_VFO) ? STATE(rig)->current_vfo : vfo;
 
     if (RIG_VFO_CURR == tvfo)
     {
@@ -1230,8 +1221,7 @@ int elad_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EINVAL;
     }
 
-    // cppcheck-suppress *
-    snprintf(freqbuf, sizeof(freqbuf), "F%c%011"PRIll, vfo_letter, (int64_t)freq);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "F%c%011"PRIll, vfo_letter, (int64_t)freq);
 
     err = elad_transaction(rig, freqbuf, NULL, 0);
 
@@ -1280,7 +1270,7 @@ int elad_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 int elad_get_freq_if(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = STATE(rig)->priv;
     char freqbuf[50];
     int retval;
 
@@ -1324,7 +1314,7 @@ int elad_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     }
 
     tvfo = (vfo == RIG_VFO_CURR
-            || vfo == RIG_VFO_VFO) ? rig->state.current_vfo : vfo;
+            || vfo == RIG_VFO_VFO) ? STATE(rig)->current_vfo : vfo;
 
     if (RIG_VFO_CURR == tvfo)
     {
@@ -1362,7 +1352,7 @@ int elad_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         return -RIG_EINVAL;
     }
 
-    snprintf(cmdbuf, sizeof(cmdbuf), "F%c", vfo_letter);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "F%c", vfo_letter);
 
     retval = elad_safe_transaction(rig, cmdbuf, freqbuf, 50, 13);
 
@@ -1380,7 +1370,7 @@ int elad_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit)
 {
     int retval;
     char buf[6];
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -1414,7 +1404,7 @@ int elad_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
         return elad_transaction(rig, "RC", NULL, 0);
     }
 
-    snprintf(buf, sizeof(buf), "R%c", (rit > 0) ? 'U' : 'D');
+    SNPRINTF(buf, sizeof(buf), "R%c", (rit > 0) ? 'U' : 'D');
 
     retval = elad_transaction(rig, "RC", NULL, 0);
 
@@ -1513,7 +1503,7 @@ static int elad_set_filter(RIG *rig, pbwidth_t width)
  */
 int elad_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = STATE(rig)->priv;
     struct elad_priv_caps *caps = elad_caps(rig);
     char buf[6];
     char kmode;
@@ -1595,7 +1585,7 @@ int elad_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
             if (err != RIG_OK) { return err; }
         }
 
-        snprintf(buf, sizeof(buf), "OM0%c", c);  /* target vfo is ignored */
+        SNPRINTF(buf, sizeof(buf), "OM0%c", c);  /* target vfo is ignored */
         err = elad_transaction(rig, buf, NULL, 0);
 
         if (vfo != RIG_VFO_CURR && vfo != curr_vfo)
@@ -1607,7 +1597,7 @@ int elad_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     }
     else
     {
-        snprintf(buf, sizeof(buf), "MD%c", '0' + kmode);
+        SNPRINTF(buf, sizeof(buf), "MD%c", '0' + kmode);
         err = elad_transaction(rig, buf, NULL, 0);
     }
 
@@ -1623,7 +1613,7 @@ int elad_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
                 || RIG_MODE_RTTYR == mode))
         {
             /* supports DATA sub modes - see above */
-            snprintf(buf, sizeof(buf), "DA%c", data_mode);
+            SNPRINTF(buf, sizeof(buf), "DA%c", data_mode);
             err = elad_transaction(rig, buf, NULL, 0);
 
             if (err != RIG_OK) { return err; }
@@ -1715,7 +1705,7 @@ static int elad_get_filter(RIG *rig, pbwidth_t *width)
  */
 int elad_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    struct elad_priv_data *priv = STATE(rig)->priv;
     struct elad_priv_caps *caps = elad_caps(rig);
     char cmd[4];
     char modebuf[10];
@@ -1761,12 +1751,12 @@ int elad_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
             return -RIG_EINVAL;
         }
 
-        snprintf(cmd, sizeof(cmd), "OM%c", c);
+        SNPRINTF(cmd, sizeof(cmd), "OM%c", c);
         offs = 3;
     }
     else
     {
-        snprintf(cmd, sizeof(cmd), "MD");
+        SNPRINTF(cmd, sizeof(cmd), "MD");
         offs = 2;
     }
 
@@ -1834,7 +1824,7 @@ int elad_get_mode_if(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
     int err;
     struct elad_priv_caps *caps = elad_caps(rig);
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -1893,20 +1883,20 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
          */
         if (RIG_LEVEL_IS_FLOAT(level)) { elad_val = val.f * 100; }
 
-        snprintf(levelbuf, sizeof(levelbuf), "PC%03d", elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "PC%03d", elad_val);
         break;
 
     case RIG_LEVEL_AF:
-        snprintf(levelbuf, sizeof(levelbuf), "AG%03d", elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "AG%03d", elad_val);
         break;
 
     case RIG_LEVEL_RF:
         /* XXX check level range */
-        snprintf(levelbuf, sizeof(levelbuf), "RG%03d", elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "RG%03d", elad_val);
         break;
 
     case RIG_LEVEL_SQL:
-        snprintf(levelbuf, sizeof(levelbuf), "SQ%03d", elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "SQ%03d", elad_val);
         break;
 
     case RIG_LEVEL_AGC:
@@ -1915,7 +1905,7 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             elad_val = 3;    /* 0.. 255 */
         }
 
-        snprintf(levelbuf, sizeof(levelbuf), "GT%03d", 84 * elad_val);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "GT%03d", 84 * elad_val);
         break;
 
     case RIG_LEVEL_ATT:
@@ -1923,17 +1913,17 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         /* set the attenuator if a correct value is entered */
         if (val.i == 0)
         {
-            snprintf(levelbuf, sizeof(levelbuf), "RA00");
+            SNPRINTF(levelbuf, sizeof(levelbuf), "RA00");
         }
         else
         {
             int foundit = 0;
 
-            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && rig->state.attenuator[i]; i++)
+            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && STATE(rig)->attenuator[i]; i++)
             {
-                if (val.i == rig->state.attenuator[i])
+                if (val.i == STATE(rig)->attenuator[i])
                 {
-                    snprintf(levelbuf, sizeof(levelbuf), "RA%02d", i + 1);
+                    SNPRINTF(levelbuf, sizeof(levelbuf), "RA%02d", i + 1);
                     foundit = 1;
                     break;
                 }
@@ -1952,17 +1942,17 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         /* set the preamp if a correct value is entered */
         if (val.i == 0)
         {
-            snprintf(levelbuf, sizeof(levelbuf), "PA0");
+            SNPRINTF(levelbuf, sizeof(levelbuf), "PA0");
         }
         else
         {
             int foundit = 0;
 
-            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && rig->state.preamp[i]; i++)
+            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && STATE(rig)->preamp[i]; i++)
             {
-                if (val.i == rig->state.preamp[i])
+                if (val.i == STATE(rig)->preamp[i])
                 {
-                    snprintf(levelbuf, sizeof(levelbuf), "PA%01d", i + 1);
+                    SNPRINTF(levelbuf, sizeof(levelbuf), "PA%01d", i + 1);
                     foundit = 1;
                     break;
                 }
@@ -1982,7 +1972,7 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        snprintf(levelbuf, sizeof(levelbuf), "SH%02d", (val.i));
+        SNPRINTF(levelbuf, sizeof(levelbuf), "SH%02d", (val.i));
         break;
 
     case RIG_LEVEL_SLOPE_LOW:
@@ -1991,7 +1981,7 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        snprintf(levelbuf, sizeof(levelbuf), "SL%02d", (val.i));
+        SNPRINTF(levelbuf, sizeof(levelbuf), "SL%02d", (val.i));
         break;
 
     case RIG_LEVEL_CWPITCH:
@@ -2000,7 +1990,7 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        snprintf(levelbuf, sizeof(levelbuf), "PT%02d", (val.i / 50) - 8);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "PT%02d", (val.i / 50) - 8);
         break;
 
     case RIG_LEVEL_KEYSPD:
@@ -2009,7 +1999,7 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        snprintf(levelbuf, sizeof(levelbuf), "KS%03d", val.i);
+        SNPRINTF(levelbuf, sizeof(levelbuf), "KS%03d", val.i);
         break;
 
     default:
@@ -2143,7 +2133,7 @@ int elad_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         {
             for (i = 0; i < lvl && i < HAMLIB_MAXDBLSTSIZ; i++)
             {
-                if (rig->state.attenuator[i] == 0)
+                if (STATE(rig)->attenuator[i] == 0)
                 {
                     rig_debug(RIG_DEBUG_ERR, "%s: "
                               "unexpected att level %d\n",
@@ -2157,7 +2147,7 @@ int elad_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
                 return -RIG_EINTERNAL;
             }
 
-            val->i = rig->state.attenuator[i - 1];
+            val->i = STATE(rig)->attenuator[i - 1];
         }
 
         break;
@@ -2180,7 +2170,7 @@ int elad_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
             for (i = 0; i < lvl && i < HAMLIB_MAXDBLSTSIZ; i++)
             {
-                if (rig->state.preamp[i] == 0)
+                if (STATE(rig)->preamp[i] == 0)
                 {
                     rig_debug(RIG_DEBUG_ERR, "%s: "
                               "unexpected preamp level %d\n",
@@ -2194,7 +2184,7 @@ int elad_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
                 return -RIG_EINTERNAL;
             }
 
-            val->i = rig->state.preamp[i - 1];
+            val->i = STATE(rig)->preamp[i - 1];
         }
         else
         {
@@ -2312,59 +2302,59 @@ int elad_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
     switch (func)
     {
     case RIG_FUNC_NB:
-        snprintf(buf, sizeof(buf), "NB%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "NB%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_ABM:
-        snprintf(buf, sizeof(buf), "AM%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "AM%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_COMP:
-        snprintf(buf, sizeof(buf), "PR%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "PR%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_TONE:
-        snprintf(buf, sizeof(buf), "TO%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "TO%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_TSQL:
-        snprintf(buf, sizeof(buf), "CT%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "CT%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_VOX:
-        snprintf(buf, sizeof(buf), "VX%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "VX%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_FAGC:
-        snprintf(buf, sizeof(buf), "GT00%c", (status == 0) ? '4' : '2');
+        SNPRINTF(buf, sizeof(buf), "GT00%c", (status == 0) ? '4' : '2');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_NR:
-        snprintf(buf, sizeof(buf), "NR%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "NR%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_BC:
-        snprintf(buf, sizeof(buf), "BC%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "BC%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_ANF:
-        snprintf(buf, sizeof(buf), "NT%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "NT%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_LOCK:
-        snprintf(buf, sizeof(buf), "LK%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "LK%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_AIP:
-        snprintf(buf, sizeof(buf), "MX%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "MX%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_RIT:
-        snprintf(buf, sizeof(buf), "RT%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "RT%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case RIG_FUNC_XIT:
-        snprintf(buf, sizeof(buf), "XT%c", (status == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "XT%c", (status == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     default:
@@ -2482,7 +2472,7 @@ int elad_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
  */
 int elad_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
     char tonebuf[16];
     int i;
 
@@ -2505,14 +2495,14 @@ int elad_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
     }
 
     /* TODO: replace menu no 57 by a define */
-    snprintf(tonebuf, sizeof(tonebuf), "EX%03d%04d", 57, i + 1);
+    SNPRINTF(tonebuf, sizeof(tonebuf), "EX%03d%04d", 57, i + 1);
 
     return elad_transaction(rig, tonebuf, NULL, 0);
 }
 
 int elad_set_ctcss_tone_tn(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    const struct rig_caps *caps = rig->caps;
+    struct rig_caps *caps = rig->caps;
     char buf[16];
     int i;
 
@@ -2557,11 +2547,11 @@ int elad_set_ctcss_tone_tn(RIG *rig, vfo_t vfo, tone_t tone)
             return -RIG_EINVAL;
         }
 
-        snprintf(buf, sizeof(buf), "TN%c%02d", c, i + 1);
+        SNPRINTF(buf, sizeof(buf), "TN%c%02d", c, i + 1);
     }
     else
     {
-        snprintf(buf, sizeof(buf), "TN%02d", i + 1);
+        SNPRINTF(buf, sizeof(buf), "TN%02d", i + 1);
     }
 
     return elad_transaction(rig, buf, NULL, 0);
@@ -2569,12 +2559,12 @@ int elad_set_ctcss_tone_tn(RIG *rig, vfo_t vfo, tone_t tone)
 
 /*
  * elad_get_ctcss_tone
- * Assumes rig->state.priv != NULL
+ * Assumes STATE(rig)->priv != NULL
  */
 int elad_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 {
-    struct elad_priv_data *priv = rig->state.priv;
-    const struct rig_caps *caps;
+    const struct elad_priv_data *priv = STATE(rig)->priv;
+    struct rig_caps *caps;
     char tonebuf[3];
     int i, retval;
     unsigned int tone_idx;
@@ -2608,7 +2598,7 @@ int elad_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
             return -RIG_EINVAL;
         }
 
-        snprintf(cmd, sizeof(cmd), "TN%c", c);
+        SNPRINTF(cmd, sizeof(cmd), "TN%c", c);
         retval = elad_safe_transaction(rig, cmd, buf, sizeof(buf), 5);
         memcpy(tonebuf, &buf[3], 2);
     }
@@ -2651,7 +2641,7 @@ int elad_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 
 int elad_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    const struct rig_caps *caps = rig->caps;
+    struct rig_caps *caps = rig->caps;
     char buf[16];
     int i;
 
@@ -2695,11 +2685,11 @@ int elad_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
             return -RIG_EINVAL;
         }
 
-        snprintf(buf, sizeof(buf), "CN%c%02d", c, i + 1);
+        SNPRINTF(buf, sizeof(buf), "CN%c%02d", c, i + 1);
     }
     else
     {
-        snprintf(buf, sizeof(buf), "CN%02d", i + 1);
+        SNPRINTF(buf, sizeof(buf), "CN%02d", i + 1);
     }
 
     return elad_transaction(rig, buf, NULL, 0);
@@ -2707,7 +2697,7 @@ int elad_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 
 int elad_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 {
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
     char cmd[4];
     char tonebuf[6];
     int offs;
@@ -2741,12 +2731,12 @@ int elad_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
             return -RIG_EINVAL;
         }
 
-        snprintf(cmd, sizeof(cmd), "CN%c", c);
+        SNPRINTF(cmd, sizeof(cmd), "CN%c", c);
         offs = 3;
     }
     else
     {
-        snprintf(cmd, sizeof(cmd), "CT");
+        SNPRINTF(cmd, sizeof(cmd), "CT");
         offs = 2;
     }
 
@@ -2832,11 +2822,11 @@ int elad_set_ant(RIG *rig, vfo_t vfo, ant_t ant, value_t option)
             return -RIG_EINVAL;
         }
 
-        snprintf(cmd, sizeof(cmd), "AN0%c%c99", c, a);
+        SNPRINTF(cmd, sizeof(cmd), "AN0%c%c99", c, a);
     }
     else
     {
-        snprintf(cmd, sizeof(cmd), "AN%c", a);
+        SNPRINTF(cmd, sizeof(cmd), "AN%c", a);
     }
 
     return elad_transaction(rig, cmd, NULL, 0);
@@ -2918,7 +2908,7 @@ int elad_get_ant(RIG *rig, vfo_t vfo, ant_t dummy, value_t *option,
  */
 int elad_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    struct elad_priv_data *priv = STATE(rig)->priv;
     int retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -3146,7 +3136,7 @@ int elad_reset(RIG *rig, reset_t reset)
         }
     }
 
-    snprintf(rstbuf, sizeof(rstbuf), "SR%c", rst);
+    SNPRINTF(rstbuf, sizeof(rstbuf), "SR%c", rst);
 
     /* this command has no answer */
     return elad_transaction(rig, rstbuf, NULL, 0);
@@ -3208,12 +3198,12 @@ int elad_send_morse(RIG *rig, vfo_t vfo, const char *msg)
         switch (rig->caps->rig_model)
         {
         case RIG_MODEL_K3: // probably a lot more rigs need to go here
-            snprintf(morsebuf, sizeof(morsebuf), "KY %s", m2);
+            SNPRINTF(morsebuf, sizeof(morsebuf), "KY %s", m2);
             break;
 
         default:
             /* the command must consist of 28 bytes 0x20 padded */
-            snprintf(morsebuf, sizeof(morsebuf), "KY %-24s", m2);
+            SNPRINTF(morsebuf, sizeof(morsebuf), "KY %-24s", m2);
 
             for (i = strlen(morsebuf) - 1; i > 0 && morsebuf[i] == ' '; --i)
             {
@@ -3297,7 +3287,7 @@ int elad_set_mem(RIG *rig, vfo_t vfo, int ch)
             return -RIG_EINVAL;
         }
 
-        snprintf(buf, sizeof(buf), "MN%c%03d", c, ch);
+        SNPRINTF(buf, sizeof(buf), "MN%c%03d", c, ch);
     }
     else
     {
@@ -3306,7 +3296,7 @@ int elad_set_mem(RIG *rig, vfo_t vfo, int ch)
          * where b is the bank number, mm the memory number.
          * b can be a space
          */
-        snprintf(buf, sizeof(buf), "MC %02d", ch);
+        SNPRINTF(buf, sizeof(buf), "MC %02d", ch);
     }
 
     return elad_transaction(rig, buf, NULL, 0);
@@ -3347,7 +3337,7 @@ int elad_get_mem(RIG *rig, vfo_t vfo, int *ch)
             return -RIG_EINVAL;
         }
 
-        snprintf(cmd, sizeof(cmd), "MN%c", c);
+        SNPRINTF(cmd, sizeof(cmd), "MN%c", c);
         offs = 3;
     }
     else
@@ -3357,7 +3347,7 @@ int elad_get_mem(RIG *rig, vfo_t vfo, int *ch)
          * where b is the bank number, mm the memory number.
          * b can be a space
          */
-        snprintf(cmd, sizeof(cmd), "MC");
+        SNPRINTF(cmd, sizeof(cmd), "MC");
         offs = 2;
     }
 
@@ -3377,7 +3367,7 @@ int elad_get_mem_if(RIG *rig, vfo_t vfo, int *ch)
 {
     int err;
     char buf[4];
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -3413,7 +3403,7 @@ int elad_get_channel(RIG *rig, channel_t *chan)
         bank = '0' + chan->bank_num;
     }
 
-    snprintf(cmd, sizeof(cmd), "MR0%c%02d", bank, chan->channel_num);
+    SNPRINTF(cmd, sizeof(cmd), "MR0%c%02d", bank, chan->channel_num);
 
     err = elad_safe_transaction(rig, cmd, buf, 26, 23);
 
@@ -3564,7 +3554,7 @@ int elad_set_channel(RIG *rig, const channel_t *chan)
         bank = '0' + chan->bank_num;
     }
 
-    snprintf(buf, sizeof(buf),
+    SNPRINTF(buf, sizeof(buf),
              "MW0%c%02d%011"PRIll"%c%c%c%02d ", /* note the space at
                                                      the end */
              bank,
@@ -3582,7 +3572,7 @@ int elad_set_channel(RIG *rig, const channel_t *chan)
         return err;
     }
 
-    snprintf(buf, sizeof(buf), "MW1%c%02d%011"PRIll"%c%c%c%02d ",
+    SNPRINTF(buf, sizeof(buf), "MW1%c%02d%011"PRIll"%c%c%c%02d ",
              bank,
              chan->channel_num,
              (int64_t)(chan->split == RIG_SPLIT_ON ? chan->tx_freq : 0),
@@ -3594,7 +3584,7 @@ int elad_set_channel(RIG *rig, const channel_t *chan)
     return elad_transaction(rig, buf, NULL, 0);
 }
 
-int elad_set_ext_parm(RIG *rig, token_t token, value_t val)
+int elad_set_ext_parm(RIG *rig, hamlib_token_t token, value_t val)
 {
     char buf[4];
 
@@ -3606,25 +3596,25 @@ int elad_set_ext_parm(RIG *rig, token_t token, value_t val)
         return elad_transaction(rig, "VR", NULL, 0);
 
     case TOK_FINE:
-        snprintf(buf, sizeof(buf), "FS%c", (val.i == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "FS%c", (val.i == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case TOK_XIT:
-        snprintf(buf, sizeof(buf), "XT%c", (val.i == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "XT%c", (val.i == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
 
     case TOK_RIT:
-        snprintf(buf, sizeof(buf), "RT%c", (val.i == 0) ? '0' : '1');
+        SNPRINTF(buf, sizeof(buf), "RT%c", (val.i == 0) ? '0' : '1');
         return elad_transaction(rig, buf, NULL, 0);
     }
 
     return -RIG_EINVAL;
 }
 
-int elad_get_ext_parm(RIG *rig, token_t token, value_t *val)
+int elad_get_ext_parm(RIG *rig, hamlib_token_t token, value_t *val)
 {
     int err;
-    struct elad_priv_data *priv = rig->state.priv;
+    struct elad_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -3706,6 +3696,7 @@ DECLARE_PROBERIG_BACKEND(elad)
     int retval = -1;
     int rates[] = { 115200, 57600, 38400, 19200, 9600, 4800, 1200, 0 }; /* possible baud rates */
     int rates_idx;
+    idbuf[0] = 0;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -3738,8 +3729,8 @@ DECLARE_PROBERIG_BACKEND(elad)
             return RIG_MODEL_NONE;
         }
 
-        retval = write_block(port, "ID;", 3);
-        id_len = read_string(port, idbuf, IDBUFSZ, ";\r", 2);
+        retval = write_block(port, (unsigned char *) "ID;", 3);
+        id_len = read_string(port, (unsigned char *) idbuf, IDBUFSZ, ";\r", 2, 0, 1);
         close(port->fd);
 
         if (retval != RIG_OK || id_len < 0)
@@ -3799,8 +3790,8 @@ DECLARE_PROBERIG_BACKEND(elad)
             return RIG_MODEL_NONE;
         }
 
-        retval = write_block(port, "K2;", 3);
-        id_len = read_string(port, idbuf, IDBUFSZ, ";\r", 2);
+        retval = write_block(port, (unsigned char *) "K2;", 3);
+        id_len = read_string(port, (unsigned char *) idbuf, IDBUFSZ, ";\r", 2, 0, 1);
         close(port->fd);
 
         if (retval != RIG_OK)

@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -91,14 +87,14 @@ static const struct jrc_priv_caps nrd545_priv_caps =
  * NRD-545 rig capabilities.
  *
  */
-const struct rig_caps nrd545_caps =
+struct rig_caps nrd545_caps =
 {
     RIG_MODEL(RIG_MODEL_NRD545),
     .model_name = "NRD-545 DSP",
     .mfg_name =  "JRC",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -121,7 +117,6 @@ const struct rig_caps nrd545_caps =
     .has_get_parm =  RIG_PARM_TIME,
     .has_set_parm =  RIG_PARM_SET(NRD545_PARM),
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_ATT] = { .min = { .i = 0 }, .max = { .i = 20 } },
         [LVL_IF] = { .min = { .i = -2550 }, .max = { .i = 2550 }, .step = { .i = 10} },
@@ -212,7 +207,7 @@ const struct rig_caps nrd545_caps =
     .set_powerstat =  jrc_set_powerstat,
     .get_powerstat =  jrc_get_powerstat,
     .decode_event =  jrc_decode_event,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

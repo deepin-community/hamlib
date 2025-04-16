@@ -19,20 +19,14 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-#include <unistd.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #include "hamlib/rig.h"
 #include "kenwood.h"
 #include "th.h"
-#include "num_stdio.h"
-#include "iofunc.h"
-#include "serial.h"
 #include "misc.h"
 
 
@@ -162,7 +156,7 @@ static struct kenwood_priv_caps thd74_priv_caps =
 int thd74_open(RIG *rig)
 {
     //int ret;
-    //struct kenwood_priv_data *priv = rig->state.priv;
+    //struct kenwood_priv_data *priv = STATE(rig)->priv;
     // this is already done in kenwood_init
     //strcpy(priv->verify_cmd, "ID\r");
 
@@ -245,7 +239,7 @@ static int thd74_get_vfo(RIG *rig, vfo_t *vfo)
 
 static int thd74_vfoc(RIG *rig, vfo_t vfo, char *vfoc)
 {
-    vfo = (vfo == RIG_VFO_CURR) ? rig->state.current_vfo : vfo;
+    vfo = (vfo == RIG_VFO_CURR) ? STATE(rig)->current_vfo : vfo;
 
     switch (vfo)
     {
@@ -275,7 +269,7 @@ static int thd74_get_freq_info(RIG *rig, vfo_t vfo, char *buf)
         return retval;
     }
 
-    sprintf(cmd, "FO %c", c);
+    SNPRINTF(cmd, sizeof(cmd), "FO %c", c);
     retval = kenwood_transaction(rig, cmd, buf, 73);
     return retval;
 }
@@ -401,7 +395,7 @@ static int thd74_round_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 static int thd74_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct kenwood_priv_data *priv = rig->state.priv;
+    struct kenwood_priv_data *priv = STATE(rig)->priv;
     int retval;
     char buf[128], fbuf[12];
 
@@ -420,7 +414,7 @@ static int thd74_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     }
 
     freq = thd74_round_freq(rig, vfo, freq);
-    sprintf(fbuf, "%010"PRIll, (int64_t)freq);
+    SNPRINTF(fbuf, sizeof(fbuf), "%010"PRIll, (int64_t)freq);
     memcpy(buf + 5, fbuf, 10);
     retval = kenwood_simple_transaction(rig, buf, 72);
     return retval;
@@ -428,7 +422,7 @@ static int thd74_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 static int thd74_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct kenwood_priv_data *priv = rig->state.priv;
+    struct kenwood_priv_data *priv = STATE(rig)->priv;
     int retval;
     char buf[128];
 
@@ -511,7 +505,7 @@ int thd74_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         }
     }
 
-    sprintf(mdbuf, "MD %c,%c", v, kmode);
+    SNPRINTF(mdbuf, sizeof(mdbuf), "MD %c,%c", v, kmode);
     rig_debug(RIG_DEBUG_ERR, "%s: mdbuf: %s\n", __func__, mdbuf);
 
     retval = kenwood_transaction(rig, mdbuf, replybuf, 7);
@@ -608,7 +602,7 @@ static int thd74_set_rptr_offs(RIG *rig, vfo_t vfo, shortfreq_t offs)
         return retval;
     }
 
-    sprintf(boff, "%010ld", offs);
+    SNPRINTF(boff, sizeof(boff), "%010ld", offs);
     memcpy(buf + 16, boff, 10);
     retval = kenwood_simple_transaction(rig, buf, 72);
     return retval;
@@ -638,11 +632,23 @@ static int thd74_set_ts(RIG *rig, vfo_t vfo, shortfreq_t ts)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
+    for (tsinx = 0; tsinx < 4; tsinx++)
+    {
+        if (thd74tuningstep_fine[tsinx] >= ts)
+        {
+            thd74_set_freq_item(rig, vfo, 33, 1); // Turn fine mode on
+            thd74_set_freq_item(rig, vfo, 35, tsinx);
+            return RIG_OK;
+        }
+    }
+
     for (tsinx = 0; tsinx < 10; tsinx++)
     {
+
         if (thd74tuningstep[tsinx] >= ts)
         {
-            thd74_set_freq_item(rig, vfo, 16, tsinx);
+            thd74_set_freq_item(rig, vfo, 33, 0); //Turn fine mode off
+            thd74_set_freq_item(rig, vfo, 27, tsinx);
             return RIG_OK;
         }
     }
@@ -683,7 +689,7 @@ static int thd74_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
     }
 
     buf[22] = (tone == 0) ? '0' : '1';
-    sprintf(tmp, "%02d", tinx);
+    SNPRINTF(tmp, sizeof(tmp), "%02d", tinx);
     memcpy(buf + 30, tmp, 2);
     return kenwood_simple_transaction(rig, buf, 52);
 }
@@ -756,7 +762,7 @@ static int thd74_set_dcs_code(RIG *rig, vfo_t vfo, tone_t code)
     }
 
     buf[26] = (code == 0) ? '0' : '1';
-    sprintf(tmp, "%03d", cinx);
+    SNPRINTF(tmp, sizeof(tmp), "%03d", cinx);
     memcpy(buf + 36, tmp, 3);
     return kenwood_simple_transaction(rig, buf, 52);
 }
@@ -821,7 +827,7 @@ static int thd74_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
     }
 
     buf[24] = (tone == 0) ? '0' : '1';
-    sprintf(tmp, "%02d", tinx);
+    SNPRINTF(tmp, sizeof(tmp), "%02d", tinx);
     memcpy(buf + 33, tmp, 2);
     return kenwood_simple_transaction(rig, buf, 52);
 }
@@ -908,11 +914,11 @@ static int thd74_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         else if (val.f <= 0.4) { lvlc = '1'; }
         else { lvlc = '0'; }
 
-        sprintf(cmd, "PC %c,%c", c, lvlc);
+        SNPRINTF(cmd, sizeof(cmd), "PC %c,%c", c, lvlc);
         return kenwood_simple_transaction(rig, cmd, 6);
 
     case RIG_LEVEL_VOXGAIN:
-        sprintf(cmd, "VG %d", (int)(val.f * 10.0 - 0.5));
+        SNPRINTF(cmd, sizeof(cmd), "VG %d", (int)(val.f * 10.0 - 0.5));
         return kenwood_simple_transaction(rig, cmd, 4);
 
     case RIG_LEVEL_VOXDELAY:
@@ -920,15 +926,15 @@ static int thd74_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         else if (val.i > 10000) { lvl = val.i / 10000 + 3; }
         else { lvl = val.i / 2500; }
 
-        sprintf(cmd, "VD %d", lvl);
+        SNPRINTF(cmd, sizeof(cmd), "VD %d", lvl);
         return kenwood_simple_transaction(rig, cmd, 4);
 
     case RIG_LEVEL_SQL:
-        sprintf(cmd, "SQ %c,%d", c, (int)val.f);
+        SNPRINTF(cmd, sizeof(cmd), "SQ %c,%d", c, (int)val.f);
         return kenwood_simple_transaction(rig, cmd, 6);
 
     case RIG_LEVEL_ATT: // no value provided to distinguish between on/off??
-        sprintf(cmd, "RA %c,%d", c, (int)val.f);
+        SNPRINTF(cmd, sizeof(cmd), "RA %c,%d", c, (int)val.f);
         return kenwood_simple_transaction(rig, cmd, 6);
 
     default:
@@ -957,7 +963,7 @@ static int thd74_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     switch (level)
     {
     case RIG_LEVEL_RFPOWER:
-        sprintf(cmd, "PC %c", c);
+        SNPRINTF(cmd, sizeof(cmd), "PC %c", c);
         retval = kenwood_transaction(rig, cmd, buf, sizeof(buf));
 
         if (retval != RIG_OK)
@@ -987,7 +993,7 @@ static int thd74_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_VOXGAIN:
-        sprintf(cmd, "VG");
+        SNPRINTF(cmd, sizeof(cmd), "VG");
         retval = kenwood_transaction(rig, cmd, buf, sizeof(buf));
 
         if (retval != RIG_OK)
@@ -1001,7 +1007,7 @@ static int thd74_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_VOXDELAY:
-        sprintf(cmd, "VD");
+        SNPRINTF(cmd, sizeof(cmd), "VD");
         retval = kenwood_transaction(rig, cmd, buf, sizeof(buf));
 
         if (retval != RIG_OK)
@@ -1015,7 +1021,7 @@ static int thd74_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_SQL:
-        sprintf(cmd, "SQ %c", c);
+        SNPRINTF(cmd, sizeof(cmd), "SQ %c", c);
         retval = kenwood_transaction(rig, cmd, buf, sizeof(buf));
 
         if (retval != RIG_OK)
@@ -1035,7 +1041,7 @@ static int thd74_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_ATT:
-        sprintf(cmd, "RA %c", c);
+        SNPRINTF(cmd, sizeof(cmd), "RA %c", c);
         retval = kenwood_transaction(rig, cmd, buf, 7);
 
         if (retval != RIG_OK)
@@ -1159,7 +1165,7 @@ static int thd74_set_mem(RIG *rig, vfo_t vfo, int ch)
         return retval;
     }
 
-    sprintf(cmd, "MR %c,%03d", c, ch);
+    SNPRINTF(cmd, sizeof(cmd), "MR %c,%03d", c, ch);
     return kenwood_simple_transaction(rig, cmd, 8);
 }
 
@@ -1177,7 +1183,7 @@ static int thd74_get_mem(RIG *rig, vfo_t vfo, int *ch)
         return retval;
     }
 
-    sprintf(cmd, "MR %c", c);
+    SNPRINTF(cmd, sizeof(cmd), "MR %c", c);
     retval = kenwood_transaction(rig, cmd, buf, sizeof(buf));
 
     if (retval != RIG_OK)
@@ -1288,7 +1294,7 @@ static int thd74_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
     {
         int len;
         char cmd[16];
-        sprintf(cmd, "ME %03d", chan->channel_num);
+        SNPRINTF(cmd, sizeof(cmd), "ME %03d", chan->channel_num);
         retval = kenwood_transaction(rig, cmd, buf, sizeof(buf));
 
         if (retval != RIG_OK)
@@ -1341,7 +1347,7 @@ static int thd74_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
 
 int thd74_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
 {
-    struct kenwood_priv_data *priv = rig->state.priv;
+    struct kenwood_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
@@ -1357,7 +1363,7 @@ int thd74_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
 
 int thd74_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *txvfo)
 {
-    struct kenwood_priv_data *priv = rig->state.priv;
+    struct kenwood_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
@@ -1379,7 +1385,7 @@ otherwise return -RIG_EPROTO
 */
 int thd74_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
 {
-    struct kenwood_priv_data *priv = rig->state.priv;
+    struct kenwood_priv_data *priv = STATE(rig)->priv;
     int retval;
     char buf[128];
 
@@ -1411,7 +1417,7 @@ otherwise return -RIG_EPROTO
 */
 int thd74_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
 {
-    struct kenwood_priv_data *priv = rig->state.priv;
+    struct kenwood_priv_data *priv = STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
@@ -1426,7 +1432,7 @@ int thd74_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
         }
 
         tx_freq = thd74_round_freq(rig, RIG_VFO_A, tx_freq);
-        sprintf(fbuf, "%010"PRIll, (int64_t)tx_freq);
+        SNPRINTF(fbuf, sizeof(fbuf), "%010"PRIll, (int64_t)tx_freq);
         memcpy(buf + 5, fbuf, 10);
         return  kenwood_simple_transaction(rig, buf, 72);
     }
@@ -1442,7 +1448,7 @@ int thd74_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
 
 static int thd74_get_block(RIG *rig, int block_num, char *block)
 {
-    hamlib_port_t *rp = &rig->state.rigport;
+    hamlib_port_t *rp = RIGPORT(rig);
     char cmd[CMD_SZ] = "R\0\0\0\0";
     char resp[CMD_SZ];
     int ret;
@@ -1504,9 +1510,9 @@ static int thd74_get_block(RIG *rig, int block_num, char *block)
 int thd74_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
 {
     int i, j, ret;
-    hamlib_port_t *rp = &rig->state.rigport;
+    hamlib_port_t *rp = RIGPORT(rig);
     channel_t *chan;
-    chan_t *chan_list = rig->state.chan_list;
+    chan_t *chan_list = STATE(rig)->chan_list;
     int chan_next = chan_list[0].start;
     char block[BLOCK_SZ];
     char resp[CMD_SZ];
@@ -1638,12 +1644,12 @@ int thd74_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
 /*
  * th-d74 rig capabilities.
  */
-const struct rig_caps thd74_caps =
+struct rig_caps thd74_caps =
 {
     RIG_MODEL(RIG_MODEL_THD74),
     .model_name = "TH-D74",
     .mfg_name =  "Kenwood",
-    .version =  BACKEND_VER ".2",
+    .version =  BACKEND_VER ".3",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_HANDHELD | RIG_FLAG_APRS | RIG_FLAG_TNC | RIG_FLAG_DXCLUSTER,
@@ -1667,12 +1673,16 @@ const struct rig_caps thd74_caps =
     .has_set_level =  RIG_LEVEL_SET(THD74_LEVEL_ALL),
     .has_get_parm =  THD74_PARMS,
     .has_set_parm =  THD74_PARMS,
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_RFPOWER] = { .min = { .i = 2 }, .max = { .i = 0 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_TIME] = {.min = {.i = 0}, .max = {.i = 86399}, .step = {.i = 1}},
+    },
+
+
+
     .ctcss_list =  kenwood38_ctcss_list,
     .dcs_list =  NULL,
     .preamp =   { RIG_DBLST_END, },
@@ -1763,4 +1773,5 @@ const struct rig_caps thd74_caps =
 //.get_chan_all_cb = thd74_get_chan_all_cb, this doesn't work yet
 
     .get_info =  th_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

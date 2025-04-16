@@ -24,14 +24,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* String function definitions */
-#include <unistd.h>     /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rig.h"
@@ -40,6 +35,143 @@
 #include "ft100.h"
 #include "misc.h"
 #include "bandplan.h"
+
+enum ft100_native_cmd_e
+{
+
+    FT100_NATIVE_CAT_LOCK_ON = 0,
+    FT100_NATIVE_CAT_LOCK_OFF,
+    FT100_NATIVE_CAT_PTT_ON,
+    FT100_NATIVE_CAT_PTT_OFF,
+    FT100_NATIVE_CAT_SET_FREQ,
+    FT100_NATIVE_CAT_SET_MODE_LSB,
+    FT100_NATIVE_CAT_SET_MODE_USB,
+    FT100_NATIVE_CAT_SET_MODE_CW,
+    FT100_NATIVE_CAT_SET_MODE_CWR,
+    FT100_NATIVE_CAT_SET_MODE_AM,
+    FT100_NATIVE_CAT_SET_MODE_FM,
+    FT100_NATIVE_CAT_SET_MODE_DIG,
+    FT100_NATIVE_CAT_SET_MODE_WFM,
+    FT100_NATIVE_CAT_CLAR_ON,
+    FT100_NATIVE_CAT_CLAR_OFF,
+    FT100_NATIVE_CAT_SET_CLAR_FREQ,
+    FT100_NATIVE_CAT_SET_VFOAB,
+    FT100_NATIVE_CAT_SET_VFOA,
+    FT100_NATIVE_CAT_SET_VFOB,
+    FT100_NATIVE_CAT_SPLIT_ON,
+    FT100_NATIVE_CAT_SPLIT_OFF,
+    FT100_NATIVE_CAT_SET_RPT_SHIFT_MINUS,
+    FT100_NATIVE_CAT_SET_RPT_SHIFT_PLUS,
+    FT100_NATIVE_CAT_SET_RPT_SHIFT_SIMPLEX,
+    FT100_NATIVE_CAT_SET_RPT_OFFSET,
+    /* fix me */
+    FT100_NATIVE_CAT_SET_DCS_ON,
+    FT100_NATIVE_CAT_SET_CTCSS_ENC_ON,
+    FT100_NATIVE_CAT_SET_CTCSS_ENC_DEC_ON,
+    FT100_NATIVE_CAT_SET_CTCSS_DCS_OFF,
+    /* em xif */
+    FT100_NATIVE_CAT_SET_CTCSS_FREQ,
+    FT100_NATIVE_CAT_SET_DCS_CODE,
+    FT100_NATIVE_CAT_GET_RX_STATUS,
+    FT100_NATIVE_CAT_GET_TX_STATUS,
+    FT100_NATIVE_CAT_GET_FREQ_MODE_STATUS,
+    FT100_NATIVE_CAT_PWR_WAKE,
+    FT100_NATIVE_CAT_PWR_ON,
+    FT100_NATIVE_CAT_PWR_OFF,
+    FT100_NATIVE_CAT_READ_STATUS,
+    FT100_NATIVE_CAT_READ_METERS,
+    FT100_NATIVE_CAT_READ_FLAGS,
+    FT100_NATIVE_SIZE     /* end marker */
+};
+
+/*
+ *  we are able to get way more info
+ *  than we can set
+ *
+ */
+typedef struct
+{
+    unsigned char band_no;
+    unsigned char freq[4];
+    unsigned char mode;
+    unsigned char ctcss;
+    unsigned char dcs;
+    unsigned char flag1;
+    unsigned char flag2;
+    unsigned char clarifier[2];
+    unsigned char not_used;
+    unsigned char step1;
+    unsigned char step2;
+    unsigned char filter;
+
+    unsigned char stuffing[16];
+}
+FT100_STATUS_INFO;
+
+
+typedef struct
+{
+    unsigned char mic_switch_1;
+    unsigned char tx_fwd_power;
+    unsigned char tx_rev_power;
+    unsigned char s_meter;
+    unsigned char mic_level;
+    unsigned char squelch_level;
+    unsigned char mic_switch_2;
+    unsigned char final_temp;
+    unsigned char alc_level;
+}
+FT100_METER_INFO;
+
+typedef struct
+{
+    unsigned char byte[8];
+}
+FT100_FLAG_INFO;
+
+
+static int ft100_init(RIG *rig);
+static int ft100_open(RIG *rig);
+static int ft100_cleanup(RIG *rig);
+static int ft100_close(RIG *rig);
+
+static int ft100_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
+static int ft100_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
+
+static int ft100_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
+static int ft100_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
+
+static int ft100_set_vfo(RIG *rig, vfo_t vfo);
+static int ft100_get_vfo(RIG *rig, vfo_t *vfo);
+
+static int ft100_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
+static int ft100_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
+static int ft100_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
+#if 0
+static int ft100_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
+
+static int ft100_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
+static int ft100_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status);
+
+static int ft100_set_parm(RIG *rig, setting_t parm, value_t val);
+static int ft100_get_parm(RIG *rig, setting_t parm, value_t *val);
+#endif
+
+static int ft100_set_split_vfo(RIG *rig, vfo_t vfo, split_t split,
+                               vfo_t tx_vfo);
+static int ft100_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split,
+                               vfo_t *tx_vfo);
+
+static int ft100_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t shift);
+static int ft100_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *shift);
+
+static int ft100_set_dcs_code(RIG *rig, vfo_t vfo, tone_t code);
+static int ft100_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code);
+
+static int ft100_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone);
+static int ft100_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone);
+
+//static int ft100_get_info(RIG *rig, FT100_STATUS_INFO *ft100_status, FT100_METER_INFO *ft100_meter, FT100_FLAG_INFO *ft100_flags);
 
 struct ft100_priv_data
 {
@@ -161,7 +293,6 @@ static tone_t ft100_dcs_list[] =
 #define FT100_FUNC_ALL (RIG_FUNC_TONE|RIG_FUNC_TSQL)
 
 #define FT100_VFO_ALL (RIG_VFO_A|RIG_VFO_B)
-#define FT100_ANT (RIG_ANT_1)
 
 /* S-meter calibration, ascending order of RAW values */
 #define FT100_STR_CAL { 9, \
@@ -177,12 +308,12 @@ static tone_t ft100_dcs_list[] =
             { 200, -54 }  /*  S0 */ \
             } }
 
-const struct rig_caps ft100_caps =
+struct rig_caps ft100_caps =
 {
     RIG_MODEL(RIG_MODEL_FT100),
     .model_name =     "FT-100",
     .mfg_name =       "Yaesu",
-    .version =        "20210110.0",
+    .version =        "20240910.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_TRANSCEIVER,
@@ -202,10 +333,13 @@ const struct rig_caps ft100_caps =
     .has_get_func =   RIG_FUNC_NONE,
     .has_set_func =   FT100_FUNC_ALL,
     .has_get_level =  FT100_GET_RIG_LEVELS,
-    .has_set_level =  RIG_LEVEL_NONE,
+    .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,  /* FIXME: parms */
-    .level_gran =     {},     /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =      {},
     .ctcss_list =     ft100_ctcss_list,
     .dcs_list =       ft100_dcs_list,
@@ -222,39 +356,39 @@ const struct rig_caps ft100_caps =
     .chan_list =  { RIG_CHAN_END, },  /* FIXME: memory chan .list =  78 */
 
     .rx_range_list1 =  {
-        {kHz(100), MHz(56), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL},
-        {MHz(76), MHz(108), RIG_MODE_WFM,      -1, -1, FT100_VFO_ALL},
-        {MHz(108), MHz(154), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL},
-        {MHz(420), MHz(470), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL},
+        {kHz(100), MHz(56), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL, RIG_ANT_CURR},
+        {MHz(76), MHz(108), RIG_MODE_WFM,      -1, -1, FT100_VFO_ALL, RIG_ANT_CURR},
+        {MHz(108), MHz(154), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL, RIG_ANT_CURR},
+        {MHz(420), MHz(470), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL, RIG_ANT_CURR},
         RIG_FRNG_END,
     },
     .tx_range_list1 =  {
-        FRQ_RNG_HF(1, FT100_OTHER_TX_MODES, W(0.5), W(100), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_HF(1, FT100_AM_TX_MODES,    W(0.5), W(25), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_6m(1, FT100_OTHER_TX_MODES, W(0.5), W(100), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_6m(1, FT100_AM_TX_MODES,    W(0.5), W(25), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_2m(1, FT100_OTHER_TX_MODES, W(0.5), W(50), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_2m(1, FT100_AM_TX_MODES,    W(0.5), W(12.5), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_70cm(1, FT100_OTHER_TX_MODES, W(0.5), W(20), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_70cm(1, FT100_AM_TX_MODES,    W(0.5), W(5),  FT100_VFO_ALL, FT100_ANT),
+        FRQ_RNG_HF(1, FT100_OTHER_TX_MODES, W(0.5), W(100), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_HF(1, FT100_AM_TX_MODES,    W(0.5), W(25), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_6m(1, FT100_OTHER_TX_MODES, W(0.5), W(100), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_6m(1, FT100_AM_TX_MODES,    W(0.5), W(25), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_2m(1, FT100_OTHER_TX_MODES, W(0.5), W(50), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_2m(1, FT100_AM_TX_MODES,    W(0.5), W(12.5), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_70cm(1, FT100_OTHER_TX_MODES, W(0.5), W(20), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_70cm(1, FT100_AM_TX_MODES,    W(0.5), W(5),  FT100_VFO_ALL, RIG_ANT_CURR),
     },
     .rx_range_list2 =  {
-        {kHz(100), MHz(56), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL},
-        {MHz(76), MHz(108), RIG_MODE_WFM,      -1, -1, FT100_VFO_ALL},
-        {MHz(108), MHz(154), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL},
-        {MHz(420), MHz(470), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL},
+        {kHz(100), MHz(56), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL, RIG_ANT_CURR},
+        {MHz(76), MHz(108), RIG_MODE_WFM,      -1, -1, FT100_VFO_ALL, RIG_ANT_CURR},
+        {MHz(108), MHz(154), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL, RIG_ANT_CURR},
+        {MHz(420), MHz(470), FT100_ALL_RX_MODES, -1, -1, FT100_VFO_ALL, RIG_ANT_CURR},
         RIG_FRNG_END,
     },
 
     .tx_range_list2 =  {
-        FRQ_RNG_HF(2, FT100_OTHER_TX_MODES, W(0.5), W(100), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_HF(2, FT100_AM_TX_MODES,    W(0.5), W(25), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_6m(2, FT100_OTHER_TX_MODES, W(0.5), W(100), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_6m(2, FT100_AM_TX_MODES,    W(0.5), W(25), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_2m(2, FT100_OTHER_TX_MODES, W(0.5), W(50), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_2m(2, FT100_AM_TX_MODES,    W(0.5), W(12.5), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_70cm(2, FT100_OTHER_TX_MODES, W(0.5), W(20), FT100_VFO_ALL, FT100_ANT),
-        FRQ_RNG_70cm(2, FT100_AM_TX_MODES,    W(0.5), W(5),  FT100_VFO_ALL, FT100_ANT),
+        FRQ_RNG_HF(2, FT100_OTHER_TX_MODES, W(0.5), W(100), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_HF(2, FT100_AM_TX_MODES,    W(0.5), W(25), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_6m(2, FT100_OTHER_TX_MODES, W(0.5), W(100), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_6m(2, FT100_AM_TX_MODES,    W(0.5), W(25), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_2m(2, FT100_OTHER_TX_MODES, W(0.5), W(50), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_2m(2, FT100_AM_TX_MODES,    W(0.5), W(12.5), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_70cm(2, FT100_OTHER_TX_MODES, W(0.5), W(20), FT100_VFO_ALL, RIG_ANT_CURR),
+        FRQ_RNG_70cm(2, FT100_AM_TX_MODES,    W(0.5), W(5),  FT100_VFO_ALL, RIG_ANT_CURR),
         RIG_FRNG_END,
     },
 
@@ -328,6 +462,7 @@ const struct rig_caps ft100_caps =
     .get_func =       NULL,
     .set_parm =       NULL,
     .get_parm =       NULL,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -335,10 +470,10 @@ int ft100_init(RIG *rig)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    rig->state.priv = (struct ft100_priv_data *) calloc(1,
-                      sizeof(struct ft100_priv_data));
+    STATE(rig)->priv = (struct ft100_priv_data *) calloc(1,
+                       sizeof(struct ft100_priv_data));
 
-    if (!rig->state.priv) { return -RIG_ENOMEM; }
+    if (!STATE(rig)->priv) { return -RIG_ENOMEM; }
 
     return RIG_OK;
 }
@@ -350,12 +485,12 @@ int ft100_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
 
@@ -386,31 +521,25 @@ int ft100_close(RIG *rig)
 
 static int ft100_send_priv_cmd(RIG *rig, unsigned char cmd_index)
 {
-
-    struct rig_state *rig_s;
-    unsigned char *cmd;       /* points to sequence to send */
-
     rig_debug(RIG_DEBUG_VERBOSE, "%s called (%d)\n", __func__, cmd_index);
 
     if (!rig) { return -RIG_EINVAL; }
 
-    rig_s = &rig->state;
-
-    cmd = (unsigned char *) &ncmd[cmd_index].nseq; /* get native sequence */
-
-    return write_block(&rig_s->rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), (unsigned char *) &ncmd[cmd_index].nseq,
+                       YAESU_CMD_LENGTH);
 }
 
 static int ft100_read_status(RIG *rig)
 {
     struct ft100_priv_data *priv;
+    hamlib_port_t *rp = RIGPORT(rig);
     int ret;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    priv = (struct ft100_priv_data *)rig->state.priv;
+    priv = (struct ft100_priv_data *)STATE(rig)->priv;
 
-    rig_flush(&rig->state.rigport);
+    rig_flush(rp);
 
     ret = ft100_send_priv_cmd(rig, FT100_NATIVE_CAT_READ_STATUS);
 
@@ -419,8 +548,7 @@ static int ft100_read_status(RIG *rig)
         return ret;
     }
 
-    ret = read_block(&rig->state.rigport,
-                     (char *)&priv->status,
+    ret = read_block(rp, (unsigned char *) &priv->status,
                      sizeof(FT100_STATUS_INFO));
     rig_debug(RIG_DEBUG_VERBOSE, "%s: read status=%i \n", __func__, ret);
 
@@ -434,12 +562,13 @@ static int ft100_read_status(RIG *rig)
 
 static int ft100_read_flags(RIG *rig)
 {
-    struct ft100_priv_data *priv = (struct ft100_priv_data *)rig->state.priv;
+    struct ft100_priv_data *priv = (struct ft100_priv_data *)STATE(rig)->priv;
     int ret;
+    hamlib_port_t *rp = RIGPORT(rig);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    rig_flush(&rig->state.rigport);
+    rig_flush(rp);
 
     ret = ft100_send_priv_cmd(rig, FT100_NATIVE_CAT_READ_FLAGS);
 
@@ -448,8 +577,7 @@ static int ft100_read_flags(RIG *rig)
         return ret;
     }
 
-    ret = read_block(&rig->state.rigport,
-                     (char *)&priv->flags,
+    ret = read_block(rp, (unsigned char *) &priv->flags,
                      sizeof(FT100_FLAG_INFO));
     rig_debug(RIG_DEBUG_VERBOSE, "%s: read flags=%i \n", __func__, ret);
 
@@ -463,13 +591,10 @@ static int ft100_read_flags(RIG *rig)
 
 int ft100_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct rig_state *rig_s;
     unsigned char p_cmd[YAESU_CMD_LENGTH];
     unsigned char cmd_index;  /* index of sequence to send */
 
     if (!rig) { return -RIG_EINVAL; }
-
-    rig_s = &rig->state;
 
     rig_debug(RIG_DEBUG_VERBOSE, "ft100: requested freq = %"PRIfreq" Hz \n", freq);
 
@@ -478,16 +603,16 @@ int ft100_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     memcpy(p_cmd, &ncmd[cmd_index].nseq, YAESU_CMD_LENGTH);
 
     /* fixed 10Hz bug by OH2MMY */
-    freq = (int)freq / 10;
+    freq = (int) freq / 10;
     to_bcd(p_cmd, freq, 8); /* store bcd format in in p_cmd */
 
-    return write_block(&rig_s->rigport, (char *) p_cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), p_cmd, YAESU_CMD_LENGTH);
 }
 
 int ft100_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
 
-    struct ft100_priv_data *priv = (struct ft100_priv_data *)rig->state.priv;
+    struct ft100_priv_data *priv = (struct ft100_priv_data *)STATE(rig)->priv;
     freq_t d1, d2;
     char freq_str[10];
     int ret;
@@ -512,11 +637,11 @@ int ft100_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
     /* now convert it .... */
 
-    sprintf(freq_str, "%02X%02X%02X%02X",
-            priv->status.freq[0],
-            priv->status.freq[1],
-            priv->status.freq[2],
-            priv->status.freq[3]);
+    SNPRINTF(freq_str, sizeof(freq_str), "%02X%02X%02X%02X",
+             priv->status.freq[0],
+             priv->status.freq[1],
+             priv->status.freq[2],
+             priv->status.freq[3]);
 
     d1 = strtol(freq_str, NULL, 16);
     d2 = (d1 * 1.25);    /* fixed 10Hz bug by OH2MMY */
@@ -607,7 +732,7 @@ int ft100_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         else if (width <= 2400) { p_cmd[3] = 0x00; }
         else { p_cmd[3] = 0x01; }
 
-        ret = write_block(&rig->state.rigport, (char *) p_cmd, YAESU_CMD_LENGTH);
+        ret = write_block(RIGPORT(rig), p_cmd, YAESU_CMD_LENGTH);
 
         if (ret != RIG_OK)
         {
@@ -631,7 +756,7 @@ int ft100_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 int ft100_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
 
-    struct ft100_priv_data *priv = (struct ft100_priv_data *)rig->state.priv;
+    struct ft100_priv_data *priv = (struct ft100_priv_data *)STATE(rig)->priv;
     int ret;
 
     if (!mode || !width) { return -RIG_EINVAL; }
@@ -716,7 +841,7 @@ int ft100_set_vfo(RIG *rig, vfo_t vfo)
 
     int ret;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called vfo=%s\n", __func__, rig_strvfo(vfo));
 
     switch (vfo)
     {
@@ -757,7 +882,7 @@ int ft100_set_vfo(RIG *rig, vfo_t vfo)
 int ft100_get_vfo(RIG *rig, vfo_t *vfo)
 {
 
-    struct ft100_priv_data *priv = (struct ft100_priv_data *)rig->state.priv;
+    struct ft100_priv_data *priv = (struct ft100_priv_data *)STATE(rig)->priv;
     int ret;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -788,6 +913,7 @@ int ft100_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 {
 
     unsigned char cmd_index;
+    int split = CACHE(rig)->split;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -795,10 +921,19 @@ int ft100_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
     {
     case RIG_PTT_ON:
         cmd_index = FT100_NATIVE_CAT_PTT_ON;
+
+        // This was causing WSJT-X to assume reverse split
+        //if (split) { rig_set_vfo(rig, RIG_VFO_B); }
+
         break;
 
     case RIG_PTT_OFF:
         cmd_index = FT100_NATIVE_CAT_PTT_OFF;
+
+        if (split) { rig_set_vfo(rig, RIG_VFO_A); }
+
+        hl_usleep(100 *
+                  1000); // give ptt some time to do its thing -- fake it was not resetting freq after tx
         break;
 
     default:
@@ -811,7 +946,7 @@ int ft100_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 int ft100_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 {
 
-    struct ft100_priv_data *priv = (struct ft100_priv_data *)rig->state.priv;
+    struct ft100_priv_data *priv = (struct ft100_priv_data *)STATE(rig)->priv;
     int ret;
 
     if (!ptt) { return -RIG_EINVAL; }
@@ -831,15 +966,13 @@ int ft100_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 /*
  * Rem: The FT-100(D) has no set_level ability
  */
-
-/*
- * blind implementation of get_level.
- * Please test on real hardware and send report on hamlib mailing list
- */
 int ft100_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
 
     int ret;
+    int split = CACHE(rig)->split;
+    int ptt = CACHE(rig)->ptt;
+
     FT100_METER_INFO ft100_meter;
 
     if (!rig) { return -RIG_EINVAL; }
@@ -848,14 +981,19 @@ int ft100_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: %s\n", __func__, rig_strlevel(level));
 
+    // if in split have to switch to VFOB to read power and back to VFOA
+    if (split && ptt) { rig_set_vfo(rig, RIG_VFO_B); }
+
     ret = ft100_send_priv_cmd(rig, FT100_NATIVE_CAT_READ_METERS);
+
+    if (split && ptt) { rig_set_vfo(rig, RIG_VFO_A); }
 
     if (ret != RIG_OK)
     {
         return ret;
     }
 
-    ret = read_block(&rig->state.rigport, (char *)&ft100_meter,
+    ret = read_block(RIGPORT(rig), (unsigned char *) &ft100_meter,
                      sizeof(FT100_METER_INFO));
     rig_debug(RIG_DEBUG_VERBOSE, "%s: read meters=%d\n", __func__, ret);
 
@@ -965,7 +1103,7 @@ int ft100_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
 int ft100_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 {
 
-    struct ft100_priv_data *priv = (struct ft100_priv_data *)rig->state.priv;
+    struct ft100_priv_data *priv = (struct ft100_priv_data *)STATE(rig)->priv;
     int ret;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -1019,7 +1157,7 @@ int ft100_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t shift)
 int ft100_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *shift)
 {
     int ret;
-    struct ft100_priv_data *priv = (struct ft100_priv_data *)rig->state.priv;
+    struct ft100_priv_data *priv = (struct ft100_priv_data *)STATE(rig)->priv;
 
     ret = ft100_read_status(rig);
 
@@ -1045,12 +1183,9 @@ int ft100_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *shift)
  */
 int ft100_set_dcs_code(RIG *rig, vfo_t vfo, tone_t code)
 {
-    struct rig_state *rig_s;
     unsigned char p_cmd[YAESU_CMD_LENGTH];
     unsigned char cmd_index;  /* index of sequence to send */
     int pcode;
-
-    rig_s = &rig->state;
 
     for (pcode = 0; pcode < 104 && ft100_dcs_list[pcode] != 0; pcode++)
     {
@@ -1075,13 +1210,13 @@ int ft100_set_dcs_code(RIG *rig, vfo_t vfo, tone_t code)
 
     p_cmd[3] = (char)pcode;
 
-    return write_block(&rig_s->rigport, (char *) p_cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), p_cmd, YAESU_CMD_LENGTH);
 }
 
 int ft100_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
 {
     int ret;
-    struct ft100_priv_data *priv = (struct ft100_priv_data *)rig->state.priv;
+    struct ft100_priv_data *priv = (struct ft100_priv_data *)STATE(rig)->priv;
 
     ret = ft100_read_status(rig);
 
@@ -1102,7 +1237,6 @@ int ft100_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
  */
 int ft100_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    struct rig_state *rig_s;
     unsigned char p_cmd[YAESU_CMD_LENGTH];
     unsigned char cmd_index;  /* index of sequence to send */
     int ptone;
@@ -1121,8 +1255,6 @@ int ft100_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
         return -RIG_EINVAL;
     }
 
-    rig_s = &rig->state;
-
     rig_debug(RIG_DEBUG_VERBOSE, "%s = %.1f Hz, n=%d\n", __func__,
               (float)tone / 10, ptone);
 
@@ -1132,13 +1264,13 @@ int ft100_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 
     p_cmd[3] = (char)ptone;
 
-    return write_block(&rig_s->rigport, (char *) p_cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), p_cmd, YAESU_CMD_LENGTH);
 }
 
 int ft100_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 {
     int ret;
-    struct ft100_priv_data *priv = (struct ft100_priv_data *)rig->state.priv;
+    struct ft100_priv_data *priv = (struct ft100_priv_data *)STATE(rig)->priv;
 
     ret = ft100_read_status(rig);
 

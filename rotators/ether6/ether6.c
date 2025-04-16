@@ -20,20 +20,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
-#include <sys/time.h>
-#include <time.h>
 
 #include <hamlib/rotator.h>
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 #include "idx_builtin.h"
 
@@ -50,8 +42,9 @@
 static int ether_transaction(ROT *rot, char *cmd, int len, char *buf)
 {
     int ret;
+    hamlib_port_t *rotp = ROTPORT(rot);
 
-    ret = write_block(&rot->state.rotport, cmd, len);
+    ret = write_block(rotp, (unsigned char *) cmd, len);
     rig_debug(RIG_DEBUG_VERBOSE, "function %s(1): ret=%d || send=%s\n", __func__,
               ret, cmd);
 
@@ -60,7 +53,8 @@ static int ether_transaction(ROT *rot, char *cmd, int len, char *buf)
         return ret;
     }
 
-    ret = read_string(&rot->state.rotport, buf, BUF_MAX, "\n", sizeof("\n"));
+    ret = read_string(rotp, (unsigned char *) buf, BUF_MAX,
+                      "\n", sizeof("\n"), 0, 1);
     rig_debug(RIG_DEBUG_VERBOSE, "function %s(2): ret=%d || receive=%s\n", __func__,
               ret, buf);
 
@@ -88,10 +82,10 @@ static int ether_transaction(ROT *rot, char *cmd, int len, char *buf)
 
 static int ether_rot_open(ROT *rot)
 {
-    int ret, len;
+    int ret;
     int sval;
     float min_az, max_az, min_el, max_el;
-    struct rot_state *rs = &rot->state;
+    struct rot_state *rs = ROTSTATE(rot);
 
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
@@ -99,10 +93,10 @@ static int ether_rot_open(ROT *rot)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
     /* elevation not need */
 
-    len = sprintf(cmd, "rotor state\n");
+    SNPRINTF(cmd, sizeof(cmd), "rotor state\n");
     /*-180/180 0/90*/
 
-    ret = ether_transaction(rot, cmd, len, buf);
+    ret = ether_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret <= 0)
     {
@@ -125,23 +119,23 @@ static int ether_rot_close(ROT *rot)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     /* clean signoff, no read back */
-    write_block(&rot->state.rotport, "\n", 1);
+    write_block(ROTPORT(rot), (unsigned char *) "\n", 1);
 
     return RIG_OK;
 }
 
 static int ether_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %f %f\n", __func__,
               az, el);
 
-    len = sprintf(cmd, "rotor move %d %d\n", (int)az, (int)el);
+    SNPRINTF(cmd, sizeof(cmd), "rotor move %d %d\n", (int)az, (int)el);
 
-    ret = ether_transaction(rot, cmd, len, buf);
+    ret = ether_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -155,16 +149,16 @@ static int ether_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
 
 static int ether_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 {
-    int ret, len, sval, speed, adv;
+    int ret, sval, speed, adv;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
     char mv[5];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "rotor status\n");
+    SNPRINTF(cmd, sizeof(cmd), "rotor status\n");
 
-    ret = ether_transaction(rot, cmd, len, buf);
+    ret = ether_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret <= 0)
     {
@@ -191,15 +185,15 @@ static int ether_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 */
 static int ether_rot_stop(ROT *rot)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "rotor stop\n");
+    SNPRINTF(cmd, sizeof(cmd), "rotor stop\n");
 
-    ret = ether_transaction(rot, cmd, len, buf);
+    ret = ether_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -217,15 +211,15 @@ static int ether_rot_stop(ROT *rot)
 */
 static int ether_rot_park(ROT *rot)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "rotor park\n");
+    SNPRINTF(cmd, sizeof(cmd), "rotor park\n");
 
-    ret = ether_transaction(rot, cmd, len, buf);
+    ret = ether_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -239,16 +233,15 @@ static int ether_rot_park(ROT *rot)
 
 static int ether_rot_reset(ROT *rot, rot_reset_t reset)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    // orig len = sprintf(cmd, "R %d\n", reset);
-    len = sprintf(cmd, "reset\n");
+    SNPRINTF(cmd, sizeof(cmd), "reset\n");
 
-    ret = ether_transaction(rot, cmd, len, buf);
+    ret = ether_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -266,8 +259,8 @@ static int ether_rot_reset(ROT *rot, rot_reset_t reset)
 */
 static int ether_rot_move(ROT *rot, int direction, int speed)
 {
-    struct rot_state *rs = &rot->state;
-    int ret, len;
+    struct rot_state *rs = ROTSTATE(rot);
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
     int ether_speed;
@@ -293,14 +286,14 @@ static int ether_rot_move(ROT *rot, int direction, int speed)
 
     if (direction == 0)
     {
-        len = sprintf(cmd, "rotor cw %d\n", ether_speed);
+        SNPRINTF(cmd, sizeof(cmd), "rotor cw %d\n", ether_speed);
     }
     else
     {
-        len = sprintf(cmd, "rotor ccw %d\n", ether_speed);
+        SNPRINTF(cmd, sizeof(cmd), "rotor ccw %d\n", ether_speed);
     }
 
-    ret = ether_transaction(rot, cmd, len, buf);
+    ret = ether_transaction(rot, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -315,7 +308,7 @@ static int ether_rot_move(ROT *rot, int direction, int speed)
 
 static int ether_rot_get_level(ROT *rot, setting_t level, value_t *val)
 {
-    struct rot_state *rs = &rot->state;
+    const struct rot_state *rs = ROTSTATE(rot);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
 
@@ -335,7 +328,7 @@ static int ether_rot_get_level(ROT *rot, setting_t level, value_t *val)
 
 static int ether_rot_set_level(ROT *rot, setting_t level, value_t val)
 {
-    struct rot_state *rs = &rot->state;
+    struct rot_state *rs = ROTSTATE(rot);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
 
@@ -377,7 +370,7 @@ static const char *ether_rot_get_info(ROT *rot)
 
 static int ether_rot_init(ROT *rot)
 {
-    struct rot_state *rs = &rot->state;
+    struct rot_state *rs = ROTSTATE(rot);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -397,9 +390,9 @@ const struct rot_caps ether6_rot_caps =
     ROT_MODEL(ROT_MODEL_ETHER6),
     .model_name =     "Ether6 (via ethernet)",
     .mfg_name =       "DG9OAA",
-    .version =        "20201203.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_FLAG_AZIMUTH,
     .port_type =      RIG_PORT_NETWORK,
     .timeout = 5000,

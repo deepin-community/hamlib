@@ -28,23 +28,131 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
-#include "idx_builtin.h"
 #include "hamlib/rig.h"
-#include "bandplan.h"
 #include "serial.h"
 #include "misc.h"
 #include "yaesu.h"
 #include "vx1700.h"
 
+// VX-1700 native commands
+typedef enum vx1700_native_cmd_e
+{
+    VX1700_NATIVE_RECALL_MEM = 0,   /* 0x02, p1=ch */
+    VX1700_NATIVE_VFO_TO_MEM,       /* 0x03, p1=ch, p2=0 */
+    VX1700_NATIVE_MEM_HIDE,     /* 0x03, p1=ch, p2=1 */
+    VX1700_NATIVE_VFO_A,        /* 0x05 */
+    VX1700_NATIVE_FREQ_SET,     /* 0x0a, p1:4=freq */
+    VX1700_NATIVE_MODE_SET_LSB,     /* 0x0c, p1=0x00 */
+    VX1700_NATIVE_MODE_SET_USB,     /* 0x0c, p1=0x01 */
+    VX1700_NATIVE_MODE_SET_CW_W,    /* 0x0c, p1=0x02 */
+    VX1700_NATIVE_MODE_SET_CW_N,    /* 0x0c, p1=0x03 */
+    VX1700_NATIVE_MODE_SET_AM,      /* 0x0c, p1=0x04 */
+    VX1700_NATIVE_MODE_SET_RTTY_LSB_W,  /* 0x0c, p1=0x08 */
+    VX1700_NATIVE_MODE_SET_RTTY_USB_W,  /* 0x0c, p1=0x09 */
+    VX1700_NATIVE_MODE_SET_H3E,     /* 0x0c, p1=0x0d */
+    VX1700_NATIVE_MODE_SET_RTTY_LSB_N,  /* 0x0c, p1=0x0e */
+    VX1700_NATIVE_MODE_SET_RTTY_USB_N,  /* 0x0c, p1=0x0f */
+    VX1700_NATIVE_PTT_OFF,      /* 0x0f, p1=0 */
+    VX1700_NATIVE_PTT_ON,       /* 0x0f, p1=1 */
+    VX1700_NATIVE_UPDATE_MEM_CHNL,  /* 0x10, p1=1 */
+    VX1700_NATIVE_UPDATE_OP_DATA,   /* 0x10, p1=2 */
+    VX1700_NATIVE_UPDATE_VFO_DATA,  /* 0x10, p1=3 */
+    VX1700_NATIVE_TX_POWER_LOW,     /* 0x18 */
+    VX1700_NATIVE_TX_POWER_MID,     /* 0x28 */
+    VX1700_NATIVE_TX_POWER_HI,      /* 0x48 */
+    VX1700_NATIVE_CPY_RX_TO_TX,     /* 0x85 */
+    VX1700_NATIVE_TX_FREQ_SET,      /* 0x8a, p1:4=freq */
+    VX1700_NATIVE_OP_FREQ_STEP_UP,  /* 0x8e, p1=0 */
+    VX1700_NATIVE_OP_FREQ_STEP_DOWN,    /* 0x8e, p1=1 */
+    VX1700_NATIVE_READ_METER,       /* 0xf7 */
+    VX1700_NATIVE_READ_FLAGS,       /* 0xfa */
+    VX1700_NATIVE_SIZE
+} vx1700_native_cmd_t;
+
+//  OpCode Declarations
+#define VX1700_CMD_RECALLMEM        0x02
+#define VX1700_CMD_VFO2MEM      0x03
+#define VX1700_CMD_SEL_VFOA     0x05
+#define VX1700_CMD_SET_VFOA     0x0a
+#define VX1700_CMD_SEL_OP_MODE      0x0c
+#define VX1700_CMD_PTT          0x0f
+#define VX1700_CMD_UPDATE       0x10
+#define VX1700_CMD_RX2TX        0x85
+#define VX1700_CMD_STEP_VFO     0x8e
+#define VX1700_CMD_RD_METER     0xf7
+#define VX1700_CMD_RD_FLAGS     0xfa
+
+// Return codes
+#define VX1700_CMD_RETCODE_OK       0x00
+#define VX1700_CMD_RETCODE_ERROR    0xF0
+
+// Operating Mode Status
+#define VX1700_MODE_LSB         0x00
+#define VX1700_MODE_USB         0x01
+#define VX1700_MODE_CW_W        0x02
+#define VX1700_MODE_CW_N        0x03
+#define VX1700_MODE_AM          0x04
+#define VX1700_MODE_RTTY        0x05
+
+// Operation Mode Selection
+#define VX1700_OP_MODE_LSB      0x00
+#define VX1700_OP_MODE_USB      0x01
+#define VX1700_OP_MODE_CW_W     0x02
+#define VX1700_OP_MODE_CW_N     0x03
+#define VX1700_OP_MODE_AM       0x04
+#define VX1700_OP_MODE_RTTY_LSB_W   0x08
+#define VX1700_OP_MODE_RTTY_USB_W   0x09
+#define VX1700_OP_MODE_H3E      0x0d
+#define VX1700_OP_MODE_RTTY_LSB_N   0x0e
+#define VX1700_OP_MODE_RTTY_USB_N   0x0f
+
+// Status Flag 1 Masks
+#define VX1700_SF_LOCKED        0x01    /* LOCK is activated */
+#define VX1700_SF_MEM           0x20    /* Memory Mode       */
+#define VX1700_SF_VFO           0x80    /* VFO Mode          */
+
+// Status Flag 2 Masks
+#define VX1700_SF_PTT_BY_CAT        0x01    /* PTT closed by CAT           */
+#define VX1700_SF_MEM_SCAN_PAUSE    0x02    /* Scanning paused             */
+#define VX1700_SF_MEM_SCAN      0x04    /* Scanning enabled            */
+#define VX1700_SF_RTTY_FILTER_NARROW    0x08    /* Narrow RTTY filter selected */
+#define VX1700_SF_CW_FILTER_NARROW  0x10    /* Narrow CW filter selected   */
+#define VX1700_SF_RTTY_USB      0x20    /* USB selected for RTTY       */
+
+// Status Flag 3 Masks
+#define VX1700_SF_10W_TX        0x20    /* 10 Watt TX output selected */
+#define VX1700_SF_TUNER_ON      0x20    /* Antenna Tuner working      */
+#define VX1700_SF_TRANSMISSION_ON   0x80    /* Transmission in progress   */
+
+
+/* HAMLIB API implementation */
+static int          vx1700_init(RIG *rig);
+static int          vx1700_open(RIG *rig);
+static int          vx1700_cleanup(RIG *rig);
+static const char *vx1700_get_info(RIG *rig);
+
+static int vx1700_set_vfo(RIG *rig, vfo_t vfo);
+static int vx1700_get_vfo(RIG *rig, vfo_t *vfo);
+static int vx1700_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
+static int vx1700_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
+static int vx1700_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq);
+static int vx1700_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq);
+static int vx1700_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
+static int vx1700_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode,
+                           pbwidth_t *width);
+static int vx1700_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
+static int vx1700_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
+static int vx1700_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
+static int vx1700_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status);
+static int vx1700_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
+static int vx1700_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
+static int vx1700_set_mem(RIG *rig, vfo_t vfo, int ch);
+static int vx1700_get_mem(RIG *rig, vfo_t vfo, int *ch);
+static int vx1700_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
 
 static const yaesu_cmd_set_t ncmd[] =
 {
@@ -99,14 +207,14 @@ struct vx1700_priv_data
         .width   = 1,   \
 }
 
-const struct rig_caps vx1700_caps =
+struct rig_caps vx1700_caps =
 {
     RIG_MODEL(RIG_MODEL_VX1700),
     .model_name =  "VX-1700",
     .mfg_name =  "Vertex Standard",
     .version =  "20210221.0",
     .copyright =  "LGPL",
-    .status =   RIG_STATUS_ALPHA,
+    .status =   RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG_MICDATA,
     .dcd_type =  RIG_DCD_NONE,  /* we have DCD pin in DATA Jack, but get_dcd() is unavailable (yet?) */
@@ -124,12 +232,11 @@ const struct rig_caps vx1700_caps =
 
     .has_get_func = (RIG_FUNC_LOCK | RIG_FUNC_TUNER),
     .has_set_func =  RIG_FUNC_NONE,
-    .has_get_level =  RIG_LEVEL_NONE,
+    .has_get_level =  RIG_LEVEL_BAND_SELECT,
     .has_set_level =  RIG_LEVEL_RFPOWER,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran =  {
-        // cppcheck-suppress *
         [LVL_RFPOWER] = { .min = { .i = 0 }, .max = { .i = 2 } },
     },
     .parm_gran =  {},
@@ -204,6 +311,7 @@ const struct rig_caps vx1700_caps =
     .set_mem        = vx1700_set_mem,
     .get_mem        = vx1700_get_mem,
     .vfo_op         = vx1700_vfo_op,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -228,7 +336,7 @@ static int vx1700_do_transaction(RIG *rig,
                                  const unsigned char cmd[YAESU_CMD_LENGTH],
                                  unsigned char *retbuf, size_t retbuf_len)
 {
-    struct rig_state    *rs;
+    hamlib_port_t *rp = RIGPORT(rig);
     unsigned char   default_retbuf[1];
     int         retval;
 
@@ -238,15 +346,14 @@ static int vx1700_do_transaction(RIG *rig,
         retbuf_len = sizeof(default_retbuf);
     }
 
-    rs = &rig->state;
     memset(retbuf, 0, retbuf_len);
 
-    rig_flush(&rs->rigport);
-    retval = write_block(&rs->rigport, (const char *)cmd, YAESU_CMD_LENGTH);
+    rig_flush(rp);
+    retval = write_block(rp, cmd, YAESU_CMD_LENGTH);
 
     if (retval != RIG_OK) { return retval; }
 
-    retval = read_block(&rs->rigport, (char *)retbuf, retbuf_len);
+    retval = read_block(rp, retbuf, retbuf_len);
 
     if (retval != retbuf_len)
     {
@@ -288,10 +395,10 @@ static int vx1700_do_transaction(RIG *rig,
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the ncmd struct
+ *              ci      Command index of the ncmd table
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 static int vx1700_do_static_cmd(RIG *rig, unsigned char ci)
 {
@@ -314,11 +421,11 @@ static int vx1700_do_static_cmd(RIG *rig, unsigned char ci)
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the ncmd struct
+ *              ci      Command index of the cmd struct
  *              p1-p4   Command parameters
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 static int vx1700_do_dynamic_cmd(RIG *rig, unsigned char ci,
                                  unsigned char p1, unsigned char p2,
@@ -601,11 +708,11 @@ static int vx1700_init(RIG *rig)
 
     rig_debug(RIG_DEBUG_TRACE, "%s\n", __func__);
 
-    rig->state.priv = calloc(1, sizeof(struct vx1700_priv_data));
+    STATE(rig)->priv = calloc(1, sizeof(struct vx1700_priv_data));
 
-    if (rig->state.priv == NULL) { return -RIG_ENOMEM; }
+    if (STATE(rig)->priv == NULL) { return -RIG_ENOMEM; }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     priv->ch = 1;
     return RIG_OK;
@@ -613,8 +720,8 @@ static int vx1700_init(RIG *rig)
 
 static int vx1700_open(RIG *rig)
 {
-    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
-    struct rig_state        *state = &rig->state;
+    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)STATE(rig)->priv;
+    struct rig_state        *state = STATE(rig);
     int             ret;
 
     rig_debug(RIG_DEBUG_TRACE, "%s\n", __func__);
@@ -636,9 +743,9 @@ static int vx1700_cleanup(RIG *rig)
 {
     rig_debug(RIG_DEBUG_TRACE, "%s\n", __func__);
 
-    if (rig->state.priv != NULL) { free(rig->state.priv); }
+    if (STATE(rig)->priv != NULL) { free(STATE(rig)->priv); }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
     return RIG_OK;
 }
 
@@ -651,7 +758,8 @@ static const char *vx1700_get_info(RIG *rig)
 
 static int vx1700_set_vfo(RIG *rig, vfo_t vfo)
 {
-    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
+    const struct vx1700_priv_data *priv = (struct vx1700_priv_data *)
+                                          STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s, vfo=%s\n", __func__, rig_strvfo(vfo));
 
@@ -704,7 +812,7 @@ static int vx1700_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
     rig_debug(RIG_DEBUG_TRACE, "%s: freq=%f\n", __func__, tx_freq);
     int err = rig_set_split_vfo(rig, RIG_VFO_A, RIG_SPLIT_ON, RIG_VFO_B);
 
-    if (err != RIG_OK) { RETURNFUNC(err); }
+    if (err != RIG_OK) { return err; }
 
     return vx1700_do_freq_cmd(rig, VX1700_NATIVE_TX_FREQ_SET, tx_freq);
 }
@@ -1017,8 +1125,8 @@ static int vx1700_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
 static int vx1700_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
-    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
-    struct rig_state *state = &rig->state;
+    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)STATE(rig)->priv;
+    const struct rig_state *state = STATE(rig);
 
     if (! vx1700_channel_is_ok(ch)) { return -RIG_EINVAL; }
 
@@ -1040,8 +1148,8 @@ static int vx1700_set_mem(RIG *rig, vfo_t vfo, int ch)
 
 static int vx1700_get_mem(RIG *rig, vfo_t vfo, int *ch)
 {
-    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
-    struct rig_state        *state = &rig->state;
+    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)STATE(rig)->priv;
+    const struct rig_state        *state = STATE(rig);
     unsigned char       channel = 0;
 
     if (vfo == RIG_VFO_CURR) { vfo = state->current_vfo; }
@@ -1070,7 +1178,8 @@ static int vx1700_get_mem(RIG *rig, vfo_t vfo, int *ch)
 
 static int vx1700_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
 {
-    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
+    const struct vx1700_priv_data *priv = (struct vx1700_priv_data *)
+                                          STATE(rig)->priv;
 
     (void) rig;
     (void) vfo;

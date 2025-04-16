@@ -21,9 +21,11 @@
 #ifndef __TH_H__
 #define __TH_H__ 1
 
-#include "idx_builtin.h"
+#include <stddef.h>
 
-#define TH_VER "20200701"
+#include "rig.h"
+
+#define TH_VER "20231001"
 
 extern int th_transaction (RIG *rig, const char *cmdstr, char *data, size_t datasize);
 extern int th_get_vfo_char(RIG *rig, vfo_t *vfo, char *vfoch);

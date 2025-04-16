@@ -86,6 +86,8 @@
 //! @endcond
 #define ROT_MODEL_DUMMY ROT_MAKE_MODEL(ROT_DUMMY, 1)
 #define ROT_MODEL_NETROTCTL ROT_MAKE_MODEL(ROT_DUMMY, 2)
+#define ROT_MODEL_PSTROTATOR ROT_MAKE_MODEL(ROT_DUMMY, 3)
+#define ROT_MODEL_SATROTCTL ROT_MAKE_MODEL(ROT_DUMMY, 4)
 
 
 /**
@@ -176,6 +178,13 @@
  * The RT21 backend can be used with rotators that support the DCU command set
  * by Green Heron (currently the RT-21).
  */
+/**
+ * \brief A macro that returns the model number of the YRC-1 backend.
+ *
+ * \def ROT_MODEL_YRC1
+ *
+ * The YRC1 backend can be used with rotators that support the DCU 2/3 command set
+ */
 //! @cond Doxygen_Suppress
 #define ROT_ROTOREZ 4
 #define ROT_BACKEND_ROTOREZ "rotorez"
@@ -184,6 +193,8 @@
 #define ROT_MODEL_ROTORCARD ROT_MAKE_MODEL(ROT_ROTOREZ, 2)
 #define ROT_MODEL_DCU ROT_MAKE_MODEL(ROT_ROTOREZ, 3)
 #define ROT_MODEL_ERC ROT_MAKE_MODEL(ROT_ROTOREZ, 4)
+#define ROT_MODEL_RT21 ROT_MAKE_MODEL(ROT_ROTOREZ, 5)
+#define ROT_MODEL_YRC1 ROT_MAKE_MODEL(ROT_ROTOREZ, 6)
 #define ROT_MODEL_RT21 ROT_MAKE_MODEL(ROT_ROTOREZ, 5)
 
 
@@ -314,8 +325,11 @@
 #define ROT_MODEL_GS232A_EL ROT_MAKE_MODEL(ROT_GS232A, 10)
 #define ROT_MODEL_GS232B_AZ ROT_MAKE_MODEL(ROT_GS232A, 11)
 #define ROT_MODEL_GS232B_EL ROT_MAKE_MODEL(ROT_GS232A, 12)
+#define ROT_MODEL_GS23_AZ ROT_MAKE_MODEL(ROT_GS232A, 13)
 
-
+#define ROT_ARRAYSOLUTIONS 7
+#define ROT_BACKEND ARRAYSOLUTIONS "arraysolutions"
+#define ROT_MODEL_ARRAYSOLUTIONS_SAL_12_20_30 ROT_MAKE_MODEL(ROT_ARRAYSOLUTIONS, 1)
 /**
  * \brief A macro that returns the model number of the PCROTOR backend.
  *
@@ -545,6 +559,7 @@
 #define ROT_MODEL_PROSISTEL_D_AZ ROT_MAKE_MODEL(ROT_PROSISTEL, 1)
 #define ROT_MODEL_PROSISTEL_D_EL ROT_MAKE_MODEL(ROT_PROSISTEL, 2)
 #define ROT_MODEL_PROSISTEL_COMBI_TRACK_AZEL ROT_MAKE_MODEL(ROT_PROSISTEL, 3)
+#define ROT_MODEL_PROSISTEL_D_EL_CBOXAZ ROT_MAKE_MODEL(ROT_PROSISTEL, 4)
 
 
 /**
@@ -618,6 +633,87 @@
 //! @endcond
 #define ROT_MODEL_RADANT ROT_MAKE_MODEL(ROT_RADANT, 1)
 
+
+#define ROT_ANDROIDSENSOR 23
+#define ROT_BACKEND_ANDROIDSENSOR "androidsensor"
+#define ROT_MODEL_ANDROIDSENSOR ROT_MAKE_MODEL(ROT_ANDROIDSENSOR, 1)
+
+/**
+ * \brief A macro that returns the model number of the ROT_MODEL_GRBLTRK_SER backend.
+ *
+ * \def ROT_MODEL_GRBLTRK_SER
+ *
+ * The GRBLTRK backend can be used with rotators that support the GRBL
+ * protocol.
+ */
+/**
+ * \brief A macro that returns the model number of the ROT_MODEL_GRBLTRK_NET backend.
+ *
+ * \def ROT_MODEL_GRBLTRK_NET
+ *
+ * The GRBLTRK backend can be used with rotators that support the GRBL
+ * protocol.
+ */
+//! @cond Doxygen_Suppress
+#define ROT_GRBLTRK 24
+#define ROT_BACKEND_GRBLTRK "grbltrk"
+//! @endcond
+#define ROT_MODEL_GRBLTRK_SER ROT_MAKE_MODEL(ROT_GRBLTRK, 1)
+#define ROT_MODEL_GRBLTRK_NET ROT_MAKE_MODEL(ROT_GRBLTRK, 2)
+
+/**
+ * \brief A macro that returns the model number of the FLIR backend.
+ *
+ * \def ROT_MODEL_FLIR
+ *
+ * The FLIR backend can be used with FLIR and DirectedPercepition 
+ * rotators using the PTU protocol (e.g. PTU-D48). Currently only 
+ * the serial interface is supported and no ethernet.
+ */
+//! @cond Doxygen_Suppress
+#define ROT_FLIR 25
+#define ROT_BACKEND_FLIR "flir"
+//! @endcond
+#define ROT_MODEL_FLIR ROT_MAKE_MODEL(ROT_FLIR, 1)
+
+/**
+ * \brief A macro that returns the model number of the APEX backend.
+ *
+ * \def ROT_MODEL_APEX_SHARED_LOOP
+ *
+ * The APEX backend can be used with APEX * rotators. 
+ */
+//! @cond Doxygen_Suppress
+#define ROT_APEX 26
+#define ROT_BACKEND_APEX "apex"
+//! @endcond
+#define ROT_MODEL_APEX_SHARED_LOOP ROT_MAKE_MODEL(ROT_APEX, 1)
+
+/**
+ * \brief A macro that returns the model number of the SAEBRTRACK backend.
+ *
+ * \def ROT_MODEL_SAEBRTRACK
+ *
+ * The SAEBRTRACK backend can be used with SAEBRTRACK * rotators. 
+ */
+//! @cond Doxygen_Suppress
+#define ROT_SAEBRTRACK 27
+#define ROT_BACKEND_SAEBRTRACK "SAEBRTrack"
+//! @endcond
+#define ROT_MODEL_SAEBRTRACK ROT_MAKE_MODEL(ROT_SAEBRTRACK, 1)
+
+/**
+ * \brief A macro that returns the model number of the SKYWATCHER backend.
+ *
+ * \def ROT_MODEL_SKYWATCHER
+ *
+ * The SKYWATCHER backend can be used with SKYWATCHER * rotators.
+ */
+//! @cond Doxygen_Suppress
+#define ROT_SKYWATCHER 28
+#define ROT_BACKEND_SKYWATCHER "SkyWatcher"
+//! @endcond
+#define ROT_MODEL_SKYWATCHER ROT_MAKE_MODEL(ROT_SKYWATCHER, 1)
 
 /**
  * \brief Convenience type definition for a rotator model.

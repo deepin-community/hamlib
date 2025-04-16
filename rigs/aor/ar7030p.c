@@ -24,19 +24,13 @@
  * Version 2009.11.21 Larry Gadallah (VE6VQ)
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
 #include <assert.h>
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "ar7030p.h"
-#include "serial.h"
 #include "idx_builtin.h"
 
 #define AR7030P_MODES ( RIG_MODE_AM | \
@@ -234,7 +228,7 @@ static struct ext_list *alloc_init_ext(const struct confparams *cfp)
 }
 
 #if 0 /* unused; re-enabled as needed. */
-static struct ext_list *find_ext(struct ext_list *elp, token_t token)
+static struct ext_list *find_ext(struct ext_list *elp, hamlib_token_t token)
 {
     int i;
 
@@ -260,7 +254,7 @@ static int ar7030p_init(RIG *rig)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     priv = (struct ar7030p_priv_data *)
-           malloc(sizeof(struct ar7030p_priv_data));
+           calloc(1, sizeof(struct ar7030p_priv_data));
 
     if (!priv)
     {
@@ -270,9 +264,9 @@ static int ar7030p_init(RIG *rig)
     {
         int i;
 
-        rig->state.priv = (void *) priv;
+        STATE(rig)->priv = (void *) priv;
 
-        rig->state.rigport.type.rig = RIG_PORT_SERIAL;
+        RIGPORT(rig)->type.rig = RIG_PORT_SERIAL;
 
         priv->powerstat = RIG_POWER_ON;
         priv->bank = 0;
@@ -333,11 +327,13 @@ static int ar7030p_init(RIG *rig)
 
 static int ar7030p_cleanup(RIG *rig)
 {
-    struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *) rig->state.priv;
+    struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *) STATE(rig)->priv;
     int rc = RIG_OK;
     int i;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (priv == NULL) { return RIG_OK; }
 
     for (i = 0; i < NB_CHAN; i++)
     {
@@ -349,12 +345,9 @@ static int ar7030p_cleanup(RIG *rig)
 
     free(priv->ext_parms);
 
-    if (NULL != rig->state.priv)
-    {
-        free(rig->state.priv);
-    }
+    free(STATE(rig)->priv);
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return (rc);
 }
@@ -370,8 +363,10 @@ static int ar7030p_open(RIG *rig)
 {
     int rc = RIG_OK;
     unsigned char v;
+    struct rig_state *rs;
 
     assert(NULL != rig);
+    rs = STATE(rig);
 
     rc = lockRx(rig, LOCK_1);
 
@@ -380,9 +375,9 @@ static int ar7030p_open(RIG *rig)
         int i;
 
         /* Load calibration table */
-        rig->state.str_cal.size = rig->caps->str_cal.size;
+        rs->str_cal.size = rig->caps->str_cal.size;
 
-        for (i = 0; i < rig->state.str_cal.size; i++)
+        for (i = 0; i < rs->str_cal.size; i++)
         {
             rc = readByte(rig, EEPROM1, SM_CAL + i, &v);
 
@@ -391,12 +386,12 @@ static int ar7030p_open(RIG *rig)
                 break;
             }
 
-            rig->state.str_cal.table[ i ].val = rig->caps->str_cal.table[ i ].val;
-            rig->state.str_cal.table[ i ].raw = (int) v;
+            rs->str_cal.table[ i ].val = rig->caps->str_cal.table[ i ].val;
+            rs->str_cal.table[ i ].raw = (int) v;
 
             rig_debug(RIG_DEBUG_VERBOSE, "%s: index %d, val %d, raw %d\n",
-                      __func__, i, rig->state.str_cal.table[ i ].val,
-                      rig->state.str_cal.table[ i ].raw);
+                      __func__, i, rs->str_cal.table[ i ].val,
+                      rs->str_cal.table[ i ].raw);
         }
 
         if (RIG_OK == rc)
@@ -434,6 +429,7 @@ static int ar7030p_open(RIG *rig)
  *
  * /return 0 on success, < 0 on failure
  */
+// cppcheck-suppress *
 static int ar7030p_close(RIG *rig)
 {
     assert(NULL != rig);
@@ -489,7 +485,7 @@ static int ar7030p_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     if (RIG_OK == rc)
     {
-        const struct rig_caps *caps = rig->caps;
+        struct rig_caps *caps = rig->caps;
 
         if ((caps->rx_range_list1[ 0 ].endf   > freq) &&
                 (caps->rx_range_list1[ 0 ].startf < freq))
@@ -1226,7 +1222,7 @@ static int ar7030p_get_level(RIG *rig, vfo_t vfo, setting_t level,
 static int ar7030p_set_vfo(RIG *rig, vfo_t vfo)
 {
     int rc = RIG_OK;
-    struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *) rig->state.priv;
+    struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *) STATE(rig)->priv;
 
     switch (vfo)
     {
@@ -1270,7 +1266,8 @@ static int ar7030p_set_vfo(RIG *rig, vfo_t vfo)
 static int ar7030p_get_vfo(RIG *rig, vfo_t *vfo)
 {
     int rc = RIG_OK;
-    struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *) rig->state.priv;
+    struct ar7030p_priv_data const *priv = (struct ar7030p_priv_data *)
+                                           STATE(rig)->priv;
 
     assert(NULL != vfo);
 
@@ -1279,6 +1276,7 @@ static int ar7030p_get_vfo(RIG *rig, vfo_t *vfo)
     return (rc);
 }
 
+// cppcheck-suppress constParameterCallback
 static int ar7030p_set_parm(RIG *rig, setting_t parm, value_t val)
 {
     int rc = -RIG_ENIMPL;
@@ -1303,6 +1301,7 @@ static int ar7030p_set_parm(RIG *rig, setting_t parm, value_t val)
     return (rc);
 }
 
+// cppcheck-suppress constParameterCallback
 static int ar7030p_get_parm(RIG *rig, setting_t parm, value_t *val)
 {
     int rc = -RIG_ENIMPL;
@@ -1332,7 +1331,7 @@ static int ar7030p_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
     int rc = RIG_OK;
 
-    struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *) rig->state.priv;
+    struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *) STATE(rig)->priv;
 
     if (RIG_VFO_MEM == priv->curr_vfo)
     {
@@ -1352,8 +1351,9 @@ static int ar7030p_get_mem(RIG *rig, vfo_t vfo, int *ch)
 {
     int rc = RIG_OK;
 
-    struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *) rig->state.priv;
-    channel_t *curr = priv->curr;
+    struct ar7030p_priv_data const *priv = (struct ar7030p_priv_data *)
+                                           STATE(rig)->priv;
+    const channel_t *curr = priv->curr;
 
     assert(NULL != ch);
 
@@ -1391,6 +1391,7 @@ static int ar7030p_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
     return (rc);
 }
 
+// cppcheck-suppress constParameterCallback
 static int ar7030p_scan(RIG *rig, vfo_t vfo, scan_t scan, int ch)
 {
     int rc = -RIG_ENIMPL;
@@ -1606,6 +1607,7 @@ static int ar7030p_reset(RIG *rig, reset_t reset)
     return (rc);
 }
 
+// cppcheck-suppress constParameterCallback
 static int ar7030p_set_func(RIG *rig, vfo_t vfo, setting_t func,
                             int status)
 {
@@ -1614,15 +1616,18 @@ static int ar7030p_set_func(RIG *rig, vfo_t vfo, setting_t func,
     return (-RIG_ENIMPL);
 }
 
+// cppcheck-suppress constParameterCallback
 static int ar7030p_get_func(RIG *rig, vfo_t vfo, setting_t func,
                             int *status)
 {
     assert(NULL != rig);
     assert(NULL != status);
+    *status = 0;
 
     return (-RIG_ENIMPL);
 }
 
+// cppcheck-suppress constParameterCallback
 static int ar7030p_decode_event(RIG *rig)
 {
     assert(NULL != rig);
@@ -1630,6 +1635,7 @@ static int ar7030p_decode_event(RIG *rig)
     return (-RIG_ENIMPL);
 }
 
+// cppcheck-suppress constParameterCallback
 static int ar7030p_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     assert(NULL != rig);
@@ -1646,8 +1652,9 @@ static int ar7030p_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
     unsigned int f;
     unsigned char *p = NULL;
     int ch;
-    struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *)rig->state.priv;
-    channel_t *curr = priv->curr;
+    const struct ar7030p_priv_data *priv = (struct ar7030p_priv_data *)
+                                           STATE(rig)->priv;
+    const channel_t *curr = priv->curr;
 
     assert(NULL != chan);
 
@@ -1676,7 +1683,6 @@ static int ar7030p_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
 
         if (RIG_OK == rc)
         {
-            // cppcheck-suppress *
             chan->levels[ LVL_SQL ].f = (float) v / 255.0;
         }
 
@@ -1769,14 +1775,14 @@ static int ar7030p_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
     return (rc);
 }
 
-const struct rig_caps ar7030p_caps =
+struct rig_caps ar7030p_caps =
 {
     RIG_MODEL(RIG_MODEL_AR7030P),
     .model_name = "AR7030 Plus",
     .mfg_name = "AOR",
     .version = "20200319.0",
     .copyright = "LGPL",
-    .status = RIG_STATUS_BETA,
+    .status = RIG_STATUS_STABLE,
     .rig_type = RIG_TYPE_RECEIVER,
 
     .dcd_type = RIG_DCD_RIG,
@@ -1951,5 +1957,5 @@ const struct rig_caps ar7030p_caps =
     .get_chan_all_cb = RIG_FUNC_NONE,
     .set_mem_all_cb = RIG_FUNC_NONE,
     .get_mem_all_cb = RIG_FUNC_NONE,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

@@ -32,12 +32,12 @@
 #include <hamlib/rig.h>
 #include "misc.h"
 
-static setting_t bitmap_func, bitmap_level, bitmap_parm;
+static setting_t bitmap_func, bitmap_level, bitmap_parm, bitmap_vfo_ops;
 
 int create_png_range(const freq_range_t rx_range_list[],
                      const freq_range_t tx_range_list[], int num);
 
-int print_caps_sum(const struct rig_caps *caps, void *data)
+int print_caps_sum(struct rig_caps *caps, void *data)
 {
 
     printf("<TR><TD><A HREF=\"support/model%u.txt\">%s</A></TD><TD>%s</TD>"
@@ -99,10 +99,11 @@ int print_caps_sum(const struct rig_caps *caps, void *data)
            "<TD><A HREF=\"#setlevel%u\">levels</A></TD>"
            "<TD><A HREF=\"#getparm%u\">parms</A></TD>"
            "<TD><A HREF=\"#setparm%u\">parms</A></TD>"
+           "<TD><A HREF=\"#op%u\">ops</A></TD>"
            "</TR>\n",
            caps->rig_model, caps->rig_model, caps->rig_model,
            caps->rig_model, caps->rig_model, caps->rig_model,
-           caps->rig_model, caps->rig_model, caps->rig_model);
+           caps->rig_model, caps->rig_model, caps->rig_model, caps->rig_model);
 
     return 1;   /* !=0, we want them all ! */
 }
@@ -111,7 +112,7 @@ int print_caps_sum(const struct rig_caps *caps, void *data)
 /*
  * IO params et al.
  */
-int print_caps_parameters(const struct rig_caps *caps, void *data)
+int print_caps_parameters(struct rig_caps *caps, void *data)
 {
     printf("<A NAME=\"parms%u\"><TR><TD>%s</TD><TD>",
            caps->rig_model,
@@ -215,14 +216,14 @@ int print_caps_parameters(const struct rig_caps *caps, void *data)
 }
 
 /* used by print_caps_caps and print_caps_level */
-#define print_yn(fn) printf("<TD>%c</TD>", (fn) ? 'Y':'N')
+#define print_yn(fn) printf("<TD>%s</TD>", (fn) ? "<font color=\"00AA00\"><strong>Y</strong><font>":"<font color=\"#CCCCCC\">N<font>")
 
 /*
  * backend functions defined
  *
  * TODO: add new API calls!
  */
-int print_caps_caps(const struct rig_caps *caps, void *data)
+int print_caps_caps(struct rig_caps *caps, void *data)
 {
     printf("<A NAME=\"caps%u\"><TR><TD>%s</TD>",
            caps->rig_model,
@@ -270,7 +271,7 @@ int print_caps_caps(const struct rig_caps *caps, void *data)
 /*
  * Get/Set parm abilities
  */
-int print_caps_parm(const struct rig_caps *caps, void *data)
+int print_caps_parm(struct rig_caps *caps, void *data)
 {
     setting_t parm;
     int i;
@@ -303,11 +304,48 @@ int print_caps_parm(const struct rig_caps *caps, void *data)
     return 1;
 }
 
+/*
+ * VFO Ops capabilities
+ */
+int print_caps_vfo_ops(struct rig_caps *caps, void *data)
+{
+    setting_t vfo_ops;
+    int i;
+
+    if (!data)
+    {
+        return 0;
+    }
+
+    // Only set for these
+    vfo_ops = (*(int *)data) ? caps->vfo_ops : caps->vfo_ops;
+
+    printf("<A NAME=\"%s%u\"><TR><TD>%s</TD>",
+           (*(int *)data) ? "op" : "op",
+           caps->rig_model,
+           caps->model_name);
+
+    /*
+     * bitmap_vfo_ops: only those who have a label
+     */
+    for (i = 0; i < RIG_SETTING_MAX; i++)
+    {
+        if (rig_idx2setting(i) & bitmap_vfo_ops)
+        {
+            print_yn(vfo_ops & rig_idx2setting(i));
+        }
+    }
+
+    printf("</TR></A>\n");
+
+    return 1;
+}
+
 
 /*
  * Get/Set level abilities
  */
-int print_caps_level(const struct rig_caps *caps, void *data)
+int print_caps_level(struct rig_caps *caps, void *data)
 {
     setting_t level;
     int i;
@@ -344,7 +382,7 @@ int print_caps_level(const struct rig_caps *caps, void *data)
 /*
  * Get/Set func abilities
  */
-int print_caps_func(const struct rig_caps *caps, void *data)
+int print_caps_func(struct rig_caps *caps, void *data)
 {
     setting_t func;
     int i;
@@ -383,7 +421,7 @@ int print_caps_func(const struct rig_caps *caps, void *data)
  *
  * FIXME: default output pics is for region2: add region 1 too!
  */
-int print_caps_range(const struct rig_caps *caps, void *data)
+int print_caps_range(struct rig_caps *caps, void *data)
 {
     create_png_range(caps->rx_range_list2, caps->tx_range_list2,
                      caps->rig_model);
@@ -615,7 +653,7 @@ int create_png_range(const freq_range_t rx_range_list[],
         and in the latest web browsers) */
     gdImageInterlace(im_rng, 1);
 
-    sprintf(rng_fname, "range%d.png", num);
+    snprintf(rng_fname, sizeof(rng_fname), "range%d.png", num);
     out = fopen(rng_fname, "wb");
 
     /* Write PNG */
@@ -631,7 +669,7 @@ int main(int argc, char *argv[])
 {
     time_t gentime;
     int set_or_get;
-    int i;
+    int i, nbytes, nbytes_total = 0;
     char *pbuf, prntbuf[4096];
 
     rig_load_all_backends();
@@ -647,6 +685,7 @@ int main(int argc, char *argv[])
            "<TD>Set level</TD>"
            "<TD>Get parm</TD>"
            "<TD>Set parm</TD>"
+           "<TD>VFO Ops</TD>"
            "</TR>\n");
     rig_list_foreach(print_caps_sum, NULL);
     printf("</TABLE>\n");
@@ -707,7 +746,14 @@ int main(int argc, char *argv[])
         }
 
         bitmap_func |= func;
-        pbuf += sprintf(pbuf, "<TD>%s</TD>", s);
+        nbytes = strlen("<TD></TD>") + strlen(s) + 1;
+        nbytes_total += nbytes;
+        pbuf += snprintf(pbuf, sizeof(pbuf) - nbytes_total, "<TD>%s</TD>", s);
+
+        if (strlen(pbuf) > sizeof(pbuf) + nbytes)
+        {
+            printf("Buffer overflow in %s\n", __func__);
+        }
     }
 
     printf("Has set func");
@@ -743,7 +789,14 @@ int main(int argc, char *argv[])
         }
 
         bitmap_level |= level;
-        pbuf += sprintf(pbuf, "<TD>%s</TD>", s);
+        nbytes = strlen("<TD></TD>") + strlen(s) + 1;
+        nbytes_total += nbytes;
+        pbuf += snprintf(pbuf, sizeof(pbuf) - nbytes_total, "<TD>%s</TD>", s);
+
+        if (strlen(pbuf) > sizeof(pbuf) + nbytes)
+        {
+            printf("Buffer overflow in %s\n", __func__);
+        }
     }
 
     printf("Set level");
@@ -779,7 +832,14 @@ int main(int argc, char *argv[])
         }
 
         bitmap_parm |= parm;
-        pbuf += sprintf(pbuf, "<TD>%s</TD>", s);
+        nbytes = strlen("<TD></TD>") + strlen(s) + 1;
+        nbytes_total += nbytes;
+        pbuf += snprintf(pbuf, sizeof(pbuf) - nbytes_total, "<TD>%s</TD>", s);
+
+        if (strlen(pbuf) > sizeof(pbuf) + nbytes)
+        {
+            printf("Buffer overflow in %s\n", __func__);
+        }
     }
 
     printf("Set parm");
@@ -796,6 +856,40 @@ int main(int argc, char *argv[])
     printf("<TR><TD>Model</TD>%s</TR>\n", prntbuf);
     set_or_get = 0;
     rig_list_foreach(print_caps_parm, &set_or_get);
+    printf("</TABLE>\n");
+
+    printf("<P>");
+
+    bitmap_vfo_ops = 0;
+    prntbuf[0] = '\0';
+    pbuf = prntbuf;
+
+    for (i = 0; i < RIG_SETTING_MAX; i++)
+    {
+        setting_t op = rig_idx2setting(i);
+        const char *s = rig_strvfop(op);
+
+        if (!s)
+        {
+            continue;
+        }
+
+        bitmap_vfo_ops |= op;
+        nbytes = strlen("<TD></TD>") + strlen(s) + 1;
+        nbytes_total += nbytes;
+        pbuf += snprintf(pbuf, sizeof(pbuf) - nbytes_total, "<TD>%s</TD>", s);
+
+        if (strlen(pbuf) > sizeof(pbuf) + nbytes)
+        {
+            printf("Buffer overflow in %s\n", __func__);
+        }
+    }
+
+    printf("VFO Ops");
+    printf("<TABLE BORDER=1>\n");
+    printf("<TR><TD>Model</TD>%s</TR>\n", prntbuf);
+    set_or_get = 0;
+    rig_list_foreach(print_caps_vfo_ops, &set_or_get);
     printf("</TABLE>\n");
 
     printf("<P>");

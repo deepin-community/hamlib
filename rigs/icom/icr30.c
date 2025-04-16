@@ -19,18 +19,13 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-
 #include "hamlib/rig.h"
 #include "token.h"
 #include "icom.h"
 #include "idx_builtin.h"
 #include "icom_defs.h"
 #include "frame.h"
+#include "tones.h"
 
 #define ICR30_MODES (RIG_MODE_LSB|RIG_MODE_USB|RIG_MODE_AM|RIG_MODE_AMN|\
     RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_RTTY|RIG_MODE_FM|RIG_MODE_FMN|RIG_MODE_WFM|\
@@ -129,14 +124,14 @@ static struct icom_priv_caps icr30_priv_caps =
     .extcmds = icr30_extcmds      /* Custom ext_parm parameters */
 };
 
-const struct rig_caps icr30_caps =
+struct rig_caps icr30_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR30),
     .model_name = "IC-R30",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER | RIG_FLAG_HANDHELD,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -158,7 +153,6 @@ const struct rig_caps icr30_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  {},
@@ -277,4 +271,5 @@ const struct rig_caps icr30_caps =
     .get_ctcss_sql = icom_get_ctcss_sql,
     .set_dcs_sql = icom_set_dcs_sql,
     .get_dcs_sql = icom_get_dcs_sql,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

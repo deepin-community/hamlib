@@ -21,16 +21,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <hamlib/rig.h>
 #include "serial.h"
-#include "idx_builtin.h"
-#include "misc.h"
 #include "aor.h"
 
 #define SR2200_MODES (RIG_MODE_AM|RIG_MODE_FM|RIG_MODE_WFM)
@@ -125,14 +119,14 @@ static const struct aor_priv_caps sr2200_priv_caps =
  *
  * TODO: retrieve BW info, and rest of commands
  */
-const struct rig_caps sr2200_caps =
+struct rig_caps sr2200_caps =
 {
     RIG_MODEL(RIG_MODEL_SR2200),
     .model_name = "SR2200",
     .mfg_name =  "AOR",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_SCANNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -252,6 +246,7 @@ const struct rig_caps sr2200_caps =
     .get_channel = aor_get_channel,
 
     .get_chan_all_cb = aor_get_chan_all_cb,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -270,7 +265,7 @@ const struct rig_caps sr2200_caps =
 
 /*
  * sr2200_transaction
- * We assume that rig!=NULL, rig->state!= NULL, data!=NULL, data_len!=NULL
+ * We assume that rig!=NULL, RIGPORT(rig)!= NULL, data!=NULL, data_len!=NULL
  * Otherwise, you'll get a nice seg fault. You've been warned!
  * return value: RIG_OK if everything's fine, negative value otherwise
  * TODO: error case handling
@@ -279,15 +274,13 @@ static int sr2200_transaction(RIG *rig, const char *cmd, int cmd_len,
                               char *data, int *data_len)
 {
     int retval;
-    struct rig_state *rs;
+    hamlib_port_t *rp = RIGPORT(rig);
     char ackbuf[BUFSZ];
     int ack_len;
 
-    rs = &rig->state;
+    rig_flush(rp);
 
-    rig_flush(&rs->rigport);
-
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(rp, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -307,7 +300,8 @@ static int sr2200_transaction(RIG *rig, const char *cmd, int cmd_len,
     /*
      * Do wait for a reply
      */
-    retval = read_string(&rs->rigport, data, BUFSZ, EOM, strlen(EOM));
+    retval = read_string(rp, (unsigned char *) data, BUFSZ, EOM,
+                         strlen(EOM), 0, 1);
 
     if (retval < 0)
     {
@@ -328,7 +322,7 @@ static int sr2200_transaction(RIG *rig, const char *cmd, int cmd_len,
     if (data[0] == '?')
     {
         /* command failed? resync with radio */
-        write_block(&rs->rigport, EOM, 1);
+        write_block(rp, (unsigned char *) EOM, 1);
 
         return -RIG_EPROTO;
     }
@@ -363,7 +357,8 @@ int sr2200_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EPROTO;
     }
 
-    freq_len = sprintf(freqbuf, "RF%010.0f"EOM, freq);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "RF%010.0f"EOM, freq);
+    freq_len = strlen(freqbuf);
 
     strcpy(freqbuf + freq_len, EOM);
     freq_len += strlen(EOM);
@@ -397,7 +392,7 @@ int sr2200_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 int sr2200_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     char mdbuf[BUFSZ];
-    int mdbuf_len, aormode, retval;
+    int aormode, retval;
     pbwidth_t normal_width;
 
     normal_width = rig_passband_normal(rig, mode);
@@ -429,8 +424,8 @@ int sr2200_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    mdbuf_len = sprintf(mdbuf, "MD%c" EOM,  aormode);
-    retval = sr2200_transaction(rig, mdbuf, mdbuf_len, NULL, NULL);
+    SNPRINTF(mdbuf, sizeof(mdbuf), "MD%c" EOM,  aormode);
+    retval = sr2200_transaction(rig, mdbuf, strlen(mdbuf), NULL, NULL);
 
     return retval;
 }
@@ -598,29 +593,28 @@ int sr2200_get_vfo(RIG *rig, vfo_t *vfo)
 
 /*
  * sr2200_set_level
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
 int sr2200_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
     struct rig_state *rs;
     char lvlbuf[BUFSZ];
-    int lvl_len;
     unsigned i;
     int agc;
     unsigned att = 0;
 
-    rs = &rig->state;
+    rs = STATE(rig);
 
     switch (level)
     {
     case RIG_LEVEL_AF:
         if (val.f > 255.0F)
         {
-            lvl_len = sprintf(lvlbuf, "AG255" EOM);
+            SNPRINTF(lvlbuf, sizeof(lvlbuf), "AG255" EOM);
         }
         else
         {
-            lvl_len = sprintf(lvlbuf, "AG%03d" EOM, (int)val.f);
+            SNPRINTF(lvlbuf, sizeof(lvlbuf), "AG%03d" EOM, (int)val.f);
         }
 
         break;
@@ -628,11 +622,11 @@ int sr2200_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     case RIG_LEVEL_PREAMP:
         if (val.f > 0)
         {
-            lvl_len = sprintf(lvlbuf, "AM1" EOM);
+            SNPRINTF(lvlbuf, sizeof(lvlbuf), "AM1" EOM);
         }
         else
         {
-            lvl_len = sprintf(lvlbuf, "AM0" EOM);
+            SNPRINTF(lvlbuf, sizeof(lvlbuf), "AM0" EOM);
         }
 
         break;
@@ -654,7 +648,7 @@ int sr2200_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        lvl_len = sprintf(lvlbuf, "AT%u" EOM, att);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AT%u" EOM, att);
         break;
 
     case RIG_LEVEL_AGC:
@@ -670,7 +664,7 @@ int sr2200_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         default: agc = '0';
         }
 
-        lvl_len = sprintf(lvlbuf, "AC%c" EOM, agc);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AC%c" EOM, agc);
         break;
 
     default:
@@ -678,41 +672,41 @@ int sr2200_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         return -RIG_EINVAL;
     }
 
-    return sr2200_transaction(rig, lvlbuf, lvl_len, NULL, NULL);
+    return sr2200_transaction(rig, lvlbuf, strlen(lvlbuf), NULL, NULL);
 }
 
 /*
  * sr2200_get_level
- * Assumes rig!=NULL, rig->state.priv!=NULL, val!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL, val!=NULL
  */
 int sr2200_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     struct rig_state *rs;
     char lvlbuf[BUFSZ], ackbuf[BUFSZ];
-    int lvl_len, ack_len, retval;
+    int ack_len, retval;
 
-    rs = &rig->state;
+    rs = STATE(rig);
 
     switch (level)
     {
     case RIG_LEVEL_STRENGTH:
-        lvl_len = sprintf(lvlbuf, "LB" EOM);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "LB" EOM);
         break;
 
     case RIG_LEVEL_ATT:
-        lvl_len = sprintf(lvlbuf, "AT" EOM);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AT" EOM);
         break;
 
     case RIG_LEVEL_AGC:
-        lvl_len = sprintf(lvlbuf, "AC" EOM);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AC" EOM);
         break;
 
     case RIG_LEVEL_AF:
-        lvl_len = sprintf(lvlbuf, "AG" EOM);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AG" EOM);
         break;
 
     case RIG_LEVEL_PREAMP:
-        lvl_len = sprintf(lvlbuf, "AM" EOM);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "AM" EOM);
         break;
 
     default:
@@ -721,7 +715,7 @@ int sr2200_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         return -RIG_EINVAL;
     }
 
-    retval = sr2200_transaction(rig, lvlbuf, lvl_len, ackbuf, &ack_len);
+    retval = sr2200_transaction(rig, lvlbuf, strlen(lvlbuf), ackbuf, &ack_len);
 
     if (retval != RIG_OK)
     {

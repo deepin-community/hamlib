@@ -19,25 +19,15 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
 
 #include <hamlib/rig.h>
-#include <serial.h>
-#include <misc.h>
-#include <cal.h>
 #include <token.h>
 #include <register.h>
 
 #include "idx_builtin.h"
-#include "bandplan.h"
 
 #include "icm710.h"
 #include "icmarine.h"
@@ -67,7 +57,7 @@ static const struct icm710_priv_caps icm710_priv_caps =
 };
 
 
-const struct rig_caps icm710_caps =
+struct rig_caps icm710_caps =
 {
     RIG_MODEL(RIG_MODEL_IC_M710),
     .model_name = "IC-M710",
@@ -96,7 +86,6 @@ const struct rig_caps icm710_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 8 } },
     },
     .parm_gran =  {},
@@ -165,6 +154,7 @@ const struct rig_caps icm710_caps =
     .cfgparams = icm710_cfg_params,
     .set_conf = icm710_set_conf,
     .get_conf = icm710_get_conf,
+    .get_conf2 = icm710_get_conf2,
 
     .priv = (void *)& icm710_priv_caps,
     .rig_init =  icm710_init,
@@ -189,7 +179,7 @@ const struct rig_caps icm710_caps =
     .get_level = icm710_get_level,
     .set_func = icm710_set_func,
     .get_func = icm710_get_func,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -261,7 +251,7 @@ int icm710_init(RIG *rig)
 {
     struct icm710_priv_data *priv;
     const struct icm710_priv_caps *priv_caps;
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
 
     if (!rig || !rig->caps)
     {
@@ -277,16 +267,16 @@ int icm710_init(RIG *rig)
 
     priv_caps = (const struct icm710_priv_caps *) caps->priv;
 
-    rig->state.priv = (struct icm710_priv_data *)calloc(1,
-                      sizeof(struct icm710_priv_data));
+    STATE(rig)->priv = (struct icm710_priv_data *)calloc(1,
+                       sizeof(struct icm710_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         /* whoops! memory shortage! */
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     priv->remote_id = priv_caps->default_remote_id;
     priv->split = RIG_SPLIT_OFF;
@@ -327,21 +317,21 @@ int icm710_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
 
-int icm710_set_conf(RIG *rig, token_t token, const char *val)
+int icm710_set_conf(RIG *rig, hamlib_token_t token, const char *val)
 {
     struct icm710_priv_data *priv;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
@@ -356,16 +346,16 @@ int icm710_set_conf(RIG *rig, token_t token, const char *val)
     return RIG_OK;
 }
 
-int icm710_get_conf(RIG *rig, token_t token, char *val)
+int icm710_get_conf2(RIG *rig, hamlib_token_t token, char *val, int val_len)
 {
     struct icm710_priv_data *priv;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
     case TOK_REMOTEID:
-        sprintf(val, "%u", priv->remote_id);
+        SNPRINTF(val, val_len, "%u", priv->remote_id);
         break;
 
     default:
@@ -375,15 +365,20 @@ int icm710_get_conf(RIG *rig, token_t token, char *val)
     return RIG_OK;
 }
 
+int icm710_get_conf(RIG *rig, hamlib_token_t token, char *val)
+{
+    return icm710_get_conf2(rig, token, val, 128);
+}
+
 int icm710_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[BUFSZ];
     struct icm710_priv_data *priv;
     int retval;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
 
-    sprintf(freqbuf, "%.6f", freq / MHz(1));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "%.6f", freq / MHz(1));
 
     /* no error reporting upon TXFREQ failure */
     if (RIG_SPLIT_OFF == priv->split)
@@ -417,7 +412,7 @@ int icm710_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
  */
 int icm710_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    *freq = ((struct icm710_priv_data *)rig->state.priv)->rxfreq;
+    *freq = ((struct icm710_priv_data *)STATE(rig)->priv)->rxfreq;
 
     return RIG_OK;
 }
@@ -428,9 +423,9 @@ int icm710_set_tx_freq(RIG *rig, vfo_t vfo, freq_t freq)
     int retval;
     struct icm710_priv_data *priv;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
 
-    sprintf(freqbuf, "%.6f", freq / MHz(1));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "%.6f", freq / MHz(1));
 
     retval = icmarine_transaction(rig, CMD_TXFREQ, freqbuf, NULL);
 
@@ -447,7 +442,7 @@ int icm710_get_tx_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
     struct icm710_priv_data *priv;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
 
     *freq = priv->txfreq;
     return RIG_OK;
@@ -457,7 +452,7 @@ int icm710_set_split_vfo(RIG *rig, vfo_t rx_vfo, split_t split, vfo_t tx_vfo)
 {
     struct icm710_priv_data *priv;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
 
 
     /* when disabling split mode */
@@ -480,7 +475,7 @@ int icm710_get_split_vfo(RIG *rig, vfo_t rx_vfo, split_t *split, vfo_t *tx_vfo)
 {
     struct icm710_priv_data *priv;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
 
     *split = priv->split;
     *tx_vfo = rx_vfo;
@@ -527,7 +522,7 @@ int icm710_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
 int icm710_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    *mode = ((struct icm710_priv_data *)rig->state.priv)->mode;
+    *mode = ((struct icm710_priv_data *)STATE(rig)->priv)->mode;
     *width = 2200;
 
     return RIG_OK;
@@ -541,7 +536,7 @@ int icm710_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
     int retval;
     struct icm710_priv_data *priv;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
     retval = icmarine_transaction(rig, CMD_PTT,
                                   ptt == RIG_PTT_ON ? "TX" : "RX", NULL);
 
@@ -557,7 +552,7 @@ int icm710_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 
 int icm710_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 {
-    *ptt = ((struct icm710_priv_data *)rig->state.priv)->ptt;
+    *ptt = ((struct icm710_priv_data *)STATE(rig)->priv)->ptt;
 
     return RIG_OK;
 }
@@ -618,14 +613,14 @@ int icm710_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     unsigned value;
     struct icm710_priv_data *priv;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
 
 
     switch (level)
     {
     case RIG_LEVEL_AF:
         value = (unsigned)(val.f * 255);
-        sprintf(lvlbuf, "%u", value);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "%u", value);
         retval = icmarine_transaction(rig, CMD_AFGAIN, lvlbuf, NULL);
 
         if (retval == RIG_OK)
@@ -637,7 +632,7 @@ int icm710_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
     case RIG_LEVEL_RF:
         value = (unsigned)(val.f * 9);
-        sprintf(lvlbuf, "%u", value);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "%u", value);
         retval = icmarine_transaction(rig, CMD_RFGAIN, lvlbuf, NULL);
 
         if (retval == RIG_OK)
@@ -649,7 +644,7 @@ int icm710_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
     case RIG_LEVEL_RFPOWER:
         value = (unsigned)(val.f * 2);
-        sprintf(lvlbuf, "%u", value);
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "%u", value);
         retval = icmarine_transaction(rig, CMD_RFPWR, lvlbuf, NULL);
 
         if (retval == RIG_OK)
@@ -681,7 +676,7 @@ int icm710_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     struct icm710_priv_data *priv;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710_priv_data *)STATE(rig)->priv;
 
 
     switch (level)

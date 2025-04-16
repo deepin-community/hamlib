@@ -21,12 +21,7 @@
  *  the complete text of the GNU Lesser Public License version 2.1.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
-#include <string.h>
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -68,14 +63,14 @@ static int transfox_get_level(RIG *rig, vfo_t vfo, setting_t level,
  *
  * Part of info comes from http://www.sigfox-system.com/TransFox-FE?lang=en
  */
-const struct rig_caps transfox_caps =
+struct rig_caps transfox_caps =
 {
     RIG_MODEL(RIG_MODEL_TRANSFOX),
     .model_name =       "Transfox",
     .mfg_name =     "SigFox",
     .version =      "20111223.0",
     .copyright =        "LGPL",
-    .status =       RIG_STATUS_ALPHA,
+    .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TUNER,
     .ptt_type =     RIG_PTT_RIG,
     .dcd_type =     RIG_DCD_NONE,
@@ -160,6 +155,7 @@ const struct rig_caps transfox_caps =
     .get_conf =     transfox_get_conf,
 #endif
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -174,7 +170,7 @@ int transfox_open(RIG *rig)
 {
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
-    rig->state.current_vfo = RIG_VFO_A;
+    STATE(rig)->current_vfo = RIG_VFO_A;
 
     /* do not call kenwood_open(rig), rig has no "ID" command */
 

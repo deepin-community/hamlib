@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
@@ -49,14 +45,14 @@ static struct icom_priv_caps icr72_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps icr72_caps =
+struct rig_caps icr72_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR72),
     .model_name = "IC-R72",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -78,7 +74,11 @@ const struct rig_caps icr72_caps =
     .has_get_parm =  RIG_PARM_ANN,
     .has_set_parm =  RIG_PARM_ANN,
     .level_gran =  {},      /* granularity */
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_BANDSELECT] = {.step = {.s = "BANDUNUSED,BAND160M,BAND80M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
+    },
+
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { RIG_DBLST_END, },
@@ -157,5 +157,6 @@ const struct rig_caps icr72_caps =
     .get_ts =  icom_get_ts,
     .scan =  icom_scan,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

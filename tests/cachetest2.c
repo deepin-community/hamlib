@@ -1,7 +1,7 @@
 /*  This program does a fast iteration of v f m t s
  *  By Michael Black W9MDB
  *  This allows testing of another program using rigctld
- *  to test changin vfo, freq, mode, PTT, or split and see the change immediately in this program.
+ *  to test changing vfo, freq, mode, PTT, or split and see the change immediately in this program.
  *  Used in testing caching effects that have been added
  *  To compile:
  *      gcc -I../src -I../include -g -o cachetest2 cachetest2.c -lhamlib
@@ -20,7 +20,7 @@
 #include "misc.h"
 
 
-int main(int argc, char *argv[])
+int main(int argc, const char *argv[])
 {
     RIG *my_rig;
     char *rig_file, *info_buf;
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     /* Set up serial port, baud rate */
     rig_file = "127.0.0.1:4532";        // your serial device
 
-    strncpy(my_rig->state.rigport.pathname, rig_file, HAMLIB_FILPATHLEN - 1);
+    strncpy(RIGPORT(my_rig)->pathname, rig_file, HAMLIB_FILPATHLEN - 1);
 
     /* Open my rig */
     retcode = rig_open(my_rig);

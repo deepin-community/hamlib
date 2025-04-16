@@ -20,10 +20,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -54,14 +50,14 @@ static const struct icom_priv_caps ic820h_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic820h_caps =
+struct rig_caps ic820h_caps =
 {
     RIG_MODEL(RIG_MODEL_IC820),
     .model_name = "IC-820H",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -174,5 +170,6 @@ const struct rig_caps ic820h_caps =
     .vfo_op =  icom_vfo_op,
     .scan =  icom_scan,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

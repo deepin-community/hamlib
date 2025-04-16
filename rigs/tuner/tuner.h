@@ -22,9 +22,7 @@
 #ifndef _TUNER_H
 #define _TUNER_H 1
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include "hamlib/config.h"
 /*
  * So far, only Linux has Video4Linux support through ioctl :)
  * until someone port it to some other OS...
@@ -35,7 +33,7 @@
 
 #include "hamlib/rig.h"
 
-extern const struct rig_caps v4l_caps;
-extern const struct rig_caps v4l2_caps;
+extern struct rig_caps v4l_caps;
+extern struct rig_caps v4l2_caps;
 
 #endif /* _TUNER_H */

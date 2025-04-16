@@ -30,9 +30,7 @@
  * \brief Calibration routines.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <hamlib/rig.h>
 #include "cal.h"
@@ -85,6 +83,11 @@ float HAMLIB_API rig_raw2val(int rawval, const cal_table_t *cal)
         {
             break;
         }
+    }
+
+    if (rawval == cal->table[i - 1].raw)
+    {
+        return cal->table[i - 1].val;
     }
 
     if (i == 0)

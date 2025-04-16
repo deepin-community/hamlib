@@ -40,15 +40,11 @@
  * `amplifiers/elecraft/kpa.c` for an example.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/amplifier.h>
 
@@ -221,7 +217,8 @@ const struct confparams *HAMLIB_API amp_ext_lookup(AMP *amp, const char *name)
  * \return A pointer to the containing #confparams structure member or NULL if
  * nothing found or if \a amp is NULL or inconsistent.
  */
-const struct confparams *HAMLIB_API amp_ext_lookup_tok(AMP *amp, token_t token)
+const struct confparams *HAMLIB_API amp_ext_lookup_tok(AMP *amp,
+        hamlib_token_t token)
 {
     const struct confparams *cfp;
 
@@ -266,7 +263,7 @@ const struct confparams *HAMLIB_API amp_ext_lookup_tok(AMP *amp, token_t token)
  *
  * \sa amp_ext_lookup()
  */
-token_t HAMLIB_API amp_ext_token_lookup(AMP *amp, const char *name)
+hamlib_token_t HAMLIB_API amp_ext_token_lookup(AMP *amp, const char *name)
 {
     const struct confparams *cfp;
 

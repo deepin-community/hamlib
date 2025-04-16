@@ -19,15 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <stdio.h>
 #include "hamlib/rig.h"
 
-#include "kit.h"
 #include "serial.h"
 #include "token.h"
 
@@ -84,8 +79,8 @@ static const struct confparams drt1_cfg_params[] =
 static int drt1_init(RIG *rig);
 static int drt1_cleanup(RIG *rig);
 static int drt1_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
-static int drt1_set_conf(RIG *rig, token_t token, const char *val);
-static int drt1_get_conf(RIG *rig, token_t token, char *val);
+static int drt1_set_conf(RIG *rig, hamlib_token_t token, const char *val);
+static int drt1_get_conf(RIG *rig, hamlib_token_t token, char *val);
 
 /*
  * SAT-Service Schneider DRM tuner.
@@ -93,14 +88,14 @@ static int drt1_get_conf(RIG *rig, token_t token, char *val);
  * The receiver is controlled via the TX, RTS and DTR pins of the serial port.
  */
 
-const struct rig_caps drt1_caps =
+struct rig_caps drt1_caps =
 {
     RIG_MODEL(RIG_MODEL_DRT1),
     .model_name = "DRT1",
     .mfg_name =  "SAT-Schneider",
     .version =  "20200112.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TUNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -165,6 +160,7 @@ const struct rig_caps drt1_caps =
     .get_conf =  drt1_get_conf,
 
     .set_freq =  drt1_set_freq,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -172,16 +168,16 @@ int drt1_init(RIG *rig)
 {
     struct drt1_priv_data *priv;
 
-    rig->state.priv = (struct drt1_priv_data *)malloc(sizeof(
-                          struct drt1_priv_data));
+    STATE(rig)->priv = (struct drt1_priv_data *)calloc(1, sizeof(
+                           struct drt1_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         /* whoops! memory shortage! */
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     priv->osc_freq = OSCFREQ;
     priv->ref_mult = REFMULT;
@@ -198,25 +194,25 @@ int drt1_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
 
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
-int drt1_set_conf(RIG *rig, token_t token, const char *val)
+int drt1_set_conf(RIG *rig, hamlib_token_t token, const char *val)
 {
     struct drt1_priv_data *priv;
 
-    priv = (struct drt1_priv_data *)rig->state.priv;
+    priv = (struct drt1_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
@@ -245,31 +241,31 @@ int drt1_set_conf(RIG *rig, token_t token, const char *val)
 
 /*
  * assumes rig!=NULL,
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-int drt1_get_conf(RIG *rig, token_t token, char *val)
+int drt1_get_conf2(RIG *rig, hamlib_token_t token, char *val, int val_len)
 {
     struct drt1_priv_data *priv;
 
-    priv = (struct drt1_priv_data *)rig->state.priv;
+    priv = (struct drt1_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
     case TOK_OSCFREQ:
-        sprintf(val, "%"PRIfreq, priv->osc_freq);
+        SNPRINTF(val, val_len, "%"PRIfreq, priv->osc_freq);
         break;
 
     case TOK_REFMULT:
-        sprintf(val, "%u", priv->ref_mult);
+        SNPRINTF(val, val_len, "%u", priv->ref_mult);
         break;
 
     case TOK_IFMIXFREQ:
-        sprintf(val, "%"PRIfreq, priv->if_mix_freq);
+        SNPRINTF(val, val_len, "%"PRIfreq, priv->if_mix_freq);
         break;
 
     case TOK_PUMPCRNT:
-        sprintf(val, "%u", priv->pump_crrnt);
+        SNPRINTF(val, val_len, "%u", priv->pump_crrnt);
         break;
 
     default:
@@ -277,6 +273,11 @@ int drt1_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int drt1_get_conf(RIG *rig, hamlib_token_t token, char *val)
+{
+    return drt1_get_conf2(rig, token, val, 128);
 }
 
 
@@ -337,7 +338,7 @@ static int ad_sdio(hamlib_port_t *port, int i)
     return ret;
 }
 
-static int ad_sclk(hamlib_port_t *port, int i)
+static int ad_sclk(const hamlib_port_t *port, int i)
 {
     int ret;
 
@@ -397,7 +398,7 @@ static int ad_write_reg(hamlib_port_t *port, unsigned addr, unsigned nb_bytes,
     return RIG_OK;
 }
 
-/* Register serial adresses */
+/* Register serial addresses */
 #define CFR1    0x0
 #define CFR2    0x1
 #define ASF 0x2
@@ -411,9 +412,9 @@ int drt1_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     unsigned cfr2;
 
     struct drt1_priv_data *priv;
-    hamlib_port_t *port = &rig->state.rigport;
+    hamlib_port_t *port = RIGPORT(rig);
 
-    priv = (struct drt1_priv_data *)rig->state.priv;
+    priv = (struct drt1_priv_data *)STATE(rig)->priv;
 
     rig_flush(port);
 

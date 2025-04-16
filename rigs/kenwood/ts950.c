@@ -18,15 +18,12 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /*
  * Edited by Martin Ewing AA6E, March, 2012
  * The '950 has a relatively small command set.
  */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include <stdlib.h>
 
@@ -42,10 +39,21 @@
 
 #define TS950_GET_LEVEL (RIG_LEVEL_RAWSTR)
 
+// STR_CAL borrowed from TS850
+#define TS950_STR_CAL { 4, \
+    { \
+        {   0, -54 }, \
+        {  15, 0 }, \
+        {  22,30 }, \
+        {  30, 66}, \
+    } }
+
+
 #define cmd_trm(rig) ((struct kenwood_priv_caps *)(rig)->caps->priv)->cmdtrm
 static struct kenwood_priv_caps  ts950_priv_caps  =
 {
     .cmdtrm =  EOM_KEN,
+    .tone_table_base = 1,
 };
 
 /*
@@ -55,12 +63,12 @@ static struct kenwood_priv_caps  ts950_priv_caps  =
  *
  * Reference: TS-950 series External Control Instruction Manual (1992)
  */
-const struct rig_caps ts950s_caps =
+struct rig_caps ts950s_caps =
 {
     RIG_MODEL(RIG_MODEL_TS950S),
     .model_name = "TS-950S",
     .mfg_name =  "Kenwood",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -86,7 +94,10 @@ const struct rig_caps ts950s_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
 
-    .level_gran =  {},
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  {},
     .ctcss_list =  kenwood38_ctcss_list,
     .dcs_list =  NULL,
@@ -98,6 +109,7 @@ const struct rig_caps ts950s_caps =
     .max_ifshift =  Hz(0),
     .targetable_vfo =  RIG_TARGETABLE_FREQ,
     .transceive =  RIG_TRN_RIG,
+    // No AGC levels
     .bank_qty =   0,
     .chan_desc_sz =  0,
 
@@ -158,6 +170,7 @@ const struct rig_caps ts950s_caps =
         {RIG_MODE_FM, kHz(14)},
         RIG_FLT_END,
     },
+    .str_cal = TS950_STR_CAL,
     .priv = (void *)& ts950_priv_caps,
 
     .rig_init = kenwood_init,
@@ -192,18 +205,17 @@ const struct rig_caps ts950s_caps =
     .get_mem =  kenwood_get_mem,
     .set_trn =  kenwood_set_trn,
     .get_trn =  kenwood_get_trn,
-    .set_powerstat =  kenwood_set_powerstat,
-    .get_powerstat =  kenwood_get_powerstat,
     .reset =  kenwood_reset,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
-const struct rig_caps ts950sdx_caps =
+struct rig_caps ts950sdx_caps =
 {
     RIG_MODEL(RIG_MODEL_TS950SDX),
     .model_name = "TS-950SDX",
     .mfg_name =  "Kenwood",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -229,7 +241,10 @@ const struct rig_caps ts950sdx_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
 
-    .level_gran =  {},
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  {},
     .ctcss_list =  kenwood38_ctcss_list,
     .dcs_list =  NULL,
@@ -301,6 +316,7 @@ const struct rig_caps ts950sdx_caps =
         {RIG_MODE_FM, kHz(14)},
         RIG_FLT_END,
     },
+    .str_cal = TS950_STR_CAL,
     .priv = (void *)& ts950_priv_caps,
 
     .rig_init = kenwood_init,
@@ -335,9 +351,8 @@ const struct rig_caps ts950sdx_caps =
     .get_mem =  kenwood_get_mem,
     .set_trn =  kenwood_set_trn,
     .get_trn =  kenwood_get_trn,
-    .set_powerstat =  kenwood_set_powerstat,
-    .get_powerstat =  kenwood_get_powerstat,
     .reset =  kenwood_reset,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

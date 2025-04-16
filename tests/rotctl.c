@@ -23,17 +23,11 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-#include <hamlibdatetime.h>
-
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
 
@@ -68,9 +62,10 @@ extern int read_history();
 
 
 #include <hamlib/rotator.h>
-#include "misc.h"
 
+#include "rig.h"
 #include "rotctl_parse.h"
+#include "rotlist.h"
 
 /*
  * Prototypes
@@ -108,7 +103,7 @@ static struct option long_options[] =
     {0, 0, 0, 0}
 };
 
-#define MAXCONFLEN 1024
+#define MAXCONFLEN 2048
 
 /* variable for readline support */
 #ifdef HAVE_LIBREADLINE
@@ -236,7 +231,7 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms));
+            strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms) - 1);
             break;
 
         case 't':
@@ -342,28 +337,56 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    retcode = set_conf(my_rot, conf_parms);
+    char *token = strtok(conf_parms, ",");
 
-    if (retcode != RIG_OK)
+    while (token)
     {
-        fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
-        exit(2);
+        char mytoken[100], myvalue[100];
+        hamlib_token_t lookup;
+        sscanf(token, "%99[^=]=%99s", mytoken, myvalue);
+        //printf("mytoken=%s,myvalue=%s\n",mytoken, myvalue);
+        lookup = rot_token_lookup(my_rot, mytoken);
+
+        if (lookup == 0)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: no such token as '%s', use -L switch to see\n",
+                      __func__, mytoken);
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        retcode = rot_set_conf(my_rot, rot_token_lookup(my_rot, mytoken), myvalue);
+
+        if (retcode != RIG_OK)
+        {
+            fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
+            exit(2);
+        }
+
+        token = strtok(NULL, ",");
     }
+
+    hamlib_port_t *rotp = ROTPORT(my_rot);
+    hamlib_port_t *rotp2 = ROTPORT2(my_rot);
 
     if (rot_file)
     {
-        strncpy(my_rot->state.rotport.pathname, rot_file, HAMLIB_FILPATHLEN - 1);
+        strncpy(rotp->pathname, rot_file, HAMLIB_FILPATHLEN - 1);
     }
 
     if (rot_file2)
     {
-        strncpy(my_rot->state.rotport2.pathname, rot_file2, HAMLIB_FILPATHLEN - 1);
+        strncpy(rotp2->pathname, rot_file2, HAMLIB_FILPATHLEN - 1);
     }
 
     /* FIXME: bound checking and port type == serial */
+    rotp2->parm.serial.rate = rotp->parm.serial.rate;
+    rotp2->parm.serial.data_bits = rotp->parm.serial.data_bits;
+
     if (serial_rate != 0)
     {
-        my_rot->state.rotport.parm.serial.rate = serial_rate;
+        rotp->parm.serial.rate = serial_rate;
+        rotp2->parm.serial.rate = serial_rate;
     }
 
     /*
@@ -372,6 +395,14 @@ int main(int argc, char *argv[])
     if (show_conf)
     {
         rot_token_foreach(my_rot, print_conf_list, (rig_ptr_t)my_rot);
+    }
+
+    retcode = rot_open(my_rot);
+
+    if (retcode != RIG_OK)
+    {
+        fprintf(stderr, "rot_open: error = %s \n", rigerror(retcode));
+        exit(2);
     }
 
     /*
@@ -385,16 +416,8 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    retcode = rot_open(my_rot);
-
-    if (retcode != RIG_OK)
-    {
-        fprintf(stderr, "rot_open: error = %s \n", rigerror(retcode));
-        exit(2);
-    }
-
-    my_rot->state.az_offset = az_offset;
-    my_rot->state.el_offset = el_offset;
+    ROTSTATE(my_rot)->az_offset = az_offset;
+    ROTSTATE(my_rot)->el_offset = el_offset;
 
     if (verbose > 0)
     {
@@ -412,6 +435,7 @@ int main(int argc, char *argv[])
 
 #ifdef HAVE_LIBREADLINE
 
+    // cppcheck-suppress knownConditionTrueFalse
     if (interactive && prompt && have_rl)
     {
         rl_readline_name = "rotctl";
@@ -438,7 +462,7 @@ int main(int argc, char *argv[])
             hist_path_size = sizeof(char) * (strlen(hist_dir) + strlen(hist_file) + 1);
             hist_path = (char *)calloc(hist_path_size, sizeof(char));
 
-            snprintf(hist_path, hist_path_size, "%s%s", hist_dir, hist_file);
+            SNPRINTF(hist_path, hist_path_size, "%s%s", hist_dir, hist_file);
 
         }
 
@@ -459,7 +483,7 @@ int main(int argc, char *argv[])
 
     do
     {
-        retcode = rotctl_parse(my_rot, stdin, stdout, argv, argc,
+        retcode = rotctl_parse(my_rot, stdin, stdout, (const char **)argv, argc,
                                interactive, prompt, send_cmd_term);
 
         if (retcode == 2)
@@ -467,6 +491,8 @@ int main(int argc, char *argv[])
             exitcode = 2;
         }
     }
+
+    // cppcheck-suppress knownConditionTrueFalse
     while (retcode == 0 || retcode == 2);
 
 #ifdef HAVE_LIBREADLINE
@@ -514,8 +540,8 @@ void usage()
         "  -s, --serial-speed=BAUD       set serial speed of the serial port\n"
         "  -t, --send-cmd-term=CHAR      set send_cmd command termination char\n"
         "  -C, --set-conf=PARM=VAL       set config parameters\n"
-        "  -o, --set-azoffset==VAL       set offset for azimuth\n"
-        "  -O, --set-eloffset==VAL       set offset for elevation\n"
+        "  -o, --set-azoffset=VAL        set offset for azimuth\n"
+        "  -O, --set-eloffset=VAL        set offset for elevation\n"
         "  -L, --show-conf               list all config parameters\n"
         "  -l, --list                    list all model numbers and exit\n"
         "  -u, --dump-caps               dump capabilities and exit\n"

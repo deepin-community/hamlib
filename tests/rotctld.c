@@ -22,15 +22,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <ctype.h>
 
 #include <getopt.h>
 #include <errno.h>
@@ -40,9 +37,6 @@
 
 #ifdef HAVE_NETINET_IN_H
 #  include <netinet/in.h>
-#endif
-#ifdef HAVE_ARPA_INET_H
-#  include <arpa/inet.h>
 #endif
 #ifdef HAVE_SYS_SOCKET_H
 #  include <sys/socket.h>
@@ -62,9 +56,10 @@
 #endif
 
 #include <hamlib/rotator.h>
-#include "misc.h"
 
+#include "rig.h"
 #include "rotctl_parse.h"
+#include "rotlist.h"
 
 struct handle_data
 {
@@ -111,7 +106,7 @@ const char *src_addr = NULL;    /* INADDR_ANY */
 azimuth_t az_offset;
 elevation_t el_offset;
 
-#define MAXCONFLEN 1024
+#define MAXCONFLEN 2048
 
 
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
@@ -264,7 +259,7 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms));
+            strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms) - 1);
             break;
 
         case 't':
@@ -350,28 +345,49 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    retcode = set_conf(my_rot, conf_parms);
+    char *token = strtok(conf_parms, ",");
 
-    if (retcode != RIG_OK)
+    while (token)
     {
-        fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
-        exit(2);
+        char mytoken[100], myvalue[100];
+        hamlib_token_t lookup;
+        sscanf(token, "%99[^=]=%99s", mytoken, myvalue);
+        //printf("mytoken=%s,myvalue=%s\n",mytoken, myvalue);
+        lookup = rot_token_lookup(my_rot, mytoken);
+
+        if (lookup == 0)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: no such token as '%s', use -L switch to see\n",
+                      __func__, mytoken);
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        retcode = rot_set_conf(my_rot, rot_token_lookup(my_rot, mytoken), myvalue);
+
+        if (retcode != RIG_OK)
+        {
+            fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
+            exit(2);
+        }
+
+        token = strtok(NULL, ",");
     }
 
     if (rot_file)
     {
-        strncpy(my_rot->state.rotport.pathname, rot_file, HAMLIB_FILPATHLEN - 1);
+        strncpy(ROTPORT(my_rot)->pathname, rot_file, HAMLIB_FILPATHLEN - 1);
     }
 
     if (rot_file2)
     {
-        strncpy(my_rot->state.rotport2.pathname, rot_file2, HAMLIB_FILPATHLEN - 1);
+        strncpy(ROTPORT2(my_rot)->pathname, rot_file2, HAMLIB_FILPATHLEN - 1);
     }
 
     /* FIXME: bound checking and port type == serial */
     if (serial_rate != 0)
     {
-        my_rot->state.rotport.parm.serial.rate = serial_rate;
+        ROTPORT(my_rot)->parm.serial.rate = serial_rate;
     }
 
     /*
@@ -401,8 +417,8 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    my_rot->state.az_offset = az_offset;
-    my_rot->state.el_offset = el_offset;
+    ROTSTATE(my_rot)->az_offset = az_offset;
+    ROTSTATE(my_rot)->el_offset = el_offset;
 
     if (verbose > 0)
     {
@@ -572,11 +588,11 @@ int main(int argc, char *argv[])
      */
     do
     {
-        arg = malloc(sizeof(struct handle_data));
+        arg = calloc(1, sizeof(struct handle_data));
 
         if (!arg)
         {
-            rig_debug(RIG_DEBUG_ERR, "malloc: %s\n", strerror(errno));
+            rig_debug(RIG_DEBUG_ERR, "calloc: %s\n", strerror(errno));
             exit(1);
         }
 
@@ -598,7 +614,7 @@ int main(int argc, char *argv[])
                                    sizeof(host),
                                    serv,
                                    sizeof(serv),
-                                   NI_NOFQDN))
+                                   NI_NUMERICHOST | NI_NUMERICSERV))
                 < 0)
         {
 
@@ -626,6 +642,7 @@ int main(int argc, char *argv[])
 
 #else
         handle_socket(arg);
+        retcode = 1;
 #endif
     }
 
@@ -664,6 +681,9 @@ void *handle_socket(void *arg)
     }
 
     fsockin = _fdopen(sock_osfhandle,  "rb");
+#elif defined(ANDROID) || defined(__ANDROID__)
+    // fdsan does not allow fdopen the same fd twice in Android
+    fsockin = fdopen(dup(handle_data_arg->sock), "rb");
 #else
     fsockin = fdopen(handle_data_arg->sock, "rb");
 #endif
@@ -676,6 +696,9 @@ void *handle_socket(void *arg)
 
 #ifdef __MINGW32__
     fsockout = _fdopen(sock_osfhandle, "wb");
+#elif defined(ANDROID) || defined(__ANDROID__)
+    // fdsan does not allow fdopen the same fd twice in Android
+    fsockout = fdopen(dup(handle_data_arg->sock), "wb");
 #else
     fsockout = fdopen(handle_data_arg->sock, "wb");
 #endif
@@ -705,7 +728,7 @@ void *handle_socket(void *arg)
                                sizeof(host),
                                serv,
                                sizeof(serv),
-                               NI_NOFQDN))
+                               NI_NUMERICHOST | NI_NUMERICSERV))
             < 0)
     {
 

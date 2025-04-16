@@ -30,20 +30,13 @@
  * \brief Control Hamlib debugging functions.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>  /* Standard input/output definitions */
 #include <string.h> /* String function definitions */
-#include <unistd.h> /* UNIX standard function definitions */
-#include <fcntl.h>  /* File control definitions */
-#include <errno.h>  /* Error number definitions */
 #include <sys/types.h>
-#include <unistd.h>
-#include <time.h>
+#include <errno.h>
 
 #ifdef ANDROID
 #  include <android/log.h>
@@ -68,7 +61,7 @@
 
 static int rig_debug_level = RIG_DEBUG_TRACE;
 static int rig_debug_time_stamp = 0;
-static FILE *rig_debug_stream;
+FILE *rig_debug_stream;
 static vprintf_cb_t rig_vprintf_cb;
 static rig_ptr_t rig_vprintf_arg;
 
@@ -110,7 +103,7 @@ void dump_hex(const unsigned char ptr[], size_t size)
         if (i % DUMP_HEX_WIDTH == 0)
         {
             /* new line */
-            sprintf(line + 0, "%04x", i);
+            SNPRINTF(line + 0, sizeof(line), "%04x", i);
             memset(line + 4, ' ', sizeof(line) - 4 - 1);
         }
 
@@ -156,6 +149,19 @@ void HAMLIB_API rig_set_debug(enum rig_debug_level_e debug_level)
     rig_debug_level = debug_level;
 }
 
+/**
+ * \brief Get the current debug level.
+ *
+ * \param debug_level Equivalent to the `-v` option of the utilities.
+ *
+ * Allows for obtaining the current debug level
+ *
+ */
+void HAMLIB_API rig_get_debug(enum rig_debug_level_e *debug_level)
+{
+    *debug_level = rig_debug_level;
+}
+
 
 /**
  * \brief Test if a given debug level is active.
@@ -186,8 +192,6 @@ void HAMLIB_API rig_set_debug_time_stamp(int flag)
     rig_debug_time_stamp = flag;
 }
 
-//! @endcond
-
 
 /**
  * \brief Print debugging messages through `stderr` by default.
@@ -202,6 +206,7 @@ void HAMLIB_API rig_set_debug_time_stamp(int flag)
 void HAMLIB_API rig_debug(enum rig_debug_level_e debug_level,
                           const char *fmt, ...)
 {
+    static pthread_mutex_t client_debug_lock = PTHREAD_MUTEX_INITIALIZER;
     va_list ap;
 
     if (!rig_need_debug(debug_level))
@@ -209,7 +214,7 @@ void HAMLIB_API rig_debug(enum rig_debug_level_e debug_level,
         return;
     }
 
-
+    pthread_mutex_lock(&client_debug_lock);
     va_start(ap, fmt);
 
     if (rig_vprintf_cb)
@@ -226,7 +231,7 @@ void HAMLIB_API rig_debug(enum rig_debug_level_e debug_level,
         if (rig_debug_time_stamp)
         {
             char buf[256];
-            fprintf(rig_debug_stream, "%s: ", date_strget(buf, sizeof(buf)));
+            fprintf(rig_debug_stream, "%s: ", date_strget(buf, sizeof(buf), 1));
         }
 
         vfprintf(rig_debug_stream, fmt, ap);
@@ -270,6 +275,7 @@ void HAMLIB_API rig_debug(enum rig_debug_level_e debug_level,
 
     va_end(ap);
 #endif
+    pthread_mutex_unlock(&client_debug_lock);
 }
 
 
@@ -328,6 +334,33 @@ vprintf_cb_t HAMLIB_API rig_set_debug_callback(vprintf_cb_t cb, rig_ptr_t arg)
 FILE *HAMLIB_API rig_set_debug_file(FILE *stream)
 {
     FILE *prev_stream = rig_debug_stream;
+
+    rig_debug_stream = stream;
+
+    return prev_stream;
+}
+
+/**
+ * \brief Change the output stream to a filename
+ *
+ * \param filename The filename to direct debugging output.
+ *
+ * \sa `FILE`(3)
+ */
+// cppcheck-suppress unusedFunction
+FILE *HAMLIB_API rig_set_debug_filename(char *filename)
+{
+    FILE *prev_stream = rig_debug_stream;
+    rig_debug(RIG_DEBUG_WARN, "%s: debug will stream to '%s'\n", __func__,
+              filename);
+    FILE *stream = fopen(filename, "w");
+
+    if (stream == NULL)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: error opening stream: %s\n", __func__,
+                  strerror(errno));
+        return NULL;
+    }
 
     rig_debug_stream = stream;
 

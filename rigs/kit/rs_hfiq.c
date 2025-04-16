@@ -24,14 +24,10 @@
  * https://sites.google.com/site/rshfiqtransceiver/home/technical-data/interface-commands
  *
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -49,21 +45,22 @@ static int rshfiq_open(RIG *rig)
     int flag;
     char versionstr[20];
     char stopset[2];
+    hamlib_port_t *rp = RIGPORT(rig);
     stopset[0] = '\r';
     stopset[1] = '\n';
 
     rig_debug(RIG_DEBUG_TRACE, "%s: Port = %s\n", __func__,
-              rig->state.rigport.pathname);
-    rig->state.rigport.timeout = 2000;
-    rig->state.rigport.retry = 1;
-    retval = serial_open(&rig->state.rigport);
+              rp->pathname);
+    rp->timeout = 2000;
+    rp->retry = 1;
+    retval = serial_open(rp);
 
     if (retval != RIG_OK)
     {
         return retval;
     }
 
-    retval = ser_get_dtr(&rig->state.rigport, &flag);
+    retval = ser_get_dtr(rp, &flag);
 
     if (retval == RIG_OK)
     {
@@ -77,7 +74,7 @@ static int rshfiq_open(RIG *rig)
     if (flag == 0)
     {
         flag = 1; // Set DTR
-        retval = ser_set_dtr(&rig->state.rigport, flag);
+        retval = ser_set_dtr(rp, flag);
 
         if (retval == RIG_OK)
         {
@@ -92,17 +89,19 @@ static int rshfiq_open(RIG *rig)
     for (int init_retry_count = 0; (init_retry_count < RSHFIQ_INIT_RETRY)
             && (retval == -RIG_ETIMEOUT); init_retry_count++)
     {
-        rig_flush(&rig->state.rigport);
-        snprintf(versionstr, sizeof(versionstr), "*w\r");
+        rig_flush(rp);
+        SNPRINTF(versionstr, sizeof(versionstr), "*w\r");
         rig_debug(RIG_DEBUG_TRACE, "%s: cmdstr = %s\n", __func__, versionstr);
-        retval = write_block(&rig->state.rigport, versionstr, strlen(versionstr));
+        retval = write_block(rp, (unsigned char *) versionstr,
+                             strlen(versionstr));
 
         if (retval != RIG_OK)
         {
             return retval;
         }
 
-        retval = read_string(&rig->state.rigport, versionstr, 20, stopset, 2);
+        retval = read_string(rp, (unsigned char *) versionstr, 20,
+                             stopset, 2, 0, 1);
     }
 
     if (retval <= 0)
@@ -110,7 +109,7 @@ static int rshfiq_open(RIG *rig)
         return retval;
     }
 
-    rig_flush(&rig->state.rigport);
+    rig_flush(rp);
 
     versionstr[retval] = 0;
     rig_debug(RIG_DEBUG_TRACE, "%s: Rigversion = %s\n", __func__, versionstr);
@@ -152,16 +151,18 @@ static int rshfiq_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     char fstr[9];
     char cmdstr[15];
     int retval;
+    hamlib_port_t *rp = RIGPORT(rig);
 
-    snprintf(fstr, sizeof(fstr), "%lu", (unsigned long int)(freq));
+    SNPRINTF(fstr, sizeof(fstr), "%lu", (unsigned long int)(freq));
     rig_debug(RIG_DEBUG_TRACE, "%s called: %s %s\n", __func__,
               rig_strvfo(vfo), fstr);
 
-    rig_flush(&rig->state.rigport);
+    rig_flush(rp);
 
-    snprintf(cmdstr, sizeof(cmdstr), "*f%lu\r", (unsigned long int)(freq));
+    SNPRINTF(cmdstr, sizeof(cmdstr), "*f%lu\r", (unsigned long int)(freq));
 
-    retval = write_block(&rig->state.rigport, cmdstr, strlen(cmdstr));
+    retval = write_block(rp, (unsigned char *) cmdstr,
+                         strlen(cmdstr));
 
     if (retval != RIG_OK)
     {
@@ -175,23 +176,27 @@ static int rshfiq_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     char cmdstr[15];
     char stopset[2];
     int retval;
-    rig_flush(&rig->state.rigport);
+    hamlib_port_t *rp = RIGPORT(rig);
+
+    rig_flush(rp);
 
     stopset[0] = '\r';
     stopset[1] = '\n';
 
-    snprintf(cmdstr, sizeof(cmdstr), "*f?\r");
+    SNPRINTF(cmdstr, sizeof(cmdstr), "*f?\r");
 
     rig_debug(RIG_DEBUG_TRACE, "%s: cmdstr = %s\n", __func__, cmdstr);
 
-    retval = write_block(&rig->state.rigport, cmdstr, strlen(cmdstr));
+    retval = write_block(rp, (unsigned char *) cmdstr,
+                         strlen(cmdstr));
 
     if (retval != RIG_OK)
     {
         return retval;
     }
 
-    retval = read_string(&rig->state.rigport, cmdstr, 9, stopset, 2);
+    retval = read_string(rp, (unsigned char *) cmdstr, 9,
+                         stopset, 2, 0, 1);
 
     if (retval <= 0)
     {
@@ -232,18 +237,21 @@ static int rshfiq_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: cmdstr = %s\n", __func__, cmdstr);
 
-    retval = write_block(&rig->state.rigport, cmdstr, strlen(cmdstr));
+    retval = write_block(RIGPORT(rig), (unsigned char *) cmdstr,
+                         strlen(cmdstr));
     return retval;
 }
 
 static int rshfiq_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
+    // cppcheck-suppress syntaxError
     rig_debug(RIG_DEBUG_VERBOSE, "%s called. level type =%"PRIll"\n", __func__,
               level);
 
     char cmdstr[15];
     char stopset[2];
     int retval;
+    hamlib_port_t *rp = RIGPORT(rig);
 
     if (!val)
     {
@@ -260,13 +268,14 @@ static int rshfiq_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_ENAVAIL;
         }
 
-        rig_flush(&rig->state.rigport);
+        rig_flush(rp);
 
-        snprintf(cmdstr, sizeof(cmdstr), "*L\r");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "*L\r");
 
         rig_debug(RIG_DEBUG_TRACE, "RIG_LEVEL_RFPOWER_METER command=%s\n", cmdstr);
 
-        retval = write_block(&rig->state.rigport, cmdstr, strlen(cmdstr));
+        retval = write_block(rp, (unsigned char *) cmdstr,
+                             strlen(cmdstr));
 
         if (retval != RIG_OK)
         {
@@ -276,7 +285,8 @@ static int rshfiq_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         stopset[0] = '\r';
         stopset[1] = '\n';
 
-        retval = read_string(&rig->state.rigport, cmdstr, 9, stopset, 2);
+        retval = read_string(rp, (unsigned char *) cmdstr, 9,
+                             stopset, 2, 0, 1);
 
         rig_debug(RIG_DEBUG_TRACE, "RIG_LEVEL_RFPOWER_METER reply=%s\n", cmdstr);
 
@@ -294,17 +304,17 @@ static int rshfiq_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         rig_debug(RIG_DEBUG_TRACE, "RIG_LEVEL_RFPOWER_METER val=%f\n", val->f);
 
         return RIG_OK;
-        break;
 
     case RIG_LEVEL_TEMP_METER:
 
-        rig_flush(&rig->state.rigport);
+        rig_flush(rp);
 
-        snprintf(cmdstr, sizeof(cmdstr), "*T\r");
+        SNPRINTF(cmdstr, sizeof(cmdstr), "*T\r");
 
         rig_debug(RIG_DEBUG_TRACE, "RIG_LEVEL_TEMP_METER command=%s\n", cmdstr);
 
-        retval = write_block(&rig->state.rigport, cmdstr, strlen(cmdstr));
+        retval = write_block(rp, (unsigned char *) cmdstr,
+                             strlen(cmdstr));
 
         if (retval != RIG_OK)
         {
@@ -314,7 +324,8 @@ static int rshfiq_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         stopset[0] = '\r';
         stopset[1] = '\n';
 
-        retval = read_string(&rig->state.rigport, cmdstr, 9, stopset, 2);
+        retval = read_string(rp, (unsigned char *) cmdstr, 9,
+                             stopset, 2, 0, 1);
 
         rig_debug(RIG_DEBUG_TRACE, "RIG_LEVEL_TEMP_METER reply=%s\n", cmdstr);
 
@@ -326,27 +337,32 @@ static int rshfiq_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         cmdstr[retval] = 0;
 
         sscanf(cmdstr, "%d.", &val->i);
+        val->f = val->i;
 
-        rig_debug(RIG_DEBUG_TRACE, "RIG_LEVEL_TEMP_METER val=%d\n", val->i);
+        rig_debug(RIG_DEBUG_TRACE, "RIG_LEVEL_TEMP_METER val=%g\n", val->f);
 
         return RIG_OK;
-        break;
-        break;
 
     default:
         rig_debug(RIG_DEBUG_VERBOSE, "%s: Unrecognized RIG_LEVEL_* enum: %"PRIll"\n",
                   __func__, level);
         return -RIG_EDOM;
-        break;
     }
 }
 
-const struct rig_caps rshfiq_caps =
+static int rshfiq_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
+{
+    *mode = RIG_MODE_IQ;
+    return RIG_OK;
+}
+
+
+struct rig_caps rshfiq_caps =
 {
     RIG_MODEL(RIG_MODEL_RSHFIQ),
     .model_name =     "RS-HFIQ",
     .mfg_name =       "HobbyPCB",
-    .version =        "20210805.0",
+    .version =        "20220430.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_TRANSCEIVER,
@@ -366,28 +382,33 @@ const struct rig_caps rshfiq_caps =
 
     .has_get_level = RSHFIQ_LEVEL_ALL,
 
-    .rx_range_list1 =  { {.startf = kHz(3500), .endf = MHz(30), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
+    .rx_range_list1 =  { {.startf = kHz(3500), .endf = MHz(30), .modes = RIG_MODE_IQ, .low_power = 0, .high_power = 0, RIG_VFO_A},
         RIG_FRNG_END,
     },
-    .rx_range_list2 =  { {.startf = kHz(3500), .endf = MHz(30), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
+    .rx_range_list2 =  { {.startf = kHz(3500), .endf = MHz(30), .modes = RIG_MODE_IQ, .low_power = 0, .high_power = 0, RIG_VFO_A},
         RIG_FRNG_END,
     },
-    .tx_range_list1 =   { {.startf = kHz(3500), .endf = kHz(3800), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
-        {.startf = kHz(7000), .endf = kHz(7200), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
-        {.startf = kHz(10100), .endf = kHz(10150), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
-        {.startf = MHz(14), .endf = kHz(14350), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
-        {.startf = MHz(21), .endf = kHz(21450), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
-        {.startf = kHz(24890), .endf = kHz(24990), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
-        {.startf = MHz(28), .endf = kHz(29700), .modes = RIG_MODE_NONE, .low_power = -1, .high_power = -1, RIG_VFO_A},
+    .tx_range_list1 =   { {.startf = kHz(3500), .endf = kHz(3800), .modes = RIG_MODE_IQ, .low_power = 0, .high_power = 0, RIG_VFO_A},
+        {.startf = kHz(7000), .endf = kHz(7200), .modes = RIG_MODE_IQ, .low_power = 0, .high_power = 0, RIG_VFO_A},
+        {.startf = kHz(10100), .endf = kHz(10150), .modes = RIG_MODE_IQ, .low_power = 0, .high_power = 0, RIG_VFO_A},
+        {.startf = MHz(14), .endf = kHz(14350), .modes = RIG_MODE_IQ, .low_power = 0, .high_power = 0, RIG_VFO_A},
+        {.startf = MHz(21), .endf = kHz(21450), .modes = RIG_MODE_IQ, .low_power = 0, .high_power = 0, RIG_VFO_A},
+        {.startf = kHz(24890), .endf = kHz(24990), .modes = RIG_MODE_IQ, .low_power = 0, .high_power = 0, RIG_VFO_A},
+        {.startf = MHz(28), .endf = kHz(29700), .modes = RIG_MODE_IQ, .low_power = 0, .high_power = 0, RIG_VFO_A},
         RIG_FRNG_END,
     },
-    .tuning_steps =  { {RIG_MODE_NONE, Hz(1)}, RIG_TS_END, },
+    .tuning_steps =  { {RIG_MODE_IQ, Hz(1)}, RIG_TS_END, },
+    .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
+        RIG_FLT_END
+    },
 
     .rig_open =     rshfiq_open,
     .get_freq =     rshfiq_get_freq,
     .set_freq =     rshfiq_set_freq,
     .set_ptt  =     rshfiq_set_ptt,
     .get_level =     rshfiq_get_level,
-
+    .get_mode =     rshfiq_get_mode,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

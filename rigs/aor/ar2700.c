@@ -19,11 +19,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
+#include <string.h>
 
 #include <hamlib/rig.h>
 #include "aor.h"
@@ -60,7 +57,8 @@
     .funcs = RIG_FUNC_ABM,  \
 }
 
-static int format2700_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width);
+static int format2700_mode(RIG *rig, char *buf, int buf_len, rmode_t mode,
+                           pbwidth_t width);
 static int parse2700_aor_mode(RIG *rig, char aormode, char aorwidth,
                               rmode_t *mode, pbwidth_t *width);
 
@@ -82,14 +80,14 @@ static const struct aor_priv_caps ar2700_priv_caps =
  * part of info from http://www.aoruk.com/2700.htm
  * Interface unit: CU-8232 (or equivalent)
  */
-const struct rig_caps ar2700_caps =
+struct rig_caps ar2700_caps =
 {
     RIG_MODEL(RIG_MODEL_AR2700),
     .model_name = "AR2700",
     .mfg_name =  "AOR",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_SCANNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -197,7 +195,7 @@ const struct rig_caps ar2700_caps =
     .get_channel = aor_get_channel,
 
     .get_chan_all_cb = aor_get_chan_all_cb,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -212,7 +210,8 @@ const struct rig_caps ar2700_caps =
 #define AR2700_NFM  '1'
 #define AR2700_AM   '2'
 
-int format2700_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width)
+int format2700_mode(RIG *rig, char *buf, int buf_len, rmode_t mode,
+                    pbwidth_t width)
 {
     int aormode;
 
@@ -230,7 +229,8 @@ int format2700_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    return sprintf(buf, "MD%c", aormode);
+    SNPRINTF(buf, buf_len, "MD%c", aormode);
+    return strlen(buf);
 }
 
 

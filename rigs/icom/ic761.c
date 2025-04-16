@@ -19,14 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
-#include "bandplan.h"
 #include "icom.h"
 
 
@@ -56,7 +51,7 @@ static const struct icom_priv_caps ic761_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic761_caps =
+struct rig_caps ic761_caps =
 {
     RIG_MODEL(RIG_MODEL_IC761),
     .model_name = "IC-761",
@@ -179,7 +174,7 @@ const struct rig_caps ic761_caps =
     .rig_init = icom_init,
     .rig_cleanup =  icom_cleanup,
     .rig_open =  icom_rig_open,
-    .rig_close =  icom_rig_open,
+    .rig_close =  icom_rig_close,
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
@@ -191,5 +186,6 @@ const struct rig_caps ic761_caps =
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

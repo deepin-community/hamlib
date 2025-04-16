@@ -23,19 +23,16 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-#include <hamlibdatetime.h>
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
+#include <signal.h>
 
 #ifdef HAVE_LIBREADLINE
 #  if defined(HAVE_READLINE_READLINE_H)
@@ -69,10 +66,9 @@ extern int read_history();
 
 #include <hamlib/rig.h>
 #include "misc.h"
-#include "iofunc.h"
-#include "serial.h"
-#include "sprintflst.h"
 #include "rigctl_parse.h"
+#include "riglist.h"
+#include "token.h"
 
 #define MAXNAMSIZ 32
 #define MAXNBOPT 100    /* max number of different options */
@@ -86,7 +82,7 @@ static void usage(void);
  * NB: do NOT use -W since it's reserved by POSIX.
  * TODO: add an option to read from a file
  */
-#define SHORT_OPTIONS "+m:r:p:d:P:D:s:c:t:lC:LuonvhVYZ!"
+#define SHORT_OPTIONS "+m:r:p:d:P:D:s:c:t:lC:LuonvhVYZ!#"
 static struct option long_options[] =
 {
     {"model",           1, 0, 'm'},
@@ -114,15 +110,94 @@ static struct option long_options[] =
     {"help",            0, 0, 'h'},
     {"version",         0, 0, 'V'},
     {"cookie",          0, 0, '!'},
+    {"skip-init",       0, 0, '#'},
     {0, 0, 0, 0}
 
 };
 
-#define MAXCONFLEN 1024
+extern char rig_resp_sep;
+extern powerstat_t rig_powerstat;
+
+static RIG *my_rig;        /* handle to rig (instance) */
+
+#ifdef HAVE_SIG_ATOMIC_T
+static sig_atomic_t volatile ctrl_c = 0;
+#else
+static int volatile ctrl_c = 0;
+#endif
+
+#define MAXCONFLEN 2048
+
+#ifdef WIN32
+static BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
+{
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
+
+    switch (fdwCtrlType)
+    {
+    case CTRL_C_EVENT:
+    case CTRL_CLOSE_EVENT:
+        ctrl_c = 1;
+        return TRUE;
+
+    default:
+        return FALSE;
+    }
+}
+#else
+static void signal_handler(int sig)
+{
+    switch (sig)
+    {
+    case SIGINT:
+    case SIGTERM:
+        fprintf(stderr, "\nTerminating application, caught signal %d\n", sig);
+        // Close stdin to stop reading input
+        fclose(stdin);
+        ctrl_c = 1;
+        break;
+
+    default:
+        /* do nothing */
+        break;
+    }
+}
+#endif
+
+static void handle_error(enum rig_debug_level_e lvl, const char *msg)
+{
+    int e;
+#ifdef __MINGW32__
+    LPVOID lpMsgBuf;
+
+    lpMsgBuf = (LPVOID)"Unknown error";
+    e = WSAGetLastError();
+
+    if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER
+                      | FORMAT_MESSAGE_FROM_SYSTEM
+                      | FORMAT_MESSAGE_IGNORE_INSERTS,
+                      NULL, e,
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                      // Default language
+                      (LPTSTR)&lpMsgBuf, 0, NULL))
+    {
+
+        rig_debug(lvl, "%s: Network error %d: %s\n", msg, e, (char *)lpMsgBuf);
+        LocalFree(lpMsgBuf);
+    }
+    else
+    {
+        rig_debug(lvl, "%s: Network error %d\n", msg, e);
+    }
+
+#else
+    e = errno;
+    rig_debug(lvl, "%s: Network error %d: %s\n", msg, e, strerror(e));
+#endif
+}
 
 int main(int argc, char *argv[])
 {
-    RIG *my_rig;        /* handle to rig (instance) */
     rig_model_t my_model = RIG_MODEL_DUMMY;
 
     int retcode;        /* generic return code from functions */
@@ -152,9 +227,18 @@ int main(int argc, char *argv[])
     int vfo_opt = 0;       /* vfo_opt = 0 means target VFO is 'currVFO' */
     char send_cmd_term = '\r';  /* send_cmd termination char */
     int ext_resp = 0;
-    char resp_sep = '\n';
     int i;
     char rigstartup[1024];
+    char vbuf[1024];
+    rig_powerstat = RIG_POWER_ON; // defaults to power on
+    struct timespec powerstat_check_time;
+#if HAVE_SIGACTION
+    struct sigaction act;
+#endif
+
+    int err = setvbuf(stderr, vbuf, _IOFBF, sizeof(vbuf));
+
+    if (err) { rig_debug(RIG_DEBUG_ERR, "%s: setvbuf err=%s\n", __func__, strerror(err)); }
 
     while (1)
     {
@@ -175,6 +259,10 @@ int main(int argc, char *argv[])
 
         switch (c)
         {
+        case '#':
+            skip_init = 1;
+            break;
+
         case '!':
             cookie_use = 1;
             break;
@@ -387,7 +475,7 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms));
+            strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms) - 1);
             break;
 
         case 'o':
@@ -441,7 +529,7 @@ int main(int argc, char *argv[])
 
     rig_set_debug(verbose);
 
-    snprintf(rigstartup, sizeof(rigstartup), "%s(%d) Startup:", __FILE__, __LINE__);
+    SNPRINTF(rigstartup, sizeof(rigstartup), "%s(%d) Startup:", __FILE__, __LINE__);
 
     for (i = 0; i < argc; ++i) { strcat(rigstartup, " "); strcat(rigstartup, argv[i]); }
 
@@ -459,6 +547,8 @@ int main(int argc, char *argv[])
     if (optind < argc)
     {
         interactive = 0;
+        // skip_init here caused segfault on rigctl -m 2041 -r /dev/pts/4 M CW 250 b 73
+        //skip_init = 1;
     }
     else
     {
@@ -476,17 +566,41 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    retcode = set_conf(my_rig, conf_parms);
+    my_rig->caps->ptt_type = ptt_type;
+    char *token = strtok(conf_parms, ",");
+    struct rig_state *rs = STATE(my_rig);
 
-    if (retcode != RIG_OK)
+    while (token)
     {
-        fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
-        exit(2);
+        char mytoken[100], myvalue[100];
+        hamlib_token_t lookup;
+        sscanf(token, "%99[^=]=%99s", mytoken, myvalue);
+        //printf("mytoken=%s,myvalue=%s\n",mytoken, myvalue);
+        lookup = rig_token_lookup(my_rig, mytoken);
+
+        if (lookup == 0)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: no such token as '%s'\n", __func__, mytoken);
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        retcode = rig_set_conf(my_rig, rig_token_lookup(my_rig, mytoken), myvalue);
+
+        if (retcode != RIG_OK)
+        {
+            fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
+            exit(2);
+        }
+
+        ptt_type = my_rig->caps->ptt_type; // in case we set the ptt_type with set_conf
+
+        token = strtok(NULL, ",");
     }
 
     if (rig_file)
     {
-        strncpy(my_rig->state.rigport.pathname, rig_file, HAMLIB_FILPATHLEN - 1);
+        rig_set_conf(my_rig, TOK_PATHNAME, rig_file);
     }
 
     /*
@@ -494,28 +608,36 @@ int main(int argc, char *argv[])
      */
     if (ptt_type != RIG_PTT_NONE)
     {
-        my_rig->state.pttport.type.ptt = ptt_type;
+        PTTPORT(my_rig)->type.ptt = ptt_type;
     }
 
     if (dcd_type != RIG_DCD_NONE)
     {
-        my_rig->state.dcdport.type.dcd = dcd_type;
+        DCDPORT(my_rig)->type.dcd = dcd_type;
     }
 
     if (ptt_file)
     {
-        strncpy(my_rig->state.pttport.pathname, ptt_file, HAMLIB_FILPATHLEN - 1);
+        strncpy(PTTPORT(my_rig)->pathname, ptt_file, HAMLIB_FILPATHLEN - 1);
+
+        // default to RTS when ptt_type is not specified
+        if (ptt_type == RIG_PTT_NONE)
+        {
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: defaulting to RTS PTT\n", __func__);
+            my_rig->caps->ptt_type = ptt_type = RIG_PTT_SERIAL_RTS;
+        }
     }
 
     if (dcd_file)
     {
-        strncpy(my_rig->state.dcdport.pathname, dcd_file, HAMLIB_FILPATHLEN - 1);
+        strncpy(DCDPORT(my_rig)->pathname, dcd_file, HAMLIB_FILPATHLEN - 1);
     }
 
     /* FIXME: bound checking and port type == serial */
     if (serial_rate != 0)
     {
-        my_rig->state.rigport.parm.serial.rate = serial_rate;
+        RIGPORT(my_rig)->parm.serial.rate = serial_rate;
+        rs->rigport_deprecated.parm.serial.rate = serial_rate;
     }
 
     if (civaddr)
@@ -552,6 +674,9 @@ int main(int argc, char *argv[])
             }
 
             rig_close(my_rig);
+            dumpstate(my_rig, stdout);
+            rig_close(my_rig);
+            exit(0);
         }
 
         dumpcaps(my_rig, stdout);
@@ -563,8 +688,8 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "rig_open: error = %s %s %s \n", rigerror(retcode), rig_file,
-                strerror(errno));
+//        fprintf(stderr, "rig_open: error = %s %s \n", rig_file,
+//                rigerror(retcode));
 
         if (!ignore_rig_open_error) { exit(2); }
     }
@@ -576,11 +701,17 @@ int main(int argc, char *argv[])
                my_rig->caps->model_name);
     }
 
+    if (!skip_init && my_rig->caps->get_powerstat)
+    {
+        rig_get_powerstat(my_rig, &rig_powerstat);
+        rs->powerstat = rig_powerstat;
+    }
+
     if (my_rig->caps->rig_model == RIG_MODEL_NETRIGCTL)
     {
         /* We automatically detect if we need to be in vfo mode or not */
         int rigctld_vfo_opt = netrigctl_get_vfo_mode(my_rig);
-        vfo_opt = my_rig->state.vfo_opt = rigctld_vfo_opt;
+        vfo_opt = rs->vfo_opt = rigctld_vfo_opt;
         rig_debug(RIG_DEBUG_TRACE, "%s vfo_opt=%d\n", __func__, vfo_opt);
     }
 
@@ -619,7 +750,7 @@ int main(int argc, char *argv[])
             hist_path_size = sizeof(char) * (strlen(hist_dir) + strlen(hist_file) + 1);
             hist_path = (char *)calloc(hist_path_size, sizeof(char));
 
-            snprintf(hist_path, hist_path_size, "%s%s", hist_dir, hist_file);
+            SNPRINTF(hist_path, hist_path_size, "%s%s", hist_dir, hist_file);
         }
 
         if (rd_hist && hist_path)
@@ -638,6 +769,79 @@ int main(int argc, char *argv[])
 #endif  /* HAVE_LIBREADLINE */
     int rig_opened = 1;  // our rig is already open
 
+#if HAVE_SIGACTION
+
+#ifdef SIGPIPE
+    /* Ignore SIGPIPE as we will handle it at the write()/send() calls
+       that will consequently fail with EPIPE. All child threads will
+       inherit this disposition which is what we want. */
+    memset(&act, 0, sizeof act);
+    act.sa_handler = SIG_IGN;
+    act.sa_flags = SA_RESTART;
+
+    if (sigaction(SIGPIPE, &act, NULL))
+    {
+        handle_error(RIG_DEBUG_ERR, "sigaction SIGPIPE");
+    }
+
+#endif
+
+#ifdef SIGINT
+    memset(&act, 0, sizeof act);
+    act.sa_handler = signal_handler;
+
+    if (sigaction(SIGINT, &act, NULL))
+    {
+        handle_error(RIG_DEBUG_ERR, "sigaction SIGINT");
+    }
+
+#endif
+#ifdef SIGTERM
+    memset(&act, 0, sizeof act);
+    act.sa_handler = signal_handler;
+
+    if (sigaction(SIGTERM, &act, NULL))
+    {
+        handle_error(RIG_DEBUG_ERR, "sigaction SIGTERM");
+    }
+
+#endif
+#elif defined (WIN32)
+
+    if (!SetConsoleCtrlHandler(CtrlHandler, TRUE))
+    {
+        handle_error(RIG_DEBUG_ERR, "SetConsoleCtrlHandler");
+    }
+
+#elif HAVE_SIGNAL
+#ifdef SIGPIPE
+
+    if (SIG_ERR == signal(SIGPIPE, SIG_IGN))
+    {
+        handle_error(RIG_DEBUG_ERR, "signal SIGPIPE");
+    }
+
+#endif
+#ifdef SIGINT
+
+    if (SIG_ERR == signal(SIGINT, signal_handler))
+    {
+        handle_error(RIG_DEBUG_ERR, "signal SIGINT");
+    }
+
+#endif
+#ifdef SIGTERM
+
+    if (SIG_ERR == signal(SIGTERM, signal_handler))
+    {
+        handle_error(RIG_DEBUG_ERR, "signal SIGTERM");
+    }
+
+#endif
+#endif
+
+    elapsed_ms(&powerstat_check_time, HAMLIB_ELAPSED_SET);
+
     do
     {
         if (!rig_opened)
@@ -649,14 +853,33 @@ int main(int argc, char *argv[])
 
         retcode = rigctl_parse(my_rig, stdin, stdout, argv, argc, NULL,
                                interactive, prompt, &vfo_opt, send_cmd_term,
-                               &ext_resp, &resp_sep);
+                               &ext_resp, &rig_resp_sep, 0);
+
+        // If we get a timeout, the rig might be powered off
+        // Update our power status in case power gets turned off
+        // Check power status if rig is powered off, but not more often than once per second
+        if (my_rig->caps->get_powerstat && (retcode == -RIG_ETIMEOUT ||
+                                            (retcode == -RIG_EPOWER
+                                             && elapsed_ms(&powerstat_check_time, HAMLIB_ELAPSED_GET) >= 1000)))
+        {
+            powerstat_t powerstat;
+            rig_get_powerstat(my_rig, &powerstat);
+            rig_powerstat = powerstat;
+
+            if (powerstat == RIG_POWER_OFF || powerstat == RIG_POWER_STANDBY)
+            {
+                retcode = -RIG_EPOWER;
+            }
+
+            elapsed_ms(&powerstat_check_time, HAMLIB_ELAPSED_SET);
+        }
 
         // if we get a hard error we try to reopen the rig again
         // this should cover short dropouts that can occur
         if (retcode < 0 && !RIG_IS_SOFT_ERRCODE(-retcode))
         {
             int retry = 3;
-            rig_debug(RIG_DEBUG_ERR, "%s: i/o error\n", __func__)
+            rig_debug(RIG_DEBUG_ERR, "%s: i/o error\n", __func__);
 
             do
             {
@@ -670,7 +893,7 @@ int main(int argc, char *argv[])
             while (retry-- > 0 && retcode != RIG_OK);
         }
     }
-    while (retcode == RIG_OK || RIG_IS_SOFT_ERRCODE(-retcode));
+    while (!ctrl_c && (retcode == RIG_OK || RIG_IS_SOFT_ERRCODE(-retcode)));
 
     if (interactive && prompt)
     {
@@ -733,10 +956,18 @@ void usage(void)
         "  -Z, --debug-time-stamps       enable time stamps for debug messages\n"
         "  -h, --help                    display this help and exit\n"
         "  -V, --version                 output version information and exit\n"
-        "  -!, --cookie                  use cookie control\n\n"
+        "  -!, --cookie                  use cookie control\n"
+        "  -#, --skip-init                skips rig initialization\n\n"
     );
 
     usage_rig(stdout);
+
+    printf("\nError codes and messages\n");
+
+    for (enum rig_errcode_e e = 0; e < RIG_EEND; ++e)
+    {
+        printf("-%d - %s", e, rigerror2(e));
+    }
 
     printf("\nReport bugs to <hamlib-developer@lists.sourceforge.net>.\n");
 

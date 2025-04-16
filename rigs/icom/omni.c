@@ -30,10 +30,6 @@
  *  Implement vfo split, FSK mode
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -63,14 +59,14 @@ static struct icom_priv_caps omnivip_priv_caps =
     NULL    /* TODO */
 };
 
-const struct rig_caps omnivip_caps =
+struct rig_caps omnivip_caps =
 {
     RIG_MODEL(RIG_MODEL_OMNIVIP),
     .model_name = "Omni VI Plus",
     .mfg_name =  "Ten-Tec",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,           // Allow program controlled PTT
     .dcd_type =  RIG_DCD_NONE,
@@ -163,7 +159,7 @@ const struct rig_caps omnivip_caps =
     .rig_cleanup =   icom_cleanup,
 
     .rig_open =  icom_rig_open,
-    .rig_close =  icom_rig_open,
+    .rig_close =  icom_rig_close,
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
     .set_mode =  icom_set_mode,
@@ -178,11 +174,12 @@ const struct rig_caps omnivip_caps =
     .decode_event =  icom_decode_event,
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
  * omni6_set_ptt based on icom_set_ptt
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
 int omni6_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 {

@@ -24,9 +24,16 @@
 
 #include <hamlib/rig.h>
 
+int rig_poll_routine_start(RIG *rig);
+int rig_poll_routine_stop(RIG *rig);
 
-int add_trn_rig(RIG *rig);
-int remove_trn_rig(RIG *rig);
+int rig_fire_freq_event(RIG *rig, vfo_t vfo, freq_t freq);
+int rig_fire_mode_event(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
+int rig_fire_vfo_event(RIG *rig, vfo_t vfo);
+int rig_fire_ptt_event(RIG *rig, vfo_t vfo, ptt_t ptt);
+int rig_fire_dcd_event(RIG *rig, vfo_t vfo, dcd_t dcd);
+int rig_fire_pltune_event(RIG *rig, vfo_t vfo, freq_t *freq, rmode_t *mode, pbwidth_t *width);
+int rig_fire_spectrum_event(RIG *rig, struct rig_spectrum_line *line);
 
 #endif /* _EVENT_H */
 

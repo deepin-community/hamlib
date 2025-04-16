@@ -21,20 +21,48 @@
  *
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
 #include "yaesu.h"
 #include "frg100.h"
+
+enum frg100_native_cmd_e
+{
+    FRG100_NATIVE_RECALL_MEM = 0,       /* 0x02, p1=ch */
+    FRG100_NATIVE_VFO_TO_MEM,           /* 0x03, p1=ch, p2=0 */
+    FRG100_NATIVE_MEM_HIDE,             /* 0x03, p1=ch, p2=1 */
+    FRG100_NATIVE_VFO_A,                /* 0x05 */
+    FRG100_NATIVE_FREQ_SET,             /* 0x0a, p1:4=freq */
+    FRG100_NATIVE_MODE_SET_LSB,         /* 0x0c, p1=0x00 */
+    FRG100_NATIVE_MODE_SET_USB,         /* 0x0c, p1=0x01 */
+    FRG100_NATIVE_MODE_SET_CW_W,        /* 0x0c, p1=0x02 */
+    FRG100_NATIVE_MODE_SET_CW_N,        /* 0x0c, p1=0x03 */
+    FRG100_NATIVE_MODE_SET_AM,          /* 0x0c, p1=0x04 */
+    FRG100_NATIVE_MODE_SET_RTTY_LSB_W,  /* 0x0c, p1=0x08 */
+    FRG100_NATIVE_MODE_SET_RTTY_USB_W,  /* 0x0c, p1=0x09 */
+    FRG100_NATIVE_MODE_SET_H3E,         /* 0x0c, p1=0x0d */
+    FRG100_NATIVE_MODE_SET_RTTY_LSB_N,  /* 0x0c, p1=0x0e */
+    FRG100_NATIVE_MODE_SET_RTTY_USB_N,  /* 0x0c, p1=0x0f */
+    FRG100_NATIVE_PTT_OFF,              /* 0x0f, p1=0 */
+    FRG100_NATIVE_PTT_ON,               /* 0x0f, p1=1 */
+    FRG100_NATIVE_UPDATE_MEM_CHNL,      /* 0x10, p1=1 */
+    FRG100_NATIVE_UPDATE_OP_DATA,       /* 0x10, p1=2 */
+    FRG100_NATIVE_UPDATE_VFO_DATA,      /* 0x10, p1=3 */
+    FRG100_NATIVE_TX_POWER_LOW,         /* 0x18 */
+    FRG100_NATIVE_TX_POWER_MID,         /* 0x28 */
+    FRG100_NATIVE_TX_POWER_HI,          /* 0x48 */
+    FRG100_NATIVE_CPY_RX_TO_TX,         /* 0x85 */
+    FRG100_NATIVE_TX_FREQ_SET,          /* 0x8a, p1:4=freq */
+    FRG100_NATIVE_OP_FREQ_STEP_UP,      /* 0x8e, p1=0 */
+    FRG100_NATIVE_OP_FREQ_STEP_DOWN,    /* 0x8e, p1=1 */
+    FRG100_NATIVE_READ_METER,           /* 0xf7 */
+    FRG100_NATIVE_READ_FLAGS,           /* 0xfa */
+    FRG100_NATIVE_SIZE
+};
 
 
 
@@ -119,14 +147,14 @@ static int mode2rig(RIG *rig, rmode_t mode, pbwidth_t width);
  *  - Dim
  */
 
-const struct rig_caps frg100_caps =
+struct rig_caps frg100_caps =
 {
     RIG_MODEL(RIG_MODEL_FRG100),
     .model_name =         "FRG-100",
     .mfg_name =           "Yaesu",
     .version =            "20160409.0",
     .copyright =          "LGPL",
-    .status =             RIG_STATUS_BETA,
+    .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_RECEIVER,
     .ptt_type =           RIG_PTT_NONE,
     .dcd_type =           RIG_DCD_NONE,
@@ -144,9 +172,13 @@ const struct rig_caps frg100_caps =
     .has_get_func =       RIG_FUNC_LOCK,
     .has_set_func =       RIG_FUNC_LOCK,
     .has_get_level =      RIG_LEVEL_RAWSTR,
-    .has_set_level =      RIG_LEVEL_NONE,
+    .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
-    .has_set_parm =       RIG_PARM_BACKLIGHT,
+    .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .vfo_ops =        RIG_OP_FROM_VFO | RIG_OP_TO_VFO | RIG_OP_UP | RIG_OP_DOWN,
     .preamp =             { RIG_DBLST_END, },
     .attenuator =         { RIG_DBLST_END, },
@@ -162,22 +194,22 @@ const struct rig_caps frg100_caps =
         {   0x33,  0x34, RIG_MTYPE_EDGE },
     },
     .rx_range_list1 =     {
-        {kHz(50), MHz(30), FRG100_MODES, -1, -1, FRG100_VFOS, FRG100_ANTS },
+        {kHz(50), MHz(30), FRG100_MODES, 0, 0, FRG100_VFOS, FRG100_ANTS },
         RIG_FRNG_END,
     }, /* Region 1 rx ranges */
 
     .tx_range_list1 =     {
-        {kHz(50), MHz(30), FRG100_MODES, -1, -1, FRG100_VFOS, FRG100_ANTS },
+        {kHz(50), MHz(30), FRG100_MODES, 0, 0, FRG100_VFOS, FRG100_ANTS },
         RIG_FRNG_END,
     },    /* region 1 TX ranges */
 
     .rx_range_list2 =     {
-        {kHz(50), MHz(30), FRG100_MODES, -1, -1, FRG100_VFOS, FRG100_ANTS },
+        {kHz(50), MHz(30), FRG100_MODES, 0, 0, FRG100_VFOS, FRG100_ANTS },
         RIG_FRNG_END,
     }, /* Region 2 rx ranges */
 
     .tx_range_list2 =     {
-        {kHz(50), MHz(30), FRG100_MODES, -1, -1, FRG100_VFOS, FRG100_ANTS },
+        {kHz(50), MHz(30), FRG100_MODES, 0, 0, FRG100_VFOS, FRG100_ANTS },
         RIG_FRNG_END,
     },    /* region 2 TX ranges */
 
@@ -208,6 +240,7 @@ const struct rig_caps frg100_caps =
     .get_level =      frg100_get_level,
 
     .set_powerstat =  frg100_set_powerstat,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 static inline int frg100_channel_is_ok(unsigned char channel)
@@ -220,7 +253,7 @@ static int frg100_do_transaction(RIG *rig,
                                  const unsigned char cmd[YAESU_CMD_LENGTH],
                                  unsigned char *retbuf, size_t retbuf_len)
 {
-    struct rig_state    *rs;
+    hamlib_port_t *rp = RIGPORT(rig);
     unsigned char       default_retbuf[1];
     int                 retval;
 
@@ -230,15 +263,14 @@ static int frg100_do_transaction(RIG *rig,
         retbuf_len = sizeof(default_retbuf);
     }
 
-    rs = &rig->state;
     memset(retbuf, 0, retbuf_len);
 
-    rig_flush(&rs->rigport);
-    retval = write_block(&rs->rigport, (const char *)cmd, YAESU_CMD_LENGTH);
+    rig_flush(rp);
+    retval = write_block(rp, cmd, YAESU_CMD_LENGTH);
 
     if (retval != RIG_OK) { return retval; }
 
-    retval = read_block(&rs->rigport, (char *)retbuf, retbuf_len);
+    retval = read_block(rp, retbuf, retbuf_len);
 
     if (retval != retbuf_len)
     {
@@ -315,12 +347,12 @@ static int frg100_read_op_data(RIG *rig, unsigned char *hwmode,
  */
 int frg100_open(RIG *rig)
 {
-    unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x0e};
+    const  unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x0e};
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
     /* send 0 delay pacing */
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), cmd, YAESU_CMD_LENGTH);
 
 }
 
@@ -339,7 +371,7 @@ int frg100_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     to_bcd(cmd, freq / 10, 8);
 
     /* Frequency set */
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), cmd, YAESU_CMD_LENGTH);
 }
 
 
@@ -351,7 +383,7 @@ int frg100_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     /* fill in p1 */
     cmd[3] = mode2rig(rig, mode, width);
 
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), cmd, YAESU_CMD_LENGTH);
 }
 
 
@@ -367,7 +399,7 @@ int frg100_set_powerstat(RIG *rig, powerstat_t status)
     cmd[3] = status == RIG_POWER_OFF ? 0x00 : 0x01;
 
     /* Frequency set */
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), cmd, YAESU_CMD_LENGTH);
 }
 
 
@@ -395,7 +427,7 @@ int frg100_set_vfo(RIG *rig, vfo_t vfo)
         return -RIG_EINVAL;     /* sorry, wrong VFO */
     }
 
-    return write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    return write_block(RIGPORT(rig), cmd, YAESU_CMD_LENGTH);
 }
 
 
@@ -403,16 +435,17 @@ int frg100_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0xf7};
     int retval;
+    hamlib_port_t *rp = RIGPORT(rig);
 
     if (level != RIG_LEVEL_RAWSTR)
     {
         return -RIG_EINVAL;
     }
 
-    rig_flush(&rig->state.rigport);
+    rig_flush(rp);
 
     /* send READ STATUS(Meter only) cmd to rig  */
-    retval = write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
+    retval = write_block(rp, cmd, YAESU_CMD_LENGTH);
 
     if (retval < 0)
     {
@@ -420,7 +453,7 @@ int frg100_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     }
 
     /* read back the 1 byte */
-    retval = read_block(&rig->state.rigport, (char *) cmd, 5);
+    retval = read_block(rp, cmd, 5);
 
     if (retval < 1)
     {

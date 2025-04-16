@@ -2,10 +2,11 @@ Hamlib - (C) Frank Singleton 2000 (vk3fcs@ix.netcom.com)
          (C) Stephane Fillod 2000-2011
          (C) The Hamlib Group 2000-2013
 
-Take a look at http://sourceforge.net/projects/hamlib/
+Primary site for the latest development version of Hamlib is https://github.com/Hamlib/Hamlib
+Also take a look at http://sourceforge.net/projects/hamlib/
 Here you will find a mail list, and the latest releases.
 
-See README for frontend/backend outline.
+See README.md for frontend/backend outline.
 See README.betatester for background on testing Hamlib.
 
 
@@ -238,7 +239,7 @@ That is, if you want to take part in the development of Hamlib,
 you'll need the following tools. Make sure you have at least the required
 version or you won't even be able to build from the Git clone.
 
-N.B. The Debian and derivatives (Ubuntu and friends) 'build-essentials'
+N.B. The Debian and derivatives (Ubuntu and friends) 'build-essential'
 package will install a number of tools and minimize the number of packages
 that need to be installed manually (Debian package names are listed, other
 distributions may differ).

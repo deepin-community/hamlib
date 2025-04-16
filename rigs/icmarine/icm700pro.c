@@ -19,16 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "icmarine.h"
 #include "idx_builtin.h"
-#include "bandplan.h"
 
 #define ICM700PRO_MODES (RIG_MODE_SSB|RIG_MODE_CW|RIG_MODE_RTTY)
 #define ICM700PRO_RX_MODES (ICM700PRO_MODES|RIG_MODE_AM)
@@ -54,14 +49,14 @@ static const struct icmarine_priv_caps icm700pro_priv_caps =
     .default_remote_id = 2,
 };
 
-const struct rig_caps icm700pro_caps =
+struct rig_caps icm700pro_caps =
 {
     RIG_MODEL(RIG_MODEL_IC_M700PRO),
     .model_name = "IC-M700PRO",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =   RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -83,7 +78,6 @@ const struct rig_caps icm700pro_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 8 } },
     },
     .parm_gran =  {},
@@ -177,7 +171,7 @@ const struct rig_caps icm700pro_caps =
     .get_level =  icmarine_get_level,
     .set_func =  icmarine_set_func,
     .get_func =  icmarine_get_func,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

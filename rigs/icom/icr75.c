@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -107,14 +103,14 @@ static struct icom_priv_caps icr75_priv_caps =
     .ant_count = 2
 };
 
-const struct rig_caps icr75_caps =
+struct rig_caps icr75_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR75),
     .model_name = "IC-R75",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -135,18 +131,28 @@ const struct rig_caps icr75_caps =
     .has_set_level =  RIG_LEVEL_SET(ICR75_LEVEL_ALL),
     .has_get_parm =  ICR75_PARM_ALL,
     .has_set_parm =  RIG_PARM_SET(ICR75_PARM_ALL),
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#define NO_LVL_PBT_IN
+#define NO_LVL_PBT_OUT
+#define NO_LVL_CWPITCH
+#include "level_gran_icom.h"
         [LVL_PBT_IN] = { .min = { .f = -1280 }, .max = { .f = +1280 }, .step = { .f = 15 } },
         [LVL_PBT_OUT] = { .min = { .f = -1280 }, .max = { .f = +1280 }, .step = { .f = 15 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 10 } },
-        [LVL_NR] = { .min = { .f = 0.0 }, .max = { .f = 1.0 }, .step = { .f = 0.066666667 } },
+#undef NO_LVL_PBT_IN
+#undef NO_LVL_PBT_OUT
+#undef NO_LVL_CWPITCH
     },
     .parm_gran =  {
         [PARM_APO] = { .min = { .i = 1 }, .max = { .i = 1439} },
         [PARM_TIME] = { .min = { .i = 0 }, .max = { .i = 86399} },
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BANDSELECT] = {.step = {.s = "BANDUNUSED,BAND160M,BAND80M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}},
+        [PARM_BEEP] = {.min = {.i = 0}, .max = {.i = 1}, .step = {.i = 1}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
     },
+
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { 10, 20, RIG_DBLST_END, }, /* TBC */
@@ -244,12 +250,13 @@ const struct rig_caps icr75_caps =
     .set_channel = icr75_set_channel,
     .get_channel = icr75_get_channel,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
 /*
  * icr75_set_channel
- * Assumes rig!=NULL, rig->state.priv!=NULL, chan!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL, chan!=NULL
  * TODO: still a WIP --SF
  */
 int icr75_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
@@ -262,7 +269,7 @@ int icr75_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     signed char icmode_ext;
     int err;
 
-    rs = &rig->state;
+    rs = STATE(rig);
     priv = (struct icom_priv_data *)rs->priv;
 
     to_bcd_be(chanbuf, chan->channel_num, 4);
@@ -295,7 +302,7 @@ int icr75_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 
     to_bcd_be(chanbuf + chan_len++, chan->ant, 2);
     memset(chanbuf + chan_len, 0, 8);
-    snprintf((char *)(chanbuf + chan_len), 9, "%.8s", chan->channel_desc);
+    SNPRINTF((char *)(chanbuf + chan_len), 9, "%.8s", chan->channel_desc);
     chan_len += 8;
 
     retval = icom_transaction(rig, C_CTL_MEM, S_MEM_CNTNT,
@@ -318,7 +325,7 @@ int icr75_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 
 /*
  * icr75_get_channel
- * Assumes rig!=NULL, rig->state.priv!=NULL, chan!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL, chan!=NULL
  * TODO: still a WIP --SF
  */
 int icr75_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
@@ -328,7 +335,7 @@ int icr75_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
     unsigned char chanbuf[24];
     int chan_len, freq_len, retval;
 
-    rs = &rig->state;
+    rs = STATE(rig);
     priv = (struct icom_priv_data *)rs->priv;
 
     to_bcd_be(chanbuf, chan->channel_num, 4);

@@ -23,28 +23,24 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
 #include "bandplan.h"
+#include "misc.h"
 #include "flex.h"
-#include "token.h"
-#include "cal.h"
 
 #define F6K_MODES (RIG_MODE_CW|RIG_MODE_SSB|RIG_MODE_AM|RIG_MODE_FM|RIG_MODE_PKTLSB|RIG_MODE_PKTUSB)
 
 #define F6K_FUNC_ALL (RIG_FUNC_VOX|RIG_FUNC_TUNER)
 
-#define F6K_LEVEL_ALL (RIG_LEVEL_SLOPE_HIGH|RIG_LEVEL_SLOPE_LOW|RIG_LEVEL_KEYSPD)
+#define F6K_LEVEL_ALL (RIG_LEVEL_SLOPE_HIGH|RIG_LEVEL_SLOPE_LOW|RIG_LEVEL_KEYSPD|RIG_LEVEL_RFPOWER)
 
 #define F6K_VFO (RIG_VFO_A|RIG_VFO_B)
-#define F6K_VFO_OP (RIG_OP_UP|RIG_OP_DOWN)
+#define POWERSDR_VFO_OP (RIG_OP_BAND_UP|RIG_OP_BAND_DOWN|RIG_OP_UP|RIG_OP_DOWN)
 
 #define F6K_ANTS (RIG_ANT_1|RIG_ANT_2|RIG_ANT_3)
 
@@ -53,7 +49,8 @@
 
 #define POWERSDR_FUNC_ALL (RIG_FUNC_VOX|RIG_FUNC_SQL|RIG_FUNC_NB|RIG_FUNC_ANF|RIG_FUNC_MUTE|RIG_FUNC_RIT|RIG_FUNC_XIT|RIG_FUNC_TUNER)
 
-#define POWERSDR_LEVEL_ALL (RIG_LEVEL_SLOPE_HIGH|RIG_LEVEL_SLOPE_LOW|RIG_LEVEL_KEYSPD|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_MICGAIN|RIG_LEVEL_VOXGAIN|RIG_LEVEL_SQL|RIG_LEVEL_AF|RIG_LEVEL_AGC|RIG_LEVEL_RF|RIG_LEVEL_IF|RIG_LEVEL_STRENGTH)
+#define POWERSDR_LEVEL_ALL (RIG_LEVEL_SLOPE_HIGH|RIG_LEVEL_SLOPE_LOW|RIG_LEVEL_KEYSPD|RIG_LEVEL_RFPOWER|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_MICGAIN|RIG_LEVEL_VOXGAIN|RIG_LEVEL_SQL|RIG_LEVEL_AF|RIG_LEVEL_AGC|RIG_LEVEL_RF|RIG_LEVEL_IF|RIG_LEVEL_STRENGTH|RIG_LEVEL_SWR)
+#define POWERSDR_LEVEL_SET (RIG_LEVEL_SLOPE_HIGH|RIG_LEVEL_SLOPE_LOW|RIG_LEVEL_KEYSPD|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_VOXGAIN|RIG_LEVEL_SQL|RIG_LEVEL_AF|RIG_LEVEL_AGC|RIG_LEVEL_RF|RIG_LEVEL_IF)
 
 
 static rmode_t flex_mode_table[KENWOOD_MODE_TABLE_MAX] =
@@ -90,12 +87,15 @@ static struct kenwood_priv_caps f6k_priv_caps  =
 {
     .cmdtrm =  EOM_KEN,
     .mode_table = flex_mode_table,
+    .if_len = 37
 };
 
 static struct kenwood_priv_caps powersdr_priv_caps  =
 {
     .cmdtrm =  EOM_KEN,
     .mode_table = powersdr_mode_table,
+    .if_len = 37,
+    .swr = 0
 };
 
 #define DSP_BW_NUM 8
@@ -178,7 +178,7 @@ static int flex6k_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
     if ((vfo == RIG_VFO_VFO) || (vfo == RIG_VFO_CURR))
     {
-        vfo = rig->state.current_vfo;
+        vfo = STATE(rig)->current_vfo;
         rig_debug(RIG_DEBUG_VERBOSE, "%s: setting VFO to current\n", __func__);
     }
 
@@ -275,7 +275,7 @@ static int powersdr_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode,
 
     if ((vfo == RIG_VFO_VFO) || (vfo == RIG_VFO_CURR))
     {
-        vfo = rig->state.current_vfo;
+        vfo = STATE(rig)->current_vfo;
         rig_debug(RIG_DEBUG_VERBOSE, "%s: setting VFO to current\n", __func__);
     }
 
@@ -441,7 +441,7 @@ static int flex6k_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    sprintf(buf, "MD%c", '0' + kmode);
+    SNPRINTF(buf, sizeof(buf), "MD%c", '0' + kmode);
     err = kenwood_transaction(rig, buf, NULL, 0);
 
     if (err != RIG_OK)
@@ -451,7 +451,7 @@ static int flex6k_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
     if ((vfo == RIG_VFO_VFO) || (vfo == RIG_VFO_CURR))
     {
-        vfo = rig->state.current_vfo;
+        vfo = STATE(rig)->current_vfo;
         rig_debug(RIG_DEBUG_VERBOSE, "%s: setting VFO to current\n", __func__);
     }
 
@@ -471,11 +471,11 @@ static int flex6k_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     switch (vfo)
     {
     case RIG_VFO_A:
-        sprintf(buf, "ZZFI%02d;", idx);
+        SNPRINTF(buf, sizeof(buf), "ZZFI%02d;", idx);
         break;
 
     case RIG_VFO_B:
-        sprintf(buf, "ZZFJ%02d;", idx);
+        SNPRINTF(buf, sizeof(buf), "ZZFJ%02d;", idx);
         break;
 
     default:
@@ -513,7 +513,7 @@ static int powersdr_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    sprintf(buf, "ZZMD%02d", kmode);
+    SNPRINTF(buf, sizeof(buf), "ZZMD%02d", kmode);
     err = kenwood_transaction(rig, buf, NULL, 0);
 
     if (err != RIG_OK)
@@ -523,7 +523,7 @@ static int powersdr_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
     if ((vfo == RIG_VFO_VFO) || (vfo == RIG_VFO_CURR))
     {
-        vfo = rig->state.current_vfo;
+        vfo = STATE(rig)->current_vfo;
         rig_debug(RIG_DEBUG_VERBOSE, "%s: setting VFO to current\n", __func__);
     }
 
@@ -548,11 +548,11 @@ static int powersdr_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         {
             // 150Hz on the low end should be enough
             // Set high to the width requested
-            sprintf(buf, "ZZFL00150;ZZFH%05d;", (int)width);
+            SNPRINTF(buf, sizeof(buf), "ZZFL00150;ZZFH%05d;", (int)width);
         }
         else
         {
-            sprintf(buf, "ZZFI%02d;", idx);
+            SNPRINTF(buf, sizeof(buf), "ZZFI%02d;", idx);
         }
 
         break;
@@ -658,25 +658,34 @@ int powersdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         if (val.f > 1.0) { return -RIG_EINVAL; }
 
         ival = val.f * 100;
-        snprintf(cmd, sizeof(cmd) - 1, "ZZAG%03d", ival);
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZAG%03d", ival);
         break;
 
     case RIG_LEVEL_IF:
-        snprintf(cmd, sizeof(cmd) - 1, "ZZIT%+05d", val.i);
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZIT%+05d", val.i);
         break;
 
     case RIG_LEVEL_RF:
         if (val.f > 1.0) { return -RIG_EINVAL; }
 
-        ival = val.f * (120 - -20) - 20;
-        snprintf(cmd, sizeof(cmd) - 1, "ZZAR%+04d", ival);
+        if (rig->caps->rig_model == RIG_MODEL_POWERSDR)
+        {
+            ival = val.f * (120 - -20) - 20;
+            SNPRINTF(cmd, sizeof(cmd) - 1, "ZZAR%+04d", ival);
+        }
+        else
+        {
+            ival = val.f * 100;
+            SNPRINTF(cmd, sizeof(cmd) - 1, "ZZAR%03d", ival);
+        }
+
         break;
 
     case RIG_LEVEL_MICGAIN:
         if (val.f > 1.0) { return -RIG_EINVAL; }
 
         ival = val.f * (10 - -40) - 40;
-        snprintf(cmd, sizeof(cmd) - 1, "ZZMG%03d", ival);
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZMG%03d", ival);
         break;
 
     case RIG_LEVEL_AGC:
@@ -685,14 +694,14 @@ int powersdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             val.i = 5;    /* 0.. 255 */
         }
 
-        snprintf(cmd, sizeof(cmd), "GT%03d", (int)val.i);
+        SNPRINTF(cmd, sizeof(cmd), "GT%03d", (int)val.i);
         break;
 
     case RIG_LEVEL_VOXGAIN:
         if (val.f > 1.0) { return -RIG_EINVAL; }
 
         ival = val.f * 1000;
-        snprintf(cmd, sizeof(cmd) - 1, "ZZVG%04d", ival);
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZVG%04d", ival);
         break;
 
     case RIG_LEVEL_SQL:
@@ -709,7 +718,7 @@ int powersdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             ival = 160 - (val.f * 160); // all other modes  0 to 160
         }
 
-        snprintf(cmd, sizeof(cmd) - 1, "ZZSQ%03d", ival);
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZSQ%03d", ival);
         break;
 
     default:
@@ -725,6 +734,105 @@ int powersdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s exiting\n", __func__);
+
+    return RIG_OK;
+}
+
+/*
+ * flek6k_set_level
+ */
+int flex6k_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
+{
+    char cmd[KENWOOD_MAX_BUF_LEN];
+    int retval;
+    int ival;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    switch (level)
+    {
+    case RIG_LEVEL_RFPOWER:
+        if (val.f > 1.0) { return -RIG_EINVAL; }
+
+        ival = val.f * 100;
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZPC%03d", ival);
+
+        break;
+
+    default:
+        return kenwood_set_level(rig, vfo, level, val);
+    }
+
+    retval = kenwood_transaction(rig, cmd, NULL, 0);
+
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s exiting\n", __func__);
+
+    return RIG_OK;
+}
+
+/*
+ * flex6k_get_level
+ */
+int flex6k_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
+{
+    char lvlbuf[KENWOOD_MAX_BUF_LEN];
+    char *cmd;
+    int retval;
+    int len, ans;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (!val)
+    {
+        return -RIG_EINVAL;
+    }
+
+    switch (level)
+    {
+    case RIG_LEVEL_RFPOWER:
+        cmd = "ZZPC";
+        len = 4;
+        ans = 3;
+        break;
+
+    default:
+        return kenwood_get_level(rig, vfo, level, val);
+    }
+
+    retval = kenwood_safe_transaction(rig, cmd, lvlbuf, sizeof(lvlbuf), len + ans);
+
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
+
+    int n;
+
+    switch (level)
+    {
+    case RIG_LEVEL_RFPOWER:
+        n = sscanf(lvlbuf, "ZZPC%f", &val->f);
+
+        if (n != 1)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: Error parsing value from lvlbuf='%s'\n",
+                      __func__, lvlbuf);
+            val->f = 0;
+            return -RIG_EPROTO;
+        }
+
+        val->f /= 100;
+
+        break;
+
+    default:
+        rig_debug(RIG_DEBUG_ERR, "%s: should never get here\n", __func__);
+    }
 
     return RIG_OK;
 }
@@ -790,6 +898,12 @@ int powersdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         ans = 9;
         break;
 
+    case RIG_LEVEL_RFPOWER:
+        cmd = "ZZPC";
+        len = 4;
+        ans = 8;
+        break;
+
     case RIG_LEVEL_RFPOWER_METER:
     case RIG_LEVEL_RFPOWER_METER_WATTS:
         flex6k_get_ptt(rig, vfo, &ptt);
@@ -822,6 +936,28 @@ int powersdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         len = 4;
         ans = 3;
         break;
+
+    case RIG_LEVEL_SWR:
+    {
+        struct kenwood_priv_caps *priv = kenwood_caps(rig);
+        ptt = 0;
+        rig_get_ptt(rig, RIG_VFO_CURR, &ptt);
+
+        if (ptt == RIG_PTT_OFF) { val->f = priv->swr; return RIG_OK;}
+
+        cmd = "ZZRM8"; // get SWR
+        retval = kenwood_transaction(rig, cmd, lvlbuf, sizeof(lvlbuf));
+
+        if (retval != RIG_OK) { val->f = priv->swr; return RIG_OK;};
+
+        sscanf(lvlbuf, "ZZRM8%lg", &priv->swr);
+
+        val->f = priv->swr;
+
+        rig_debug(RIG_DEBUG_ERR, "%s(%d) swr=%.1f\n", __func__, __LINE__, val->f);
+
+        return RIG_OK;
+    }
 
     default:
         return kenwood_get_level(rig, vfo, level, val);
@@ -891,9 +1027,8 @@ int powersdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         val->f /= 100.0;
         break;
 
-    case RIG_LEVEL_RFPOWER_METER:
-    case RIG_LEVEL_RFPOWER_METER_WATTS:
-        n = sscanf(lvlbuf, "ZZRM5%f", &val->f);
+    case RIG_LEVEL_RFPOWER:
+        n = sscanf(lvlbuf, "ZZPC%f", &val->f);
 
         if (n != 1)
         {
@@ -903,12 +1038,35 @@ int powersdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EPROTO;
         }
 
-        if (level != RIG_LEVEL_RFPOWER_METER_WATTS)
-        {
-            val->f /= 100;
-        }
-
+        val->f /= 100;
         break;
+
+    case RIG_LEVEL_RFPOWER_METER:
+    case RIG_LEVEL_RFPOWER_METER_WATTS:
+    {
+        // if not ptt then no power is going out so return 0W
+        ptt = 0;
+        rig_get_ptt(rig, RIG_VFO_TX, &ptt);
+
+        if (!ptt) { val->f = 0; return RIG_OK; }
+
+        n = sscanf(lvlbuf, "ZZRM5%f", &val->f);
+
+        if (n != 1)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: Error parsing value from lvlbuf='%s'\n",
+                      __func__, lvlbuf);
+            val->f = 0;
+            return -RIG_EPROTO;
+        }
+    }
+
+    if (level != RIG_LEVEL_RFPOWER_METER_WATTS)
+    {
+        val->f /= 100;
+    }
+
+    break;
 
     case RIG_LEVEL_RF:
         n = sscanf(lvlbuf + len, "%d", &val->i);
@@ -920,7 +1078,8 @@ int powersdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EPROTO;
         }
 
-        val->f = (val->i + 20.0) / (120.0 - -20.0);
+        n = val->i;
+        val->f = (n + 20.0) / (120.0 - -20.0);
 
         break;
 
@@ -993,19 +1152,19 @@ int powersdr_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
     switch (func)
     {
     case RIG_FUNC_MUTE:
-        snprintf(cmd, sizeof(cmd) - 1, "ZZMA%01d", status);
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZMA%01d", status);
         break;
 
     case RIG_FUNC_VOX:
-        snprintf(cmd, sizeof(cmd) - 1, "ZZVE%01d", status);
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZVE%01d", status);
         break;
 
     case RIG_FUNC_SQL:
-        snprintf(cmd, sizeof(cmd) - 1, "ZZSO%01d", status);
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZSO%01d", status);
         break;
 
     case RIG_FUNC_TUNER:
-        snprintf(cmd, sizeof(cmd) - 1, "ZZTU%01d", status);
+        SNPRINTF(cmd, sizeof(cmd) - 1, "ZZTU%01d", status);
         break;
 
     default:
@@ -1075,15 +1234,116 @@ int powersdr_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
     return RIG_OK;
 }
 
+int powersdr_set_parm(RIG *rig, setting_t parm, value_t val)
+{
+    ENTERFUNC;
+    char cmd[KENWOOD_MAX_BUF_LEN];
+    int retval = -RIG_EINTERNAL;
+    int band = 999; // default to the weird WWV band
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: val=%s\n", __func__, val.s);
+
+    switch (parm)
+    {
+    case RIG_PARM_BANDSELECT:
+        if (strcmp(val.s, "BANDWWV") != 0)
+        {
+            int n = sscanf(val.s, "BAND%d", &band);
+
+            if (n != 1)
+            {
+                rig_debug(RIG_DEBUG_ERR, "%s: unknown band=%s\n", __func__, val.s);
+            }
+        }
+
+        SNPRINTF(cmd, sizeof(cmd), "ZZBS%03d;", band);
+        retval = kenwood_transaction(rig, cmd, NULL, 0);
+    }
+
+    RETURNFUNC(retval);
+}
+
+int powersdr_get_parm(RIG *rig, setting_t parm, value_t *val)
+{
+    char cmd[KENWOOD_MAX_BUF_LEN];
+    char buf[KENWOOD_MAX_BUF_LEN];
+    int retval;
+    int len, ans;
+
+    ENTERFUNC;
+
+    switch (parm)
+    {
+    case RIG_PARM_BANDSELECT:
+        len = 4;
+        ans = 3;
+        SNPRINTF(cmd, sizeof(cmd), "%s", "ZZBS;");
+        break;
+
+    default:
+        RETURNFUNC(-RIG_EINVAL);
+    }
+
+    retval = kenwood_safe_transaction(rig, cmd, buf, 10, len + ans);
+
+    if (retval != RIG_OK) { RETURNFUNC(retval); }
+
+    int band;
+    int n = sscanf(buf, "ZZBS%3d", &band);
+
+    if (n != 1)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: unknown band=%s\n", __func__, buf);
+        RETURNFUNC(-RIG_EPROTO);
+    }
+
+    switch (band)
+    {
+    case 160: val->cs = "BAND160M"; break;
+
+    case  80: val->cs = "BAND80M"; break;
+
+    case  60: val->cs = "BAND60M"; break;
+
+    case  40: val->cs = "BAND40M"; break;
+
+    case  30: val->cs = "BAND30M"; break;
+
+    case  20: val->cs = "BAND20M"; break;
+
+    case  17: val->cs = "BAND17M"; break;
+
+    case  15: val->cs = "BAND15M"; break;
+
+    case  12: val->cs = "BAND12M"; break;
+
+    case  10: val->cs = "BAND10M"; break;
+
+    case   6: val->cs = "BAND6M"; break;
+
+    case 999: val->cs = "BANDWWV"; break;
+
+    default:
+        rig_debug(RIG_DEBUG_ERR, "%s: unknown band=%d\n", __func__, band);
+        val->cs = "BAND???";
+    }
+
+    RETURNFUNC(RIG_OK);
+}
+
+#define NO_LVL_KEYSPD
+#define NO_LVL_SLOPE_LOW
+#define NO_LVL_SLOPE_HIGH
+
 /*
  * F6K rig capabilities.
  */
-const struct rig_caps f6k_caps =
+struct rig_caps f6k_caps =
 {
     RIG_MODEL(RIG_MODEL_F6K),
     .model_name =       "6xxx",
     .mfg_name =     "FlexRadio",
-    .version =      "20210527.0",
+    .version =      "20240829.0",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -1094,7 +1354,7 @@ const struct rig_caps f6k_caps =
     // We need at least 3 seconds to do profile switches
     // Hitting the timeout is OK as long as we retry
     // Previous note showed FA/FB may take up to 500ms on band change
-    .timeout =      300,
+    .timeout =      700,
     .retry =        13,
 
     .has_get_func =     RIG_FUNC_NONE, /* has VOX but not implemented here */
@@ -1103,15 +1363,19 @@ const struct rig_caps f6k_caps =
     .has_set_level =    F6K_LEVEL_ALL,
     .has_get_parm =     RIG_PARM_NONE,
     .has_set_parm =     RIG_PARM_NONE,  /* FIXME: parms */
-    .level_gran =       {},     /* FIXME: granularity */
+    .level_gran =       {
+        [LVL_KEYSPD] = { .min = { .i = 5 }, .max = { .i = 60 }, .step = { .i = 1 } },
+        [LVL_SLOPE_LOW] = { .min = { .i = 10}, .max = { .i = 1000}, .step = { .i = 50} },
+        [LVL_SLOPE_HIGH] = { .min = { .i = 1000}, .max = { .i = 5000}, .step = { .i = 10} },
+    },     /* FIXME: granularity */
     .parm_gran =        {},
     //.extlevels =      elecraft_ext_levels,
     //.extparms =       kenwood_cfg_params,
     .post_write_delay = 20,
     .preamp =       { RIG_DBLST_END, },
     .attenuator =       { RIG_DBLST_END, },
-    .max_rit =      Hz(0),
-    .max_xit =      Hz(0),
+    .max_rit =      Hz(99999),
+    .max_xit =      Hz(99999),
     .max_ifshift =      Hz(0),
     .vfo_ops =      RIG_OP_NONE,
     .targetable_vfo =   RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE,
@@ -1183,6 +1447,10 @@ const struct rig_caps f6k_caps =
     .rig_close =        kenwood_close,
     .set_freq =     kenwood_set_freq,
     .get_freq =     kenwood_get_freq,
+    .set_rit =  kenwood_set_rit,
+    .get_rit =  kenwood_get_rit,
+    .set_xit =  kenwood_set_xit,
+    .get_xit =  kenwood_get_xit,
     .set_mode =     flex6k_set_mode,
     .get_mode =     flex6k_get_mode,
     .set_vfo =      kenwood_set_vfo,
@@ -1193,28 +1461,32 @@ const struct rig_caps f6k_caps =
     .set_ptt =      kenwood_set_ptt,
     // TODO copy over kenwood_[set|get]_level and modify to handle DSP filter values
     // correctly - use actual values instead of indices
-    .set_level =        kenwood_set_level,
-    .get_level =        kenwood_get_level,
+    .set_level =        flex6k_set_level,
+    .get_level =        flex6k_get_level,
     //.set_ant =       kenwood_set_ant_no_ack,
     //.get_ant =       kenwood_get_ant,
+    .send_morse =  kenwood_send_morse,
+    .stop_morse =  kenwood_stop_morse,
+    .wait_morse =  rig_wait_morse,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
  * PowerSDR rig capabilities.
  */
-const struct rig_caps powersdr_caps =
+struct rig_caps powersdr_caps =
 {
     RIG_MODEL(RIG_MODEL_POWERSDR),
-    .model_name =       "PowerSDR/Thetis",
-    .mfg_name =     "FlexRadio/ANAN",
-    .version =      "20210605.0",
+    .model_name =       "PowerSDR",
+    .mfg_name =     "FlexRadio/Apache",
+    .version =      "20231107.0",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
     .ptt_type =     RIG_PTT_RIG,
     .dcd_type =     RIG_DCD_NONE,
     .port_type =        RIG_PORT_SERIAL,
-    .serial_rate_min =  1200,
+    .serial_rate_min =  300,
     .serial_rate_max =  115200,
     .serial_data_bits =  8,
     .serial_stop_bits =  1,
@@ -1226,17 +1498,27 @@ const struct rig_caps powersdr_caps =
     // We need at least 3 seconds to do profile switches
     // Hitting the timeout is OK as long as we retry
     // Previous note showed FA/FB may take up to 500ms on band change
+    // Flex 1500 needs about 6 seconds for a band change in PowerSDR
     .timeout =      800, // some band transitions can take 600ms
-    .retry =        3,
+    .retry =        10,
 
     .has_get_func =     POWERSDR_FUNC_ALL,
     .has_set_func =     POWERSDR_FUNC_ALL,
     .has_get_level =    POWERSDR_LEVEL_ALL,
-    .has_set_level =    POWERSDR_LEVEL_ALL,
-    .has_get_parm =     RIG_PARM_NONE,
-    .has_set_parm =     RIG_PARM_NONE,  /* FIXME: parms */
-    .level_gran =       {},     /* FIXME: granularity */
-    .parm_gran =        {},
+    .has_set_level =    POWERSDR_LEVEL_SET,
+    .has_get_parm =     RIG_PARM_BANDSELECT,
+    .has_set_parm =     RIG_PARM_BANDSELECT,
+    .level_gran =       {
+#define NO_LVL_KEYSPD
+#include "level_gran_kenwood.h"
+#undef NO_LVL_KEYSPD
+        [LVL_KEYSPD] = { .min = { .i = 5 }, .max = { .i = 60 }, .step = { .i = 1 } },
+    },     /* FIXME: granularity */
+    .parm_gran =  {
+        // there  are V00 thru V13 but we don't cover them as of yet -- what rig?
+        [PARM_BANDSELECT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.s = "BAND160M,BAND80M,BAND60M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BAND2M,BANDWWV,BANDGEN"}}
+    },
+
     //.extlevels =      elecraft_ext_levels,
     //.extparms =       kenwood_cfg_params,
     .preamp =       { RIG_DBLST_END, },
@@ -1244,9 +1526,12 @@ const struct rig_caps powersdr_caps =
     .max_rit =      Hz(0),
     .max_xit =      Hz(0),
     .max_ifshift =      Hz(0),
-    .vfo_ops =      RIG_OP_NONE,
+    .vfo_op =      kenwood_vfo_op,
+    .vfo_ops =      POWERSDR_VFO_OP,
     .targetable_vfo =   RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE,
     .transceive =       RIG_TRN_RIG,
+    .agc_level_count = 6,
+    .agc_levels = { RIG_AGC_OFF, RIG_AGC_LONG, RIG_AGC_SLOW, RIG_AGC_MEDIUM, RIG_AGC_FAST, RIG_AGC_USER },
     .bank_qty =     0,
     .chan_desc_sz =     0,
 
@@ -1322,13 +1607,175 @@ const struct rig_caps powersdr_caps =
     .get_split_vfo =    kenwood_get_split_vfo_if,
     .get_ptt =      flex6k_get_ptt,
     .set_ptt =      flex6k_set_ptt,
+    .get_powerstat = kenwood_get_powerstat,
+    .set_powerstat = kenwood_set_powerstat,
     // TODO copy over kenwood_[set|get]_level and modify to handle DSP filter values
     // correctly - use actual values instead of indices
     .set_level =        powersdr_set_level,
     .get_level =        powersdr_get_level,
     .get_func =         powersdr_get_func,
     .set_func =         powersdr_set_func,
+    .get_parm =         powersdr_get_parm,
+    .set_parm =         powersdr_set_parm,
     //.set_ant =       kenwood_set_ant_no_ack,
     //.get_ant =       kenwood_get_ant,
+    .send_morse =  kenwood_send_morse,
+    .stop_morse =  kenwood_stop_morse,
+    .wait_morse =  rig_wait_morse,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
+};
+
+/*
+ * Thetis rig capabilities.  Same as PowerSDR for now but may get new functions
+ */
+struct rig_caps thetis_caps =
+{
+    RIG_MODEL(RIG_MODEL_THETIS),
+    .model_name =   "",
+    .mfg_name =     "Thetis",
+    .version =      "20231222.0",
+    .copyright =        "LGPL",
+    .status =       RIG_STATUS_STABLE,
+    .rig_type =     RIG_TYPE_TRANSCEIVER,
+    .ptt_type =     RIG_PTT_RIG,
+    .dcd_type =     RIG_DCD_NONE,
+    .port_type =        RIG_PORT_SERIAL,
+    .serial_rate_min =  300,
+    .serial_rate_max =  115200,
+    .serial_data_bits =  8,
+    .serial_stop_bits =  1,
+    .serial_parity =  RIG_PARITY_NONE,
+    .serial_handshake =  RIG_HANDSHAKE_NONE,
+    .write_delay =  0,
+    .post_write_delay = 0,
+    // The combination of timeout and retry is important
+    // We need at least 3 seconds to do profile switches
+    // Hitting the timeout is OK as long as we retry
+    // Previous note showed FA/FB may take up to 500ms on band change
+    // Flex 1500 needs about 6 seconds for a band change in PowerSDR
+    .timeout =      800, // some band transitions can take 600ms
+    .retry =        10,
+
+    .has_get_func =     POWERSDR_FUNC_ALL,
+    .has_set_func =     POWERSDR_FUNC_ALL,
+    .has_get_level =    POWERSDR_LEVEL_ALL,
+    .has_set_level =    POWERSDR_LEVEL_SET,
+    .has_get_parm =     RIG_PARM_BANDSELECT,
+    .has_set_parm =     RIG_PARM_BANDSELECT,
+    .level_gran =       {
+#define NO_LVL_KEYSPD
+#include "level_gran_kenwood.h"
+#undef NO_LVL_KEYSPD
+        [LVL_KEYSPD] = { .min = { .i = 5 }, .max = { .i = 60 }, .step = { .i = 1 } },
+    },     /* FIXME: granularity */
+    .parm_gran =  {
+        // there  are V00 thru V13 but we don't cover them as of yet -- what rig?
+        [PARM_BANDSELECT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.s = "BAND160M,BAND80M,BAND60M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BAND2M,BANDWWV,BANDGEN"}}
+    },
+
+    //.extlevels =      elecraft_ext_levels,
+    //.extparms =       kenwood_cfg_params,
+    .preamp =       { RIG_DBLST_END, },
+    .attenuator =       { RIG_DBLST_END, },
+    .max_rit =      Hz(0),
+    .max_xit =      Hz(0),
+    .max_ifshift =      Hz(0),
+    .vfo_op =      kenwood_vfo_op,
+    .vfo_ops =      POWERSDR_VFO_OP,
+    .targetable_vfo =   RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE,
+    .transceive =       RIG_TRN_RIG,
+    .agc_level_count = 6,
+    .agc_levels = { RIG_AGC_OFF, RIG_AGC_LONG, RIG_AGC_SLOW, RIG_AGC_MEDIUM, RIG_AGC_FAST, RIG_AGC_USER },
+    .bank_qty =     0,
+    .chan_desc_sz =     0,
+
+    .chan_list =        { RIG_CHAN_END },
+
+    .rx_range_list1 =  {
+        {kHz(30), MHz(77), POWERSDR_MODES, -1, -1, F6K_VFO, F6K_ANTS},
+        {MHz(135), MHz(165), POWERSDR_MODES, -1, - 1, F6K_VFO, F6K_ANTS},
+        RIG_FRNG_END,
+    }, /* rx range */
+    .tx_range_list1 =  {
+        FRQ_RNG_HF(1, POWERSDR_MODES, mW(10), W(100), F6K_VFO, F6K_ANTS),
+        FRQ_RNG_6m(1, POWERSDR_MODES, mW(10), W(100), F6K_VFO, F6K_ANTS),
+        FRQ_RNG_2m(1, POWERSDR_MODES, mW(10), W(100), F6K_VFO, F6K_ANTS),
+        RIG_FRNG_END,
+    }, /* tx range */
+
+    .rx_range_list2 =  {
+        {kHz(30), MHz(77), POWERSDR_MODES, -1, -1, F6K_VFO, F6K_ANTS},
+        { MHz(135), MHz(165), POWERSDR_MODES, -1, -1, F6K_VFO, F6K_ANTS},
+        RIG_FRNG_END,
+    }, /* rx range */
+    .tx_range_list2 =  {
+        FRQ_RNG_HF(2, POWERSDR_MODES, mW(10), W(100), F6K_VFO, F6K_ANTS),
+        FRQ_RNG_6m(2, POWERSDR_MODES, mW(10), W(100), F6K_VFO, F6K_ANTS),
+        FRQ_RNG_2m(2, POWERSDR_MODES, mW(10), W(100), F6K_VFO, F6K_ANTS),
+        RIG_FRNG_END,
+    }, /* tx range */
+
+    .tuning_steps =  {
+        {POWERSDR_MODES, 1},
+        RIG_TS_END,
+    },
+
+    /* mode/filter list, remember: order matters! */
+    .filters =  {
+        {RIG_MODE_SSB, kHz(2.7)},
+        {RIG_MODE_SSB, kHz(3.3)},
+        {RIG_MODE_SSB, kHz(1.8)},
+        {RIG_MODE_SSB, kHz(1.6)},
+        {RIG_MODE_SSB, kHz(4.0)},
+        {RIG_MODE_SSB, RIG_FLT_ANY},
+        {RIG_MODE_CW, kHz(0.4)},
+        {RIG_MODE_CW, kHz(1.5)},
+        {RIG_MODE_CW, Hz(50)},
+        {RIG_MODE_CW, kHz(3.0)},
+        {RIG_MODE_CW, RIG_FLT_ANY},
+        {RIG_MODE_PKTUSB | RIG_MODE_PKTLSB, kHz(1.5)},
+        {RIG_MODE_PKTUSB | RIG_MODE_PKTLSB, kHz(3.0)},
+        {RIG_MODE_PKTUSB | RIG_MODE_PKTLSB, kHz(0.1)},
+        {RIG_MODE_PKTUSB | RIG_MODE_PKTLSB, RIG_FLT_ANY},
+        {RIG_MODE_AM, kHz(6)},
+        {RIG_MODE_AM, kHz(14)},
+        {RIG_MODE_AM, kHz(5.6)},
+        {RIG_MODE_AM, kHz(20.0)},
+        {RIG_MODE_AM, RIG_FLT_ANY},
+        {RIG_MODE_FM, kHz(13)}, /* TBC */
+        RIG_FLT_END,
+    },
+    .priv = (void *)& powersdr_priv_caps,
+
+    .rig_init =     kenwood_init,
+    .rig_cleanup =      kenwood_cleanup,
+    .rig_open =     flexradio_open,
+    .rig_close =        kenwood_close,
+    .set_freq =     kenwood_set_freq,
+    .get_freq =     kenwood_get_freq,
+    .set_mode =     powersdr_set_mode,
+    .get_mode =     powersdr_get_mode,
+    .set_vfo =      kenwood_set_vfo,
+    .get_vfo =      kenwood_get_vfo_if,
+    .set_split_vfo =    kenwood_set_split_vfo,
+    .get_split_vfo =    kenwood_get_split_vfo_if,
+    .get_ptt =      flex6k_get_ptt,
+    .set_ptt =      flex6k_set_ptt,
+    .get_powerstat = kenwood_get_powerstat,
+    .set_powerstat = kenwood_set_powerstat,
+    // TODO copy over kenwood_[set|get]_level and modify to handle DSP filter values
+    // correctly - use actual values instead of indices
+    .set_level =        powersdr_set_level,
+    .get_level =        powersdr_get_level,
+    .get_func =         powersdr_get_func,
+    .set_func =         powersdr_set_func,
+    .get_parm =         powersdr_get_parm,
+    .set_parm =         powersdr_set_parm,
+    //.set_ant =       kenwood_set_ant_no_ack,
+    //.get_ant =       kenwood_get_ant,
+    .send_morse =  kenwood_send_morse,
+    .stop_morse =  kenwood_stop_morse,
+    .wait_morse =  rig_wait_morse,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

@@ -22,15 +22,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <ctype.h>
 
 #include <getopt.h>
 #include <errno.h>
@@ -62,9 +59,10 @@
 #endif
 
 #include <hamlib/amplifier.h>
-#include "misc.h"
 
 #include "ampctl_parse.h"
+#include "amplist.h"
+#include "rig.h"
 
 struct handle_data
 {
@@ -111,7 +109,7 @@ const char *src_addr = NULL;    /* INADDR_ANY */
 
 char send_cmd_term = '\r';      /* send_cmd termination char */
 
-#define MAXCONFLEN 1024
+#define MAXCONFLEN 2048
 
 
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
@@ -258,7 +256,7 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms));
+            strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms) - 1);
             break;
 
         case 't':
@@ -325,29 +323,44 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-#if 0
-    retcode = set_conf(my_amp, conf_parms);
+    char *token = strtok(conf_parms, ",");
 
-    if (retcode != RIG_OK)
+    while (token)
     {
-        fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
-        exit(2);
-    }
+        char mytoken[100], myvalue[100];
+        hamlib_token_t lookup;
+        sscanf(token, "%99[^=]=%99s", mytoken, myvalue);
+        //printf("mytoken=%s,myvalue=%s\n",mytoken, myvalue);
+        lookup = amp_token_lookup(my_amp, mytoken);
 
-#endif
+        if (lookup == 0)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: no such token as '%s'\n", __func__, mytoken);
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        retcode = amp_set_conf(my_amp, amp_token_lookup(my_amp, mytoken), myvalue);
+
+        if (retcode != RIG_OK)
+        {
+            fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
+            exit(2);
+        }
+
+        token = strtok(NULL, ",");
+    }
 
     if (amp_file)
     {
-        strncpy(my_amp->state.ampport.pathname, amp_file, HAMLIB_FILPATHLEN - 1);
+        strncpy(AMPPORT(my_amp)->pathname, amp_file, HAMLIB_FILPATHLEN - 1);
     }
 
     /* FIXME: bound checking and port type == serial */
     if (serial_rate != 0)
     {
-        my_amp->state.ampport.parm.serial.rate = serial_rate;
+        AMPPORT(my_amp)->parm.serial.rate = serial_rate;
     }
-
-#if 0
 
     /*
      * print out conf parameters
@@ -356,8 +369,6 @@ int main(int argc, char *argv[])
     {
         amp_token_foreach(my_amp, print_conf_list, (rig_ptr_t)my_amp);
     }
-
-#endif
 
     /*
      * Print out conf parameters, and exits immediately as we may be
@@ -542,11 +553,11 @@ int main(int argc, char *argv[])
      */
     do
     {
-        arg = malloc(sizeof(struct handle_data));
+        arg = calloc(1, sizeof(struct handle_data));
 
         if (!arg)
         {
-            rig_debug(RIG_DEBUG_ERR, "malloc: %s\n", strerror(errno));
+            rig_debug(RIG_DEBUG_ERR, "calloc: %s\n", strerror(errno));
             exit(1);
         }
 
@@ -568,7 +579,7 @@ int main(int argc, char *argv[])
                                    sizeof(host),
                                    serv,
                                    sizeof(serv),
-                                   NI_NOFQDN))
+                                   NI_NUMERICHOST | NI_NUMERICSERV))
                 < 0)
         {
 
@@ -674,7 +685,7 @@ void *handle_socket(void *arg)
                                sizeof(host),
                                serv,
                                sizeof(serv),
-                               NI_NOFQDN))
+                               NI_NUMERICHOST | NI_NUMERICSERV))
             < 0)
     {
 

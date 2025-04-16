@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -40,7 +39,7 @@
 
 #define G313_FUNC  RIG_FUNC_NONE
 #define G313_LEVEL (RIG_LEVEL_ATT | RIG_LEVEL_AGC | RIG_LEVEL_RF | RIG_LEVEL_STRENGTH | RIG_LEVEL_RAWSTR)
-#define G313_MODES (RIG_MODE_NONE)
+#define G313_MODES (RIG_MODE_USB)
 
 #define TOK_SHM_AUDIO 0x150901
 #define TOK_SHM_IF 0x150902
@@ -113,7 +112,7 @@ int g313_init(RIG *rig)
 {
     struct g313_priv_data *priv;
 
-    priv = (struct g313_priv_data *)malloc(sizeof(struct g313_priv_data));
+    priv = (struct g313_priv_data *)calloc(1, sizeof(struct g313_priv_data));
 
     if (!priv)
     {
@@ -132,7 +131,7 @@ int g313_init(RIG *rig)
 
     /* otherwise try again when open rig */
 
-    rig->state.priv = (void *)priv;
+    STATE(rig)->priv = (void *)priv;
 
     return RIG_OK;
 }
@@ -140,7 +139,7 @@ int g313_init(RIG *rig)
 int g313_open(RIG *rig)
 {
     int ret;
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     RADIO_DESC *List;
     int Count;
 
@@ -179,9 +178,9 @@ int g313_open(RIG *rig)
     rig_debug(RIG_DEBUG_VERBOSE, "%s: found %d rigs 0 is %s\n", __func__, Count,
               List[0].Path);
 
-    if (rig->state.rigport.pathname[0])
+    if (RIGPORT(rig)->pathname[0])
     {
-        priv->hRadio = OpenDevice(rig->state.rigport.pathname);
+        priv->hRadio = OpenDevice(RIGPORT(rig)->pathname);
     }
     else
     {
@@ -248,7 +247,7 @@ int g313_open(RIG *rig)
 
 int g313_close(RIG *rig)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     if (!priv->Opened)
     {
@@ -280,7 +279,7 @@ int g313_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    priv = (struct g313_priv_data *)rig->state.priv;
+    priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: close fifos\n", __func__);
 
@@ -306,15 +305,15 @@ int g313_cleanup(RIG *rig)
         dlclose(priv->hWRAPI);
     }
 
-    free(rig->state.priv);
+    free(STATE(rig)->priv);
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
     return RIG_OK;
 }
 
 int g313_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int ret;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: %u\n", __func__, (unsigned int)freq);
@@ -326,7 +325,7 @@ int g313_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 int g313_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     unsigned int f;
     int ret = GetFrequency(priv->hRadio, &f);
@@ -343,7 +342,7 @@ int g313_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
 int g313_set_powerstat(RIG *rig, powerstat_t status)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     int p = status == RIG_POWER_ON ? 1 : 0;
     int ret = SetPower(priv->hRadio, p);
@@ -354,7 +353,7 @@ int g313_set_powerstat(RIG *rig, powerstat_t status)
 
 int g313_get_powerstat(RIG *rig, powerstat_t *status)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     int p;
     int ret = GetPower(priv->hRadio, &p);
@@ -372,7 +371,7 @@ int g313_get_powerstat(RIG *rig, powerstat_t *status)
 
 int g313_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int ret, agc;
 
     switch (level)
@@ -424,7 +423,7 @@ int g313_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
 int g313_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int ret;
     int value;
     unsigned int uvalue;
@@ -525,7 +524,7 @@ int g313_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
 static const char *g313_get_info(RIG *rig)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     static RADIO_INFO info;
     int ret;
 
@@ -543,9 +542,9 @@ static const char *g313_get_info(RIG *rig)
     return info.SerNum;
 }
 
-int g313_set_conf(RIG *rig, token_t token, const char *val)
+int g313_set_conf(RIG *rig, hamlib_token_t token, const char *val)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     size_t len = strlen(val);
 
@@ -554,7 +553,8 @@ int g313_set_conf(RIG *rig, token_t token, const char *val)
     case TOK_SHM_AUDIO:
         if (len > (FIFO_PATHNAME_SIZE - 1))
         {
-            rig_debug(RIG_DEBUG_WARN, "%s: set audio_path %s is too long\n", __func__, val);
+            rig_debug(RIG_DEBUG_WARN, "%s: set audio_path %.4095s is too long\n", __func__,
+                      val);
             return -RIG_EINVAL;
         }
 
@@ -567,7 +567,8 @@ int g313_set_conf(RIG *rig, token_t token, const char *val)
     case TOK_SHM_IF:
         if (len > (FIFO_PATHNAME_SIZE - 1))
         {
-            rig_debug(RIG_DEBUG_WARN, "%s: set if_path %s is too long\n", __func__, val);
+            rig_debug(RIG_DEBUG_WARN, "%s: set if_path %.4095s is too long\n", __func__,
+                      val);
             return -RIG_EINVAL;
         }
 
@@ -580,7 +581,8 @@ int g313_set_conf(RIG *rig, token_t token, const char *val)
     case TOK_SHM_SPECTRUM:
         if (len > (FIFO_PATHNAME_SIZE - 1))
         {
-            rig_debug(RIG_DEBUG_WARN, "%s: set spectrum_path %s is too long\n", __func__,
+            rig_debug(RIG_DEBUG_WARN, "%s: set spectrum_path %.4095s is too long\n",
+                      __func__,
                       val);
             return -RIG_EINVAL;
         }
@@ -594,9 +596,9 @@ int g313_set_conf(RIG *rig, token_t token, const char *val)
     return RIG_OK;
 }
 
-int g313_get_conf(RIG *rig, token_t token, char *val)
+int g313_get_conf(RIG *rig, hamlib_token_t token, char *val)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
@@ -644,14 +646,14 @@ static void  g313_spectrum_callback(float *buffer, int count, void *arg)
 #pragma GCC diagnostic pop
 }
 
-const struct rig_caps g313_caps =
+struct rig_caps g313_caps =
 {
     RIG_MODEL(RIG_MODEL_G313),
     .model_name =     "WR-G313",
     .mfg_name =       "Winradio",
     .version =        "20191224.0",
     .copyright =        "LGPL", /* This wrapper, not the G313 shared library or driver */
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_PCRECEIVER,
     .port_type =      RIG_PORT_NONE,
     .targetable_vfo =    0,
@@ -710,4 +712,5 @@ const struct rig_caps g313_caps =
     .get_level =     g313_get_level,
 
     .get_info =      g313_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

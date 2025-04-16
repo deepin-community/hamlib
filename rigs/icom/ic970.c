@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -49,14 +45,14 @@ static const struct icom_priv_caps ic970_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic970_caps =
+struct rig_caps ic970_caps =
 {
     RIG_MODEL(RIG_MODEL_IC970),
     .model_name = "IC-970",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -129,7 +125,7 @@ const struct rig_caps ic970_caps =
     },
 
     .tuning_steps =     {
-        {IC970_MODES, 10}, /* TBC: does this rig supports settin tuning step? */
+        {IC970_MODES, 10}, /* TBC: does this rig supports setting tuning step? */
         RIG_TS_END,
     },
     /* mode/filter list, remember: order matters! */
@@ -160,5 +156,6 @@ const struct rig_caps ic970_caps =
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

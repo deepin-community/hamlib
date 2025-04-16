@@ -1,6 +1,6 @@
 --- a/include/hamlib/rig.h
 +++ b/include/hamlib/rig.h
-@@ -198,11 +198,15 @@ typedef struct s_rig RIG;
+@@ -198,6 +198,8 @@ typedef struct s_rig RIG;
  #define HAMLIB_RIGNAMSIZ 30
  #define HAMLIB_RIGVERSIZ 8
  #define HAMLIB_FILPATHLEN 512
@@ -9,10 +9,3 @@
  #define HAMLIB_FRQRANGESIZ 30
  #define HAMLIB_MAXCHANDESC 30      /* describe channel eg: "WWV 5Mhz" */
  #define HAMLIB_TSLSTSIZ 20         /* max tuning step list size, zero ended */
- #define HAMLIB_FLTLSTSIZ 60        /* max mode/filter list size, zero ended */
- #define HAMLIB_MAXDBLSTSIZ 8       /* max preamp/att levels supported, zero ended */
-+/* Debian: Hamlib 4.3 drops MAXDBLSTSIZ, restore until grig (only user) has been updated */
-+#define MAXDBLSTSIZ HAMLIB_MAXDBLSTSIZ
- #define HAMLIB_CHANLSTSIZ 16       /* max mem_list size, zero ended */
- #define HAMLIB_MAX_AGC_LEVELS 8       /* max AGC levels supported */
- #define HAMLIB_MAX_SPECTRUM_SCOPES 4 /* max number of spectrum scopes supported */

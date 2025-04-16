@@ -31,14 +31,8 @@
 *  G0OAN
 */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
@@ -46,6 +40,102 @@
 #include "misc.h"
 #include "yaesu.h"
 #include "ft990.h"
+
+// FT990 native commands
+enum ft990_native_cmd_e
+{
+    FT990_NATIVE_SPLIT_OFF = 0,
+    FT990_NATIVE_SPLIT_ON,
+    FT990_NATIVE_RECALL_MEM,
+    FT990_NATIVE_VFO_TO_MEM,
+    FT990_NATIVE_LOCK_OFF,
+    FT990_NATIVE_LOCK_ON,
+    FT990_NATIVE_VFO_A,
+    FT990_NATIVE_VFO_B,
+    FT990_NATIVE_MEM_TO_VFO,
+    FT990_NATIVE_VFO_STEP_UP,
+    FT990_NATIVE_VFO_STEP_UP_FAST,
+    FT990_NATIVE_VFO_STEP_DOWN,
+    FT990_NATIVE_VFO_STEP_DOWN_FAST,
+    FT990_NATIVE_RX_CLARIFIER_OFF,
+    FT990_NATIVE_RX_CLARIFIER_ON,
+    FT990_NATIVE_TX_CLARIFIER_OFF,
+    FT990_NATIVE_TX_CLARIFIER_ON,
+    FT990_NATIVE_CLEAR_CLARIFIER_OFFSET,
+    FT990_NATIVE_CLARIFIER_OPS,
+    FT990_NATIVE_FREQ_SET,
+    FT990_NATIVE_MODE_SET_LSB,
+    FT990_NATIVE_MODE_SET_USB,
+    FT990_NATIVE_MODE_SET_CW_W,
+    FT990_NATIVE_MODE_SET_CW_N,
+    FT990_NATIVE_MODE_SET_AM_W,
+    FT990_NATIVE_MODE_SET_AM_N,
+    FT990_NATIVE_MODE_SET_FM,
+    FT990_NATIVE_MODE_SET_RTTY_LSB,
+    FT990_NATIVE_MODE_SET_RTTY_USB,
+    FT990_NATIVE_MODE_SET_PKT_LSB,
+    FT990_NATIVE_MODE_SET_PKT_FM,
+    FT990_NATIVE_PACING,
+    FT990_NATIVE_PTT_OFF,
+    FT990_NATIVE_PTT_ON,
+    FT990_NATIVE_UPDATE_ALL_DATA,
+    FT990_NATIVE_UPDATE_MEM_CHNL,
+    FT990_NATIVE_UPDATE_OP_DATA,
+    FT990_NATIVE_UPDATE_VFO_DATA,
+    FT990_NATIVE_UPDATE_MEM_CHNL_DATA,
+    FT990_NATIVE_TUNER_OFF,
+    FT990_NATIVE_TUNER_ON,
+    FT990_NATIVE_TUNER_START,
+    FT990_NATIVE_RPTR_SHIFT_NONE,
+    FT990_NATIVE_RPTR_SHIFT_MINUS,
+    FT990_NATIVE_RPTR_SHIFT_PLUS,
+    FT990_NATIVE_VFO_TO_VFO,
+    FT990_NATIVE_BANDWIDTH,
+    FT990_NATIVE_OP_FREQ_STEP_UP,
+    FT990_NATIVE_OP_FREQ_STEP_DOWN,
+    FT990_NATIVE_READ_METER,
+    FT990_NATIVE_DIM_LEVEL,
+    FT990_NATIVE_RPTR_OFFSET,
+    FT990_NATIVE_READ_FLAGS,
+    FT990_NATIVE_SIZE
+};
+
+
+/* HAMLIB API implementation */
+static int ft990_init(RIG *rig);
+static int ft990_cleanup(RIG *rig);
+static int ft990_open(RIG *rig);
+static int ft990_close(RIG *rig);
+static int ft990_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
+static int ft990_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
+static int ft990_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
+static int ft990_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
+static int ft990_set_vfo(RIG *rig, vfo_t vfo);
+static int ft990_get_vfo(RIG *rig, vfo_t *vfo);
+static int ft990_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
+static int ft990_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
+static int ft990_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t rptr_shift);
+static int ft990_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *rptr_shift);
+static int ft990_set_rptr_offs(RIG *rig, vfo_t vfo, shortfreq_t offs);
+static int ft990_set_split_vfo(RIG *rig, vfo_t vfo, split_t split,
+                               vfo_t tx_vfo);
+static int ft990_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split,
+                               vfo_t *tx_vfo);
+static int ft990_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit);
+static int ft990_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit);
+static int ft990_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
+static int ft990_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status);
+static int ft990_set_parm(RIG *rig, setting_t parm, value_t val);
+static int ft990_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit);
+static int ft990_get_xit(RIG *rig, vfo_t vfo, shortfreq_t *xit);
+static int ft990_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
+static int ft990_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
+static int ft990_set_mem(RIG *rig, vfo_t vfo, int ch);
+static int ft990_get_mem(RIG *rig, vfo_t vfo, int *ch);
+static int ft990_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan);
+static int ft990_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                             int read_only);
+
 
 
 
@@ -122,10 +212,8 @@ static const yaesu_cmd_set_t ncmd[] =
 struct ft990_priv_data
 {
     unsigned char pacing;                     /* pacing value */
-    unsigned int read_update_delay;           /* depends on pacing value */
     vfo_t current_vfo;                        /* active VFO from last cmd */
     unsigned char p_cmd[YAESU_CMD_LENGTH];    /* private copy of CAT cmd */
-    yaesu_cmd_set_t pcs[FT990_NATIVE_SIZE];   /* private cmd set */
     ft990_update_data_t update_data;          /* returned data */
 };
 
@@ -142,14 +230,14 @@ struct ft990_priv_data
                 .flags = 1,      \
 }
 
-const struct rig_caps ft990_caps =
+struct rig_caps ft990_caps =
 {
     RIG_MODEL(RIG_MODEL_FT990),
     .model_name =         "FT-990",
     .mfg_name =           "Yaesu",
-    .version =            "20201009.0",
+    .version =            "20211231.0",
     .copyright =          "LGPL",
-    .status =             RIG_STATUS_ALPHA,
+    .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
     .ptt_type =           RIG_PTT_RIG,
     .dcd_type =           RIG_DCD_NONE,
@@ -168,9 +256,17 @@ const struct rig_caps ft990_caps =
     .has_set_func =       RIG_FUNC_LOCK | RIG_FUNC_TUNER,
     .has_get_level =      RIG_LEVEL_STRENGTH | RIG_LEVEL_SWR | RIG_LEVEL_ALC | \
     RIG_LEVEL_RFPOWER | RIG_LEVEL_COMP,
-    .has_set_level =      RIG_LEVEL_NONE,
+    .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_BACKLIGHT,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+    },
+
     .ctcss_list =         NULL,
     .dcs_list =           NULL,
     .preamp =             { RIG_DBLST_END, },
@@ -275,6 +371,7 @@ const struct rig_caps ft990_caps =
     .vfo_op =             ft990_vfo_op,
     .set_channel =        ft990_set_channel,
     .get_channel =        ft990_get_channel,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -300,24 +397,18 @@ int ft990_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct ft990_priv_data *) calloc(1,
-                      sizeof(struct ft990_priv_data));
+    STATE(rig)->priv = (struct ft990_priv_data *) calloc(1,
+                       sizeof(struct ft990_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
-
-// Copy native cmd set to private cmd storage area
-    memcpy(priv->pcs, ncmd, sizeof(ncmd));
+    priv = STATE(rig)->priv;
 
     // Set default pacing value
     priv->pacing = FT990_PACING_DEFAULT_VALUE;
-
-    // Set update timeout
-    priv->read_update_delay = FT990_DEFAULT_READ_TIMEOUT;
 
     // Set operating vfo mode to current VFO
     priv->current_vfo =  RIG_VFO_MAIN;
@@ -339,12 +430,12 @@ int ft990_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
@@ -355,7 +446,6 @@ int ft990_cleanup(RIG *rig)
  */
 int  ft990_open(RIG *rig)
 {
-    struct rig_state *rig_s;
     struct ft990_priv_data *priv;
     int err;
 
@@ -366,13 +456,12 @@ int  ft990_open(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
-    rig_s = &rig->state;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: write_delay = %i msec\n",
-              __func__, rig_s->rigport.write_delay);
+              __func__, RIGPORT(rig)->write_delay);
     rig_debug(RIG_DEBUG_TRACE, "%s: post_write_delay = %i msec\n",
-              __func__, rig_s->rigport.post_write_delay);
+              __func__, RIGPORT(rig)->post_write_delay);
     rig_debug(RIG_DEBUG_TRACE,
               "%s: read pacing = %i\n", __func__, priv->pacing);
 
@@ -431,6 +520,7 @@ int ft990_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     struct ft990_priv_data *priv;
     int err;
+    vfo_t vfo_save;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -448,7 +538,8 @@ int ft990_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
+    vfo_save = priv->current_vfo;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -459,7 +550,7 @@ int ft990_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     }
     else
     {
-        if (vfo != priv->current_vfo)
+        if (vfo != vfo_save)
         {
             err = ft990_set_vfo(rig, vfo);
 
@@ -475,6 +566,16 @@ int ft990_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     if (err != RIG_OK)
     {
         return err;
+    }
+
+    if (vfo != vfo_save)
+    {
+        err = ft990_set_vfo(rig, vfo_save);
+
+        if (err != RIG_OK)
+        {
+            return err;
+        }
     }
 
     return RIG_OK;
@@ -514,7 +615,7 @@ int ft990_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -607,7 +708,7 @@ int ft990_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ptt = 0x%02x\n", __func__, ptt);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -683,7 +784,7 @@ int ft990_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     err = ft990_get_update_data(rig, FT990_NATIVE_READ_FLAGS, 0);
 
@@ -738,7 +839,7 @@ int ft990_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t rptr_shift)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed rptr_shift = 0x%02x\n", __func__,
               rptr_shift);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -865,7 +966,7 @@ int ft990_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *rptr_shift)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1016,7 +1117,7 @@ int ft990_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed split = 0x%02x\n", __func__, split);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed tx_vfo = 0x%02x\n", __func__, tx_vfo);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1112,7 +1213,7 @@ int ft990_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     // Read status flags
     err = ft990_get_update_data(rig, FT990_NATIVE_READ_FLAGS, 0);
@@ -1205,7 +1306,7 @@ int ft990_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -1312,7 +1413,7 @@ int ft990_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1411,7 +1512,7 @@ int ft990_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -1517,7 +1618,7 @@ int ft990_get_xit(RIG *rig, vfo_t vfo, shortfreq_t *xit)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1677,7 +1778,7 @@ int ft990_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed func = %s\n", __func__,
               rig_strfunc(func));
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
     err = ft990_get_update_data(rig, FT990_NATIVE_READ_FLAGS, 0);
 
@@ -1802,7 +1903,7 @@ int ft990_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
               rig_strrmode(mode));
     rig_debug(RIG_DEBUG_TRACE, "%s: passed width = %d Hz\n", __func__, (int)width);
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -1954,7 +2055,7 @@ int ft990_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2130,7 +2231,7 @@ int ft990_set_vfo(RIG *rig, vfo_t vfo)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2213,7 +2314,7 @@ int ft990_get_vfo(RIG *rig, vfo_t *vfo)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
     /* Get flags for VFO status */
     err = ft990_get_update_data(rig, FT990_NATIVE_READ_FLAGS, 0);
@@ -2285,7 +2386,6 @@ int ft990_get_vfo(RIG *rig, vfo_t *vfo)
 int ft990_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *value)
 {
     struct ft990_priv_data *priv;
-    struct rig_state *rig_s;
     unsigned char mdata[YAESU_CMD_LENGTH];
     int err;
 
@@ -2300,7 +2400,7 @@ int ft990_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *value)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed level %s\n", __func__,
               rig_strlevel(level));
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2328,8 +2428,7 @@ int ft990_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *value)
         return err;
     }
 
-    rig_s = &rig->state;
-    err = read_block(&rig_s->rigport, (char *) mdata, FT990_READ_METER_LENGTH);
+    err = read_block(RIGPORT(rig), mdata, FT990_READ_METER_LENGTH);
 
     if (err < 0)
     {
@@ -2400,7 +2499,7 @@ int ft990_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo %s\n", __func__, rig_strvfo(vfo));
     rig_debug(RIG_DEBUG_TRACE, "%s: passed op %s\n", __func__, rig_strvfop(op));
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2521,7 +2620,7 @@ int ft990_set_mem(RIG *rig, vfo_t vfo, int ch)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ch = %i\n", __func__, ch);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     // Check for valid channel number
     if (ch < 1 || ch > 90)
@@ -2573,7 +2672,7 @@ int ft990_get_mem(RIG *rig, vfo_t vfo, int *ch)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2667,7 +2766,7 @@ int ft990_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed chan->channel_num = %i\n",
               __func__, chan->channel_num);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
     if (chan->channel_num < 0 || chan->channel_num > 90)
     {
@@ -3124,17 +3223,16 @@ int ft990_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
  *              rl      expected length of returned data in octets
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 int ft990_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
 {
-    struct rig_state *rig_s;
     struct ft990_priv_data *priv;
     int n;
     int err;
     int rl;
-    char temp[5];
-    char *p;
+    unsigned char temp[5];
+    unsigned char *p;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ci 0x%02x\n", __func__, ci);
@@ -3145,8 +3243,7 @@ int ft990_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
-    rig_s = &rig->state;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
     if (ci == FT990_NATIVE_UPDATE_MEM_CHNL_DATA)
         // P4 = 0x01 to 0x5a for channel 1 - 90
@@ -3170,22 +3267,22 @@ int ft990_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
         break;
 
     case FT990_NATIVE_UPDATE_MEM_CHNL:
-        p = (char *) &priv->update_data.channelnumber;
+        p = (unsigned char *) &priv->update_data.channelnumber;
         rl = FT990_MEM_CHNL_LENGTH;
         break;
 
     case FT990_NATIVE_UPDATE_OP_DATA:
-        p = (char *) &priv->update_data.current_front;
+        p = (unsigned char *) &priv->update_data.current_front;
         rl = FT990_OP_DATA_LENGTH;
         break;
 
     case FT990_NATIVE_UPDATE_VFO_DATA:
-        p = (char *) &priv->update_data.vfoa;
+        p = (unsigned char *) &priv->update_data.vfoa;
         rl = FT990_VFO_DATA_LENGTH;
         break;
 
     case FT990_NATIVE_UPDATE_MEM_CHNL_DATA:
-        p = (char *) &priv->update_data.channel[ch];
+        p = (unsigned char *) &priv->update_data.channel[ch];
         rl = FT990_MEM_CHNL_DATA_LENGTH;
         break;
 
@@ -3198,7 +3295,7 @@ int ft990_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
         return -RIG_EINVAL;
     }
 
-    n = read_block(&rig_s->rigport, p, rl);
+    n = read_block(RIGPORT(rig), p, rl);
 
     if (n < 0)
     {
@@ -3221,15 +3318,13 @@ int ft990_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 int ft990_send_static_cmd(RIG *rig, unsigned char ci)
 {
-    struct rig_state *rig_s;
-    struct ft990_priv_data *priv;
     int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -3239,18 +3334,14 @@ int ft990_send_static_cmd(RIG *rig, unsigned char ci)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
-    rig_s = &rig->state;
-
-    if (!priv->pcs[ci].ncomp)
+    if (!ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: Attempt to send incomplete sequence\n", __func__);
         return -RIG_EINVAL;
     }
 
-    err = write_block(&rig_s->rigport, (char *) priv->pcs[ci].nseq,
-                      YAESU_CMD_LENGTH);
+    err = write_block(RIGPORT(rig), ncmd[ci].nseq, YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {
@@ -3267,17 +3358,16 @@ int ft990_send_static_cmd(RIG *rig, unsigned char ci)
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *              p1-p4   Command parameters
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 int ft990_send_dynamic_cmd(RIG *rig, unsigned char ci,
                            unsigned char p1, unsigned char p2,
                            unsigned char p3, unsigned char p4)
 {
-    struct rig_state *rig_s;
     struct ft990_priv_data *priv;
     int err;
 
@@ -3293,16 +3383,15 @@ int ft990_send_dynamic_cmd(RIG *rig, unsigned char ci,
               "%s: passed p1 = 0x%02x, p2 = 0x%02x, p3 = 0x%02x, p4 = 0x%02x,\n",
               __func__, p1, p2, p3, p4);
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
-    if (priv->pcs[ci].ncomp)
+    if (ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: Attempt to modify complete sequence\n", __func__);
         return -RIG_EINVAL;
     }
 
-    rig_s = &rig->state;
     memcpy(&priv->p_cmd, &ncmd[ci].nseq, YAESU_CMD_LENGTH);
 
     priv->p_cmd[3] = p1;
@@ -3310,7 +3399,7 @@ int ft990_send_dynamic_cmd(RIG *rig, unsigned char ci,
     priv->p_cmd[1] = p3;
     priv->p_cmd[0] = p4;
 
-    err = write_block(&rig_s->rigport, (char *) &priv->p_cmd,
+    err = write_block(RIGPORT(rig), (unsigned char *) &priv->p_cmd,
                       YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
@@ -3328,15 +3417,14 @@ int ft990_send_dynamic_cmd(RIG *rig, unsigned char ci,
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *              freq    freq_t frequency value
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 int ft990_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
 {
-    struct rig_state *rig_s;
     struct ft990_priv_data *priv;
     int err;
     // cppcheck-suppress *
@@ -3352,16 +3440,14 @@ int ft990_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ci = 0x%02x\n", __func__, ci);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed freq = %"PRIfreq" Hz\n", __func__, freq);
 
-    priv = (struct ft990_priv_data *)rig->state.priv;
+    priv = (struct ft990_priv_data *)STATE(rig)->priv;
 
-    if (priv->pcs[ci].ncomp)
+    if (ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: Attempt to modify complete sequence\n", __func__);
         return -RIG_EINVAL;
     }
-
-    rig_s = &rig->state;
 
     /* Copy native cmd freq_set to private cmd storage area */
     memcpy(&priv->p_cmd, &ncmd[ci].nseq, YAESU_CMD_LENGTH);
@@ -3372,7 +3458,7 @@ int ft990_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
     rig_debug(RIG_DEBUG_TRACE, fmt, __func__, (int64_t)from_bcd(priv->p_cmd,
               FT990_BCD_DIAL) * 10);
 
-    err = write_block(&rig_s->rigport, (char *) &priv->p_cmd,
+    err = write_block(RIGPORT(rig), (unsigned char *) &priv->p_cmd,
                       YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
@@ -3388,16 +3474,15 @@ int ft990_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
  * change the rit frequency.
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *              rit    shortfreq_t frequency value
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 int ft990_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
 {
     struct ft990_priv_data *priv;
-    struct rig_state *rig_s;
     int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -3410,10 +3495,9 @@ int ft990_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ci = 0x%02x\n", __func__, ci);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed rit = %li Hz\n", __func__, rit);
 
-    priv = (struct ft990_priv_data *) rig->state.priv;
-    rig_s = &rig->state;
+    priv = (struct ft990_priv_data *) STATE(rig)->priv;
 
-    if (priv->pcs[ci].ncomp)
+    if (ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: Attempt to modify complete sequence\n",
                   __func__);
@@ -3439,7 +3523,7 @@ int ft990_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
     // Store bcd format into privat command storage area
     to_bcd(priv->p_cmd, labs(rit) / 10, FT990_BCD_RIT);
 
-    err = write_block(&rig_s->rigport, (char *) &priv->p_cmd,
+    err = write_block(RIGPORT(rig), (unsigned char *) &priv->p_cmd,
                       YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
