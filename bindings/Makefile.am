@@ -6,7 +6,7 @@
 AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/include -I$(top_srcdir)/bindings  \
 	$(TCL_INCLUDE_SPEC) $(PYTHON_CPPFLAGS)
 
-AM_CFLAGS = -fno-strict-aliasing
+AM_CFLAGS = @AM_CPPFLAGS@ -fno-strict-aliasing
 AM_CXXFLAGS = -O2
 
 SWGFILES = hamlib.swg ignore.swg rig.swg rotator.swg amplifier.swg
@@ -39,7 +39,7 @@ BUILT_SOURCES += hamlibperl_wrap.c
 MOSTLYCLEANFILES += hamlibperl_wrap.c Hamlib.pm Hamlib.bs Hamlib-pl.mk.old
 example_DATA += perltest.pl
 
-hamlibperl_wrap.c: hamlib.swg $(SWIGDEP)
+hamlibperl_wrap.c: hamlib.swg $(SWIGDEP) ignore.swg rig.swg
 	$(AM_V_GEN)$(SWIG) -perl5 -shadow $(AM_CPPFLAGS) -I$(top_srcdir)/bindings \
 		-o $@ $$(test -f hamlib.swg || echo '$(srcdir)/')hamlib.swg
 
@@ -149,8 +149,9 @@ PKG_VER = $(ABI_VERSION).$(ABI_REVISION)
 DLL = hamlibtcl-$(PKG_VER)$(TCL_SHLIB_SUFFIX)
 
 nodist_hamlibtcl_la_SOURCES = hamlibtcl_wrap.c
+hamlibtcl_la_CFLAGS = $(TCL_CFLAGS)
 hamlibtcl_la_LDFLAGS = -no-undefined -module -release $(PKG_VER) -avoid-version
-hamlibtcl_la_LIBADD = $(top_builddir)/src/libhamlib.la $(TCL_LIB_SPEC)
+hamlibtcl_la_LIBADD = $(top_builddir)/src/libhamlib.la $(TCL_LIB_SPEC) $(TCL_LIBS)
 
 hamlibtcl_ladir = $(tcldir)
 hamlibtcl_la_DATA = pkgIndex.tcl

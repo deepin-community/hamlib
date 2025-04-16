@@ -31,12 +31,17 @@
  * This backend supports the Ten-Tec Orion (565) and Orion II (566) transceivers.
  */
 
+#include <stddef.h>
+#include "bandplan.h"
+#include "rig.h"
+#include "riglist.h"
+#include "mutex.h"
 
-#define BACKEND_VER "20200324"
+#define BACKEND_VER "20240621"
 
 #define TRUE	1
 #define FALSE	0
-#define TT565_BUFSIZE 16
+#define TT565_BUFSIZE 32
 
 /**
  * \brief Memory capability
@@ -53,15 +58,19 @@
 
 static int tt565_init(RIG *rig);
 static int tt565_open(RIG *rig);
+static int tt565_close(RIG *rig);
 static int tt565_cleanup(RIG *rig);
 static int tt565_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 static int tt565_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
+static int tt565_get_freq_cache(RIG *rig, vfo_t vfo, freq_t *freq);
 static int tt565_set_vfo(RIG *rig, vfo_t vfo);
 static int tt565_get_vfo(RIG *rig, vfo_t *vfo);
 static int tt565_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
 static int tt565_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
+static int tt565_get_mode_cache(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
 static int tt565_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo);
 static int tt565_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo);
+static int tt565_get_split_vfo_cache(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo);
 static int tt565_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
 static int tt565_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
 static int tt565_reset(RIG *rig, reset_t reset);
@@ -87,7 +96,16 @@ static int tt565_get_ant(RIG *rig, vfo_t vfo, ant_t dummy, value_t *option, ant_
 struct tt565_priv_data {
 	int ch;		/*!< memory channel */
 	vfo_t vfo_curr; /*!< Currently selected VFO */
+    int ptt;
+    freq_t freqA, freqB;
+    rmode_t mode;
+    pbwidth_t width;
+    pthread_t threadid;
+    split_t split;
+    vfo_t tx_vfo;
+    int threadrun;
 };
+MUTEX(mutex);
 
 /** \brief Orion Supported Modes */
 #define TT565_MODES (RIG_MODE_FM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|\
@@ -192,13 +210,13 @@ struct tt565_priv_data {
  * Protocol is documented at Tentec's firmware site
  *		http://www.rfsquared.com/
  */
-const struct rig_caps tt565_caps = {
+struct rig_caps tt565_caps = {
 RIG_MODEL(RIG_MODEL_TT565),
-.model_name = "TT-565 Orion",
+.model_name = "TT-565/566 Orion I/II",
 .mfg_name =  "Ten-Tec",
 .version =  BACKEND_VER ".0",
 .copyright =  "LGPL",
-.status =  RIG_STATUS_BETA,
+.status =  RIG_STATUS_STABLE,
 .rig_type =  RIG_TYPE_TRANSCEIVER,
 .ptt_type =  RIG_PTT_RIG,
 .dcd_type =  RIG_DCD_NONE,
@@ -211,8 +229,8 @@ RIG_MODEL(RIG_MODEL_TT565),
 .serial_handshake =  RIG_HANDSHAKE_HARDWARE,
 .write_delay =  0,          /* no delay between characters written */
 .post_write_delay =  0,		  /* ms delay between writes DEBUGGING HERE */
-.timeout =  2000,						/* ms */
-.retry =  4,
+.timeout =  200,						/* ms */
+.retry =  1,
 
 .has_get_func =  TT565_FUNCS,
 .has_set_func =  TT565_FUNCS,
@@ -333,15 +351,28 @@ RIG_MODEL(RIG_MODEL_TT565),
 .rig_init =  tt565_init,
 .rig_cleanup =  tt565_cleanup,
 .rig_open = tt565_open,
+.rig_close = tt565_close,
 
 .set_freq =  tt565_set_freq,
+#if defined(HAVE_PTHREAD) 
+.get_freq =  tt565_get_freq_cache,
+#else
 .get_freq =  tt565_get_freq,
+#endif
 .set_vfo =  tt565_set_vfo,
 .get_vfo =  tt565_get_vfo,
 .set_mode =  tt565_set_mode,
+#if defined(HAVE_PTHREAD) 
+.get_mode =  tt565_get_mode_cache,
+#else
 .get_mode =  tt565_get_mode,
+#endif
 .set_split_vfo =  tt565_set_split_vfo,
+#if defined(HAVE_PTHREAD) 
+.get_split_vfo =  tt565_get_split_vfo_cache,
+#else
 .get_split_vfo =  tt565_get_split_vfo,
+#endif
 .set_level =  tt565_set_level,
 .get_level =  tt565_get_level,
 .set_mem =  tt565_set_mem,
@@ -358,6 +389,7 @@ RIG_MODEL(RIG_MODEL_TT565),
 .reset =  tt565_reset,
 .get_info =  tt565_get_info,
 .send_morse = tt565_send_morse,
+.wait_morse =  rig_wait_morse,
 .get_func = tt565_get_func,
 .set_func = tt565_set_func,
 .get_ant = tt565_get_ant,
@@ -409,13 +441,13 @@ RIG_MODEL(RIG_MODEL_TT565),
  *		http://www.tentec.com/index.php?id=360#down
  *
  */
-const struct rig_caps tt599_caps = {
+struct rig_caps tt599_caps = {
 RIG_MODEL(RIG_MODEL_TT599),
 .model_name = "TT-599 Eagle",
 .mfg_name =  "Ten-Tec",
 .version =  BACKEND_VER ".0",
 .copyright =  "LGPL",
-.status =  RIG_STATUS_UNTESTED,
+.status =  RIG_STATUS_STABLE,
 .rig_type =  RIG_TYPE_TRANSCEIVER,
 .ptt_type =  RIG_PTT_RIG,
 .dcd_type =  RIG_DCD_NONE,

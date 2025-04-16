@@ -37,14 +37,14 @@
 #define WR3150_MODES (RIG_MODE_AM | RIG_MODE_CW | \
                      RIG_MODE_USB | RIG_MODE_LSB | RIG_MODE_FM)
 
-const struct rig_caps wr3150_caps =
+struct rig_caps wr3150_caps =
 {
     RIG_MODEL(RIG_MODEL_WR3150),
     .model_name =     "WR-3150",
     .mfg_name =       "Winradio",
     .version =        BACKEND_VER ".0",
     .copyright =   "LGPL",
-    .status =         RIG_STATUS_UNTESTED,
+    .status =         RIG_STATUS_BETA,
     .rig_type =       RIG_TYPE_PCRECEIVER,
     .port_type =      RIG_PORT_DEVICE,
     .targetable_vfo =      0,
@@ -122,6 +122,7 @@ const struct rig_caps wr3150_caps =
     .get_func =      NULL,
 
     .get_info =      wr_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 #endif  /* WINRADIO_IOCTL */

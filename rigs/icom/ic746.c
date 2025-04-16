@@ -19,15 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
 
 #include <hamlib/rig.h>
-#include "token.h"
 #include "idx_builtin.h"
 
 #include "icom.h"
@@ -35,7 +30,7 @@
 #include "frame.h"
 #include "bandplan.h"
 #include "misc.h"
-
+#include "tones.h"
 
 /*
  * IC-746 and IC-746pro
@@ -59,7 +54,7 @@
 
 #define IC746_FUNC_ALL (RIG_FUNC_NB|RIG_FUNC_COMP|RIG_FUNC_VOX|RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_SBKIN|RIG_FUNC_FBKIN|RIG_FUNC_NR|RIG_FUNC_MON|RIG_FUNC_MN|RIG_FUNC_RF|RIG_FUNC_ANF|RIG_FUNC_APF|RIG_FUNC_RESUME|RIG_FUNC_ARO)
 
-#define IC746_LEVEL_ALL (RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_AGC|RIG_LEVEL_COMP|RIG_LEVEL_BKINDL|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_SQL|RIG_LEVEL_RAWSTR|RIG_LEVEL_APF)
+#define IC746_LEVEL_ALL (RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_AGC|RIG_LEVEL_COMP|RIG_LEVEL_BKINDL|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_SQL|RIG_LEVEL_RAWSTR|RIG_LEVEL_APF|RIG_LEVEL_AGC_TIME|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_SWR|RIG_LEVEL_ALC)
 
 #define IC746_GET_PARM (RIG_PARM_BACKLIGHT|RIG_PARM_BEEP)
 #define IC746_SET_PARM (RIG_PARM_BACKLIGHT|RIG_PARM_BEEP|RIG_PARM_ANN)
@@ -156,8 +151,8 @@ static int ic746_get_parm(RIG *rig, setting_t parm, value_t *val);
 static int ic746pro_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
                                 int read_only);
 static int ic746pro_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan);
-static int ic746pro_set_ext_parm(RIG *rig, token_t token, value_t val);
-static int ic746pro_get_ext_parm(RIG *rig, token_t token, value_t *val);
+static int ic746pro_set_ext_parm(RIG *rig, hamlib_token_t token, value_t val);
+static int ic746pro_get_ext_parm(RIG *rig, hamlib_token_t token, value_t *val);
 
 
 /*
@@ -174,18 +169,19 @@ static const struct icom_priv_caps ic746_priv_caps =
     .agc_levels_present = 1,
     .agc_levels = {
         { .level = RIG_AGC_OFF, .icom_level = 0 },
-        { .level = RIG_AGC_FAST, .icom_level = 1 },
-        { .level = RIG_AGC_SLOW, .icom_level = 2 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_SLOW, .icom_level = 1 },
+        { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
+        { .level = RIG_AGC_FAST, .icom_level = 3 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
 };
 
-const struct rig_caps ic746_caps =
+struct rig_caps ic746_caps =
 {
     RIG_MODEL(RIG_MODEL_IC746),
     .model_name = "IC-746",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".5",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -208,11 +204,15 @@ const struct rig_caps ic746_caps =
     .has_set_level =  RIG_LEVEL_SET(IC746_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_ANN,
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
+#include "level_gran_icom.h"
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
     },
     .parm_gran =  {},
     .ctcss_list =  common_ctcss_list,
@@ -288,6 +288,11 @@ const struct rig_caps ic746_caps =
     },
     .str_cal = IC746_STR_CAL,
 
+    .async_data_supported = 1,
+    .read_frame_direct = icom_read_frame_direct,
+    .is_async_frame = icom_is_async_frame,
+    .process_async_frame = icom_process_async_frame,
+
     .cfgparams =  icom_cfg_params,
     .set_conf =  icom_set_conf,
     .get_conf =  icom_get_conf,
@@ -296,13 +301,14 @@ const struct rig_caps ic746_caps =
     .rig_init =   icom_init,
     .rig_cleanup =   icom_cleanup,
     .rig_open =  icom_rig_open,
-    .rig_close =  icom_rig_open,
+    .rig_close =  icom_rig_close,
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
@@ -331,6 +337,7 @@ const struct rig_caps ic746_caps =
     .set_ptt =  icom_set_ptt,
     .get_ptt =  icom_get_ptt,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -408,12 +415,12 @@ static const struct icom_priv_caps ic746pro_priv_caps =
     },
 };
 
-const struct rig_caps ic746pro_caps =
+struct rig_caps ic746pro_caps =
 {
     RIG_MODEL(RIG_MODEL_IC746PRO),
     .model_name = "IC-746PRO",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".3",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -436,10 +443,16 @@ const struct rig_caps ic746pro_caps =
     .has_set_level =  RIG_LEVEL_SET(IC746_LEVEL_ALL),
     .has_get_parm =  IC746_GET_PARM,
     .has_set_parm =  IC746_SET_PARM,
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BEEP] = {.min = {.i = 0}, .max = {.i = 1}, .step = {.i = 1}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
+    },
+
     .extparms = ic746pro_ext_parms,
     .ctcss_list =  common_ctcss_list,
     .dcs_list =  full_dcs_list,
@@ -530,6 +543,11 @@ const struct rig_caps ic746pro_caps =
     },
     .str_cal = IC746_STR_CAL,
 
+    .async_data_supported = 1,
+    .read_frame_direct = icom_read_frame_direct,
+    .is_async_frame = icom_is_async_frame,
+    .process_async_frame = icom_process_async_frame,
+
     .cfgparams =  icom_cfg_params,
     .set_conf =  icom_set_conf,
     .get_conf =  icom_get_conf,
@@ -542,9 +560,10 @@ const struct rig_caps ic746pro_caps =
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
-    .set_mode =  icom_set_mode_with_data,
-    .get_mode =  icom_get_mode_with_data,
+    .set_mode =  icom_set_mode,
+    .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
@@ -581,13 +600,14 @@ const struct rig_caps ic746pro_caps =
     .get_ext_parm =  ic746pro_get_ext_parm,
     .get_channel = ic746pro_get_channel,
     .set_channel = ic746pro_set_channel,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
-static int ic746pro_set_ext_parm(RIG *rig, token_t token, value_t val)
+static int ic746pro_set_ext_parm(RIG *rig, hamlib_token_t token, value_t val)
 {
     unsigned char epbuf[MAXFRAMELEN], ackbuf[MAXFRAMELEN];
     int ack_len, ep_len, val_len;
@@ -648,10 +668,10 @@ static int ic746pro_set_ext_parm(RIG *rig, token_t token, value_t val)
 }
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-static int ic746pro_get_ext_parm(RIG *rig, token_t token, value_t *val)
+static int ic746pro_get_ext_parm(RIG *rig, hamlib_token_t token, value_t *val)
 {
     const struct confparams *cfp;
 
@@ -902,7 +922,7 @@ int ic746_get_parm(RIG *rig, setting_t parm, value_t *val)
 
 /*
  * ic746pro_get_channel
- * Assumes rig!=NULL, rig->state.priv!=NULL, chan!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL, chan!=NULL
  *
  * If memory is empty it will return RIG_OK,but every thing will be null. Where do we boundary check?
  */
@@ -913,7 +933,7 @@ int ic746pro_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
     unsigned char chanbuf[MAXFRAMELEN];
     int chan_len, freq_len, retval, data_len;
 
-    rs = &rig->state;
+    rs = STATE(rig);
     priv = (struct icom_priv_data *)rs->priv;
 
     to_bcd_be(chanbuf, chan->channel_num, 4);
@@ -1070,7 +1090,7 @@ int ic746pro_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 
 /*
  * ic746pro_set_channel
- * Assumes rig!=NULL, rig->state.priv!=NULL, chan!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL, chan!=NULL
  */
 int ic746pro_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
@@ -1080,7 +1100,7 @@ int ic746pro_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     unsigned char chanbuf[MAXFRAMELEN], ackbuf[MAXFRAMELEN];
     int chan_len, ack_len, freq_len, retval;
 
-    rs = &rig->state;
+    rs = STATE(rig);
     priv = (struct icom_priv_data *)rs->priv;
 
     freq_len = priv->civ_731_mode ? 4 : 5;

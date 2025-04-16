@@ -19,9 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include <stdlib.h>
 
@@ -44,14 +41,14 @@
  *
  * TODO: check this with manual or web site.
  */
-const struct rig_caps bc245_caps =
+struct rig_caps bc245_caps =
 {
     RIG_MODEL(RIG_MODEL_BC245),
     .model_name = "BC245xlt",
     .mfg_name =  "Uniden",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRUNKSCANNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -126,7 +123,7 @@ const struct rig_caps bc245_caps =
     .set_level = uniden_set_level,
     .get_channel = uniden_get_channel,
     .set_channel = uniden_set_channel,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

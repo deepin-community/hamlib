@@ -5,7 +5,7 @@
 //  adat.h
 //
 //  Created by Frank Goenninger DG1SBG.
-//  Copyright © 2011, 2012 Frank Goenninger.
+//  Copyright © 2011, 2012, 2023 Frank Goenninger.
 //
 //   This library is free software; you can redistribute it and/or
 //   modify it under the terms of the GNU Lesser General Public
@@ -29,21 +29,23 @@
 // SYSTEM INCLUDES
 // ---------------------------------------------------------------------------
 
+#include <stddef.h>
 
 // ---------------------------------------------------------------------------
 //    HAMLIB INCLUDES
 // ---------------------------------------------------------------------------
 
 #include <hamlib/rig.h>
+#include "token.h"
 
 // ---------------------------------------------------------------------------
 //    GLOBAL DEFINITIONS
 // ---------------------------------------------------------------------------
 
-#define BACKEND_VER "20191206"
+#define BACKEND_VER "20230927"
 
-#define ADAT_BUFSZ                 256
-#define ADAT_RESPSZ                256
+#define ADAT_BUFSZ                 255
+#define ADAT_RESPSZ                255
 
 #define ADAT_CR                    "\x0d"
 #define ADAT_EOL                   "\x0a"
@@ -98,7 +100,7 @@
 
 // ADAT MODE DEFINITIONS
 
-#define ADAT_MODE_LENGTH           5
+#define ADAT_MODE_LENGTH           15
 #define ADAT_NR_MODES              8
 
 // Each mode is defined by three values:
@@ -322,31 +324,45 @@
 // -- GET POWER STATUS --
 
 // -- GET INFO --
+// Nothing to define here
 
 // -- OPEN ADAT --
+// Nothing to define here
 
 // -- ADAT SPECIAL: RECOVER FROM ERROR --
+// Nothing to define here
 
 // ---------------------------------------------------------------------------
 //    ADAT PRIVATE DATA
 // ---------------------------------------------------------------------------
 
+#define ADAT_PRIV_DATA_PRODUCTNAME_LENGTH    255
+#define ADAT_PRIV_DATA_SERIALNR_LENGTH       255
+#define ADAT_PRIV_DATA_IDCODE_LENGTH         255
+#define ADAT_PRIV_DATA_OPTIONS_LENGTH        255
+#define ADAT_PRIV_DATA_FWVERSION_LENGTH      255
+#define ADAT_PRIV_DATA_HWVERSION_LENGTH      255
+#define ADAT_PRIV_DATA_GUIFWVERSION_LENGTH   255
+#define ADAT_PRIV_DATA_CALLSIGN_LENGTH       255
+#define ADAT_PRIV_DATA_CMD_LENGTH            255
+#define ADAT_PRIV_DATA_RESULT_LENGTH         255
+
 typedef struct _adat_priv_data
 {
     int           nOpCode;
 
-    char         *pcProductName; // Future use (USB direct I/O)
+    char          acProductName[ ADAT_PRIV_DATA_PRODUCTNAME_LENGTH + 1]; // Future use (USB direct I/O)
 
     // ADAT device info
 
-    char         *pcSerialNr;
-    char         *pcIDCode;
-    char         *pcOptions;
-    char         *pcFWVersion;
-    char         *pcHWVersion;
-    char         *pcGUIFWVersion;
+    char          acSerialNr[ ADAT_PRIV_DATA_SERIALNR_LENGTH + 1 ];
+    char          acIDCode[ ADAT_PRIV_DATA_IDCODE_LENGTH + 1 ];
+    char          acOptions[ ADAT_PRIV_DATA_OPTIONS_LENGTH + 1 ];
+    char          acFWVersion[ ADAT_PRIV_DATA_FWVERSION_LENGTH + 1 ];
+    char          acHWVersion[ ADAT_PRIV_DATA_HWVERSION_LENGTH + 1 ];
+    char          acGUIFWVersion[ ADAT_PRIV_DATA_GUIFWVERSION_LENGTH + 1 ];
 
-    char         *pcCallsign;
+    char          acCallsign[ ADAT_PRIV_DATA_CALLSIGN_LENGTH + 1 ];
 
     // ADAT Operational Settings: will change during TRX use
 
@@ -377,10 +393,10 @@ typedef struct _adat_priv_data
 
     // ADAT Command-related Values
 
-    char         *pcCmd;
+    char          acCmd[ ADAT_PRIV_DATA_CMD_LENGTH + 1 ];
     int           nCmdKind;
 
-    char         *pcResult;
+    char          acResult[ ADAT_PRIV_DATA_RESULT_LENGTH + 1 ];
     int           nRC;
 
 } adat_priv_data_t,
@@ -531,9 +547,6 @@ int adat_cmd_recover_from_error(RIG *, int);
 
 int adat_transaction(RIG *, adat_cmd_list_ptr);
 
-adat_priv_data_ptr adat_new_priv_data(RIG *);
-void adat_del_priv_data(adat_priv_data_t **);
-
 // Command implementation
 
 int adat_cmd_fn_get_serial_nr(RIG *);
@@ -543,7 +556,6 @@ int adat_cmd_fn_get_gui_fw_version(RIG *);
 int adat_cmd_fn_get_id_code(RIG *);
 int adat_cmd_fn_get_options(RIG *);
 
-int adat_cmd_fn_set_callsign(RIG *);
 int adat_cmd_fn_get_callsign(RIG *);
 
 int adat_cmd_fn_set_freq(RIG *);
@@ -568,8 +580,8 @@ int adat_reset(RIG *, reset_t);
 int adat_open(RIG *);
 int adat_close(RIG *);
 
-int adat_set_conf(RIG *, token_t, const char *val);
-int adat_get_conf(RIG *, token_t, char *val);
+int adat_set_conf(RIG *, hamlib_token_t, const char *val);
+int adat_get_conf(RIG *, hamlib_token_t, char *val);
 
 int adat_set_freq(RIG *, vfo_t, freq_t);
 int adat_get_freq(RIG *, vfo_t, freq_t *);
@@ -598,7 +610,7 @@ int adat_power2mW(RIG *, unsigned int *, float, freq_t, rmode_t);
 
 int adat_get_powerstat(RIG *, powerstat_t *);
 
-extern const struct rig_caps adt_200a_caps;
+extern struct rig_caps adt_200a_caps;
 
 // ---------------------------------------------------------------------------
 //    END OF FILE

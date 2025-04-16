@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -62,14 +58,14 @@
  * http://www2.rohde-schwarz.com/file/ESMC_25.pdf
  */
 
-const struct rig_caps esmc_caps =
+struct rig_caps esmc_caps =
 {
     RIG_MODEL(RIG_MODEL_ESMC),
     .model_name = "ESMC",
     .mfg_name =  "Rohde&Schwarz",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -173,6 +169,7 @@ const struct rig_caps esmc_caps =
     .set_channel =  rs_set_channel,
     .get_channel =  rs_get_channel,
 #endif
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

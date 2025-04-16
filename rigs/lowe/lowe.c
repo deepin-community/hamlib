@@ -19,19 +19,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 
 #include "lowe.h"
@@ -53,19 +46,17 @@
 
 /*
  * lowe_transaction
- * We assume that rig!=NULL, rig->state!= NULL, data!=NULL, data_len!=NULL
+ * We assume that rig!=NULL, STATE(rig)!= NULL, data!=NULL, data_len!=NULL
  */
 int lowe_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
                      int *data_len)
 {
     int retval;
-    struct rig_state *rs;
+    hamlib_port_t *rp = RIGPORT(rig);
 
-    rs = &rig->state;
+    rig_flush(rp);
 
-    rig_flush(&rs->rigport);
-
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(rp, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -79,7 +70,7 @@ int lowe_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
         return 0;
     }
 
-    retval = read_string(&rs->rigport, data, BUFSZ, CR, 1);
+    retval = read_string(rp, (unsigned char *) data, BUFSZ, CR, 1, 0, 1);
 
     if (retval == -RIG_ETIMEOUT)
     {
@@ -103,12 +94,12 @@ int lowe_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 int lowe_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[16], ackbuf[16];
-    int freq_len, ack_len, retval;
+    int ack_len, retval;
 
     /*
      */
-    freq_len = sprintf(freqbuf, "FRQ%f" EOM, (float)freq / 1000);
-    retval = lowe_transaction(rig, freqbuf, freq_len, ackbuf, &ack_len);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "FRQ%f" EOM, (float)freq / 1000);
+    retval = lowe_transaction(rig, freqbuf, strlen(freqbuf), ackbuf, &ack_len);
 
     return retval;
 }
@@ -121,7 +112,7 @@ int lowe_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
     char freqbuf[16];
     int freq_len, retval;
-    float f_freq;
+    double f_freq;
 
     retval = lowe_transaction(rig, "FRQ?" EOM, 5, freqbuf, &freq_len);
 
@@ -132,7 +123,7 @@ int lowe_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
     freqbuf[freq_len < 16 ? freq_len : 15] = '\0';
 
-    sscanf(freqbuf + 1, "%f", &f_freq);
+    sscanf(freqbuf + 1, "%lf", &f_freq);
     *freq = f_freq * 1000;
 
     return retval;
@@ -147,7 +138,7 @@ int lowe_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     char mdbuf[16], ackbuf[16];
     char *mode_sel;
-    int mdbuf_len, ack_len, retval;
+    int ack_len, retval;
 
     switch (mode)
     {
@@ -171,8 +162,8 @@ int lowe_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    mdbuf_len = sprintf(mdbuf, "MOD%s" EOM, mode_sel);
-    retval = lowe_transaction(rig, mdbuf, mdbuf_len, ackbuf, &ack_len);
+    SNPRINTF(mdbuf, sizeof(mdbuf), "MOD%s" EOM, mode_sel);
+    retval = lowe_transaction(rig, mdbuf, strlen(mdbuf), ackbuf, &ack_len);
 
     return retval;
 }
@@ -341,8 +332,8 @@ DECLARE_PROBERIG_BACKEND(lowe)
         return RIG_MODEL_NONE;
     }
 
-    retval = write_block(port, "TYP?" EOM, 4);
-    id_len = read_string(port, idbuf, BUFSZ, CR, 2);
+    retval = write_block(port, (unsigned char *) "TYP?" EOM, 4);
+    id_len = read_string(port, (unsigned char *) idbuf, BUFSZ, CR, 2, 0, 1);
 
     close(port->fd);
 

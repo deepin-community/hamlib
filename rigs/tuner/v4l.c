@@ -18,17 +18,12 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 #include <errno.h>
 
 #include "hamlib/rig.h"
 #include "tuner.h"  /* include config.h */
-
-#include "misc.h"
 
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
@@ -36,7 +31,6 @@
 
 #ifdef V4L_IOCTL
 
-#include <stdlib.h>
 #include "idx_builtin.h"
 
 
@@ -69,14 +63,14 @@ static const char *v4l_get_info(RIG *rig);
  *
  *
  */
-const struct rig_caps v4l_caps =
+struct rig_caps v4l_caps =
 {
     RIG_MODEL(RIG_MODEL_V4L),
     .model_name = "SW/FM radio",
     .mfg_name =  "Video4Linux",
     .version =  "20120107.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_PCRECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -94,7 +88,6 @@ const struct rig_caps v4l_caps =
     .has_set_parm =  RIG_PARM_SET(V4L_PARM_ALL),
     .vfo_ops =  RIG_OP_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 65535 } },
     },
     .preamp =   { RIG_DBLST_END },
@@ -143,7 +136,7 @@ const struct rig_caps v4l_caps =
     .get_level =  v4l_get_level,
 
     .get_info =  v4l_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -158,8 +151,8 @@ const struct rig_caps v4l_caps =
 
 int v4l_init(RIG *rig)
 {
-    rig->state.rigport.type.rig = RIG_PORT_DEVICE;
-    strncpy(rig->state.rigport.pathname, DEFAULT_V4L_PATH, HAMLIB_FILPATHLEN - 1);
+    RIGPORT(rig)->type.rig = RIG_PORT_DEVICE;
+    strncpy(RIGPORT(rig)->pathname, DEFAULT_V4L_PATH, HAMLIB_FILPATHLEN - 1);
 
     return RIG_OK;
 }
@@ -168,14 +161,14 @@ int v4l_open(RIG *rig)
 {
     int i;
     struct video_tuner vt;
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
 
     for (i = 0; i < 8; i++)
     {
         int ret;
         double fact;
         vt.tuner = i;
-        ret = ioctl(rig->state.rigport.fd, VIDIOCGTUNER, &vt);
+        ret = ioctl(RIGPORT(rig)->fd, VIDIOCGTUNER, &vt);
 
         if (ret < 0)
         {
@@ -197,7 +190,8 @@ int v4l_open(RIG *rig)
 
 int v4l_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct rig_state *rs = &rig->state;
+    const struct rig_state *rs = STATE(rig);
+    hamlib_port_t *rp = RIGPORT(rig);
     struct      video_tuner vt;
     const freq_range_t *range;
     unsigned long f;
@@ -216,7 +210,7 @@ int v4l_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     vt.tuner = (rs->rx_range_list - range) / sizeof(freq_range_t);
 
-    ret = ioctl(rig->state.rigport.fd, VIDIOCSTUNER, &vt);  /* set tuner # */
+    ret = ioctl(rp->fd, VIDIOCSTUNER, &vt);  /* set tuner # */
 
     if (ret < 0)
     {
@@ -229,7 +223,7 @@ int v4l_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     f = rint(freq * fact);  /* rounding to nearest int */
 
-    ret = ioctl(rig->state.rigport.fd, VIDIOCSFREQ, &f);
+    ret = ioctl(rp->fd, VIDIOCSFREQ, &f);
 
     if (ret < 0)
     {
@@ -243,13 +237,13 @@ int v4l_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 int v4l_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct rig_state *rs = &rig->state;
+    const struct rig_state *rs = STATE(rig);
     const freq_range_t *range;
     unsigned long f;
     double fact;
     int ret;
 
-    ret = ioctl(rig->state.rigport.fd, VIDIOCGFREQ, &f);
+    ret = ioctl(RIGPORT(rig)->fd, VIDIOCGFREQ, &f);
 
     if (ret < 0)
     {
@@ -277,12 +271,13 @@ int v4l_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 int v4l_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
 {
     struct video_audio va;
+    hamlib_port_t *rp = RIGPORT(rig);
     int ret;
 
     switch (func)
     {
     case RIG_FUNC_MUTE:
-        ret = ioctl(rig->state.rigport.fd, VIDIOCGAUDIO, &va);
+        ret = ioctl(rp->fd, VIDIOCGAUDIO, &va);
 
         if (ret < 0)
         {
@@ -292,7 +287,7 @@ int v4l_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
         }
 
         va.flags = status ? VIDEO_AUDIO_MUTE : 0;
-        ret = ioctl(rig->state.rigport.fd, VIDIOCSAUDIO, &va);
+        ret = ioctl(rp->fd, VIDIOCSAUDIO, &va);
 
         if (ret < 0)
         {
@@ -318,7 +313,7 @@ int v4l_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
     switch (func)
     {
     case RIG_FUNC_MUTE:
-        ret = ioctl(rig->state.rigport.fd, VIDIOCGAUDIO, &va);
+        ret = ioctl(RIGPORT(rig)->fd, VIDIOCGAUDIO, &va);
 
         if (ret < 0)
         {
@@ -341,9 +336,10 @@ int v4l_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
 int v4l_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
     struct video_audio va;
+    hamlib_port_t *rp = RIGPORT(rig);
     int ret;
 
-    ret = ioctl(rig->state.rigport.fd, VIDIOCGAUDIO, &va);
+    ret = ioctl(rp->fd, VIDIOCGAUDIO, &va);
 
     if (ret < 0)
     {
@@ -362,7 +358,7 @@ int v4l_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         return -RIG_EINVAL;
     }
 
-    ret = ioctl(rig->state.rigport.fd, VIDIOCSAUDIO, &va);
+    ret = ioctl(rp->fd, VIDIOCSAUDIO, &va);
 
     if (ret < 0)
     {
@@ -378,12 +374,13 @@ int v4l_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     struct video_audio va;
     struct video_tuner vt;
+    hamlib_port_t *rp = RIGPORT(rig);
     int ret;
 
     switch (level)
     {
     case RIG_LEVEL_AF:
-        ret = ioctl(rig->state.rigport.fd, VIDIOCGAUDIO, &va);
+        ret = ioctl(rp->fd, VIDIOCGAUDIO, &va);
 
         if (ret < 0)
         {
@@ -396,7 +393,7 @@ int v4l_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_RAWSTR:
-        ret = ioctl(rig->state.rigport.fd, VIDIOCGTUNER, &vt);  /* get info */
+        ret = ioctl(rp->fd, VIDIOCGTUNER, &vt);  /* get info */
 
         if (ret < 0)
         {
@@ -424,7 +421,7 @@ const char *v4l_get_info(RIG *rig)
     int ret;
 
     vt.tuner = 0;
-    ret = ioctl(rig->state.rigport.fd, VIDIOCGTUNER, &vt);
+    ret = ioctl(RIGPORT(rig)->fd, VIDIOCGTUNER, &vt);
 
     if (ret < 0)
     {

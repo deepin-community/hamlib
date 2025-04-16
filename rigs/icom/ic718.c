@@ -20,10 +20,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
@@ -76,12 +72,12 @@ static const struct icom_priv_caps IC718_priv_caps =
     ic718_ts_sc_list
 };
 
-const struct rig_caps ic718_caps =
+struct rig_caps ic718_caps =
 {
     RIG_MODEL(RIG_MODEL_IC718),
     .model_name = "IC-718",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =   RIG_TYPE_TRANSCEIVER,
@@ -104,9 +100,9 @@ const struct rig_caps ic718_caps =
     .has_set_level =  RIG_LEVEL_SET(IC718_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
     .parm_gran =  {},
     .str_cal = IC718_STR_CAL,
@@ -186,6 +182,7 @@ const struct rig_caps ic718_caps =
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+//    .get_vfo =  icom_get_vfo,
 
     .decode_event =  icom_decode_event,
     .set_level =  icom_set_level,
@@ -205,6 +202,7 @@ const struct rig_caps ic718_caps =
     .set_split_vfo =  icom_set_split_vfo,
     .get_split_vfo =  icom_mem_get_split_vfo,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

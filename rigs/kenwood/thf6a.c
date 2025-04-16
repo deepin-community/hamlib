@@ -5,7 +5,7 @@
  *
  *  10-03-2010
  *    Ported from Stephane Fillod's thf7.c
- *    Changed TH-F7E perameters to reflect TH-F6A
+ *    Changed TH-F7E parameters to reflect TH-F6A
  *    Changed RIG_ITU_REGION from 1 to 2
  *
  *
@@ -25,12 +25,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
-#include <string.h>
 
 #include <hamlib/rig.h>
 #include "tones.h"
@@ -117,14 +112,14 @@ static int thf6a_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
  * - set/get_ctcss_tone/sql through set/get_channel() and VR/VW
  * - emulate RIG_FUNC_TONE|RIG_FUNC_TSQL by setting ctcss_tone/sql to 0/non zero?
  */
-const struct rig_caps thf6a_caps =
+struct rig_caps thf6a_caps =
 {
     RIG_MODEL(RIG_MODEL_THF6A),
     .model_name = "TH-F6A",
     .mfg_name =  "Kenwood",
     .version =  TH_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_HANDHELD,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -146,10 +141,9 @@ const struct rig_caps thf6a_caps =
     .has_set_level =  RIG_LEVEL_SET(THF6_LEVEL_ALL),
     .has_get_parm =  THF6_PARMS,
     .has_set_parm =  THF6_PARMS,
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_RFPOWER] = { .min = { .i = 2 }, .max = { .i = 0 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
     .parm_gran =  {},
     .ctcss_list =  thf6_ctcss_list,
@@ -278,6 +272,7 @@ const struct rig_caps thf6a_caps =
     .get_ant    = th_get_ant,
 
     .reset      = th_reset,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

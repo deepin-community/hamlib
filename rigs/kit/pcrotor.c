@@ -19,17 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rotator.h"
 #include "parallel.h"
-#include "misc.h"
 
 
 /* ************************************************************************* */
@@ -61,7 +54,7 @@ static int
 pcrotor_stop(ROT *rot)
 {
     /* CW=0, CCW=0, Power-up=0 */
-    return setDirection(&rot->state.rotport, 0);
+    return setDirection(ROTPORT(rot), 0);
 }
 
 static int
@@ -90,7 +83,7 @@ pcrotor_move(ROT *rot, int direction, int speed)
         return -RIG_EINVAL;
     }
 
-    return setDirection(&rot->state.rotport, outputvalue);
+    return setDirection(ROTPORT(rot), outputvalue);
 }
 
 
@@ -118,7 +111,7 @@ const struct rot_caps pcrotor_caps =
     .mfg_name =       "WA6UFQ",
     .version =        "20081013.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_UNTESTED,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_OTHER,
     .port_type =      RIG_PORT_PARALLEL,
     .write_delay =  0,

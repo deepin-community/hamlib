@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -57,14 +53,14 @@ static const struct pcr_priv_caps pcr100_priv =
 /*
  * IC PCR100 rigs capabilities.
  */
-const struct rig_caps pcr100_caps =
+struct rig_caps pcr100_caps =
 {
     RIG_MODEL(RIG_MODEL_PCR100),
     .model_name     = "IC-PCR100",
     .mfg_name       = "Icom",
     .version        = BACKEND_VER ".0",
     .copyright      = "LGPL",
-    .status         = RIG_STATUS_BETA,
+    .status         = RIG_STATUS_STABLE,
 
     .rig_type       = RIG_TYPE_PCRECEIVER,
     .ptt_type       = RIG_PTT_NONE,
@@ -91,7 +87,6 @@ const struct rig_caps pcr100_caps =
     .has_set_parm       = RIG_PARM_NONE,
 
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         /* XXX check this */
         [LVL_IF] = { .min = { .i = -1270 }, .max = { .i = 1270 }, .step = { .i = 10 } },
@@ -192,4 +187,5 @@ const struct rig_caps pcr100_caps =
 
     .set_powerstat  = pcr_set_powerstat,
     .get_powerstat  = pcr_get_powerstat,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

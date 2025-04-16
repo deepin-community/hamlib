@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
@@ -56,7 +52,7 @@ static const struct icom_priv_caps ic725_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic725_caps =
+struct rig_caps ic725_caps =
 {
     RIG_MODEL(RIG_MODEL_IC725),
     .model_name = "IC-725",
@@ -164,5 +160,6 @@ const struct rig_caps ic725_caps =
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

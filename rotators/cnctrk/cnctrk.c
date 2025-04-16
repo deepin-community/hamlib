@@ -19,21 +19,14 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
-#include <math.h>
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
 
 #include "hamlib/rotator.h"
-#include "misc.h"
 #include "register.h"
 
 char axcmd[512];
@@ -50,7 +43,8 @@ cnctrk_set_position(ROT *rot, azimuth_t az, elevation_t el)
         return retval;
     }
 
-    sprintf(axcmd, "/usr/bin/axis-remote --mdi 'G00 X %6.2f Y %6.2f' \n", az, el);
+    SNPRINTF(axcmd, sizeof(axcmd),
+             "/usr/bin/axis-remote --mdi 'G00 X %6.2f Y %6.2f' \n", az, el);
     return system(axcmd);
 }
 
@@ -62,9 +56,9 @@ const struct rot_caps cnctrk_rot_caps =
     ROT_MODEL(ROT_MODEL_CNCTRK),
     .model_name =     "CNCTRK",
     .mfg_name =       "CNCTRK",
-    .version =        "20191220.0",
+    .version =        "20220109.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_UNTESTED,
+    .status =         RIG_STATUS_BETA,
     .rot_type =       ROT_TYPE_OTHER,
     .port_type =      RIG_PORT_NONE,
     .write_delay =  0,

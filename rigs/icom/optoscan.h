@@ -23,8 +23,8 @@
 #define _OPTOSCAN_H 1
 
 #include <hamlib/rig.h>
-#include <cal.h>
-#include <tones.h>
+
+#include "icom_defs.h"
 
 #define TOK_TAPECNTL  TOKEN_BACKEND(1)
 #define TOK_5KHZWIN   TOKEN_BACKEND(2)
@@ -43,8 +43,8 @@ const char* optoscan_get_info(RIG *rig);
 int optoscan_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone);
 int optoscan_get_dcs_code(RIG * rig, vfo_t vfo, tone_t *code);
 int optoscan_recv_dtmf(RIG *rig, vfo_t vfo, char *digits, int *length);
-int optoscan_set_ext_parm(RIG *rig, token_t token, value_t val);
-int optoscan_get_ext_parm(RIG *rig, token_t token, value_t *val);
+int optoscan_set_ext_parm(RIG *rig, hamlib_token_t token, value_t val);
+int optoscan_get_ext_parm(RIG *rig, hamlib_token_t token, value_t *val);
 int optoscan_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
 int optoscan_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
 int optoscan_scan(RIG *rig, vfo_t vfo, scan_t scan, int ch);

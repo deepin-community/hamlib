@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -62,14 +58,14 @@ static const struct icom_priv_caps ic738_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic738_caps =
+struct rig_caps ic738_caps =
 {
     RIG_MODEL(RIG_MODEL_IC738),
     .model_name = "IC-738",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -166,7 +162,7 @@ const struct rig_caps ic738_caps =
     .rig_init =   icom_init,
     .rig_cleanup =   icom_cleanup,
     .rig_open =  icom_rig_open,
-    .rig_close =  icom_rig_open,
+    .rig_close =  icom_rig_close,
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
@@ -185,5 +181,6 @@ const struct rig_caps ic738_caps =
     .get_split_mode =  icom_get_split_mode,
     .set_split_vfo =  icom_set_split_vfo,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

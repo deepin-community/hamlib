@@ -18,6 +18,7 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #ifndef _ROTATOR_H
 #define _ROTATOR_H 1
@@ -214,6 +215,126 @@ typedef enum {
  */
 #define ROT_MOVE_CW         ROT_MOVE_RIGHT
 
+/**
+ * \def ROT_MOVE_UP_LEFT
+ * \brief A macro that returns the flag for the \b clockwise direction.
+ *
+ * This macro defines the value of the \b clockwise direction which can be
+ * used with the rot_move() function. This value is equivalent to
+ * ROT_MOVE_UP_CCW.
+ *
+ * \sa rot_move(), ROT_MOVE_UP, ROT_MOVE_DOWN, ROT_MOVE_LEFT, ROT_MOVE_CCW, 
+ * ROT_MOVE_RIGHT, ROT_MOVE_CW, ROT_MOVE_UP_CCW, 
+ * ROT_MOVE_UP_RIGHT, ROT_MOVE_UP_CW, ROT_MOVE_DOWN_LEFT, ROT_MOVE_DOWN_CCW,
+ * ROT_MOVE_DOWN_RIGHT, ROT_MOVE_DOWN_CW
+ */
+#define ROT_MOVE_UP_LEFT         (1<<5)
+
+/**
+ * \def ROT_MOVE_UP_CCW
+ * \brief A macro that returns the flag for the \b clockwise direction.
+ *
+ * This macro defines the value of the \b clockwise direction which can be
+ * used with the rot_move() function. This value is equivalent to
+ * ROT_MOVE_UP_LEFT.
+ *
+ * \sa rot_move(), ROT_MOVE_UP, ROT_MOVE_DOWN, ROT_MOVE_LEFT, ROT_MOVE_CCW, 
+ * ROT_MOVE_RIGHT, ROT_MOVE_CW, ROT_MOVE_UP_LEFT,
+ * ROT_MOVE_UP_RIGHT, ROT_MOVE_UP_CW, ROT_MOVE_DOWN_LEFT, ROT_MOVE_DOWN_CCW,
+ * ROT_MOVE_DOWN_RIGHT, ROT_MOVE_DOWN_CW
+ */
+#define ROT_MOVE_UP_CCW         ROT_MOVE_UP_LEFT
+
+/**
+ * \def ROT_MOVE_UP_RIGHT
+ * \brief A macro that returns the flag for the \b clockwise direction.
+ *
+ * This macro defines the value of the \b clockwise direction which can be
+ * used with the rot_move() function. This value is equivalent to
+ * ROT_MOVE_UP_CW.
+ *
+ * \sa rot_move(), ROT_MOVE_UP, ROT_MOVE_DOWN, ROT_MOVE_LEFT, ROT_MOVE_CCW, 
+ * ROT_MOVE_RIGHT, ROT_MOVE_CW, ROT_MOVE_UP_LEFT, ROT_MOVE_UP_CCW, 
+ * ROT_MOVE_UP_CW, ROT_MOVE_DOWN_LEFT, ROT_MOVE_DOWN_CCW,
+ * ROT_MOVE_DOWN_RIGHT, ROT_MOVE_DOWN_CW
+ */
+#define ROT_MOVE_UP_RIGHT         (1<<6)
+
+/**
+ * \def ROT_MOVE_UP_CW
+ * \brief A macro that returns the flag for the \b clockwise direction.
+ *
+ * This macro defines the value of the \b clockwise direction which can be
+ * used with the rot_move() function. This value is equivalent to
+ * ROT_MOVE_UP_RIGHT.
+ *
+ * \sa rot_move(), ROT_MOVE_UP, ROT_MOVE_DOWN, ROT_MOVE_LEFT, ROT_MOVE_CCW, 
+ * ROT_MOVE_RIGHT, ROT_MOVE_CW, ROT_MOVE_UP_LEFT, ROT_MOVE_UP_CCW, 
+ * ROT_MOVE_UP_RIGHT, ROT_MOVE_DOWN_LEFT, ROT_MOVE_DOWN_CCW,
+ * ROT_MOVE_DOWN_RIGHT, ROT_MOVE_DOWN_CW
+ */
+#define ROT_MOVE_UP_CW       ROT_MOVE_UP_RIGHT
+
+/**
+ * \def ROT_MOVE_DOWN_LEFT
+ * \brief A macro that returns the flag for the \b clockwise direction.
+ *
+ * This macro defines the value of the \b clockwise direction which can be
+ * used with the rot_move() function. This value is equivalent to
+ * ROT_MOVE_DOWN_CCW.
+ *
+ * \sa rot_move(), ROT_MOVE_UP, ROT_MOVE_DOWN, ROT_MOVE_LEFT, ROT_MOVE_CCW, 
+ * ROT_MOVE_RIGHT, ROT_MOVE_CW, ROT_MOVE_UP_LEFT, ROT_MOVE_UP_CCW, 
+ * ROT_MOVE_UP_RIGHT, ROT_MOVE_UP_CW, ROT_MOVE_DOWN_CCW,
+ * ROT_MOVE_DOWN_RIGHT, ROT_MOVE_DOWN_CW
+ */
+#define ROT_MOVE_DOWN_LEFT         (1 << 7)
+
+
+/**
+ * \def ROT_MOVE_DOWN_CCW
+ * \brief A macro that returns the flag for the \b clockwise direction.
+ *
+ * This macro defines the value of the \b clockwise direction which can be
+ * used with the rot_move() function. This value is equivalent to
+ * ROT_MOVE_DOWN_LEFT.
+ *
+ * \sa rot_move(), ROT_MOVE_UP, ROT_MOVE_DOWN, ROT_MOVE_LEFT, ROT_MOVE_CCW, 
+ * ROT_MOVE_RIGHT, ROT_MOVE_CW, ROT_MOVE_UP_LEFT, ROT_MOVE_UP_CCW, 
+ * ROT_MOVE_UP_RIGHT, ROT_MOVE_UP_CW, ROT_MOVE_DOWN_LEFT,
+ * ROT_MOVE_DOWN_RIGHT, ROT_MOVE_DOWN_CW
+ */
+#define ROT_MOVE_DOWN_CCW         ROT_MOVE_DOWN_LEFT
+
+/**
+ * \def ROT_MOVE_DOWN_RIGHT
+ * \brief A macro that returns the flag for the \b clockwise direction.
+ *
+ * This macro defines the value of the \b clockwise direction which can be
+ * used with the rot_move() function. This value is equivalent to
+ * ROT_MOVE_DOWN_CW.
+ *
+ * \sa rot_move(), ROT_MOVE_UP, ROT_MOVE_DOWN, ROT_MOVE_LEFT, ROT_MOVE_CCW, 
+ * ROT_MOVE_RIGHT, ROT_MOVE_CW, ROT_MOVE_UP_LEFT, ROT_MOVE_UP_CCW, 
+ * ROT_MOVE_UP_RIGHT, ROT_MOVE_UP_CW, ROT_MOVE_DOWN_LEFT, ROT_MOVE_DOWN_CCW,
+ * ROT_MOVE_DOWN_CW
+ */
+#define ROT_MOVE_DOWN_RIGHT         (1 << 8)
+
+/**
+ * \def ROT_MOVE_DOWN_CW
+ * \brief A macro that returns the flag for the \b clockwise direction.
+ *
+ * This macro defines the value of the \b clockwise direction which can be
+ * used with the rot_move() function. This value is equivalent to
+ * ROT_MOVE_DOWN_RIGHT.
+ *
+ * \sa rot_move(), ROT_MOVE_UP, ROT_MOVE_DOWN, ROT_MOVE_LEFT, ROT_MOVE_CCW, 
+ * ROT_MOVE_RIGHT, ROT_MOVE_CW, ROT_MOVE_UP_LEFT, ROT_MOVE_UP_CCW, 
+ * ROT_MOVE_UP_RIGHT, ROT_MOVE_UP_CW, ROT_MOVE_DOWN_LEFT, ROT_MOVE_DOWN_CCW,
+ * ROT_MOVE_DOWN_RIGHT,
+ */
+#define ROT_MOVE_DOWN_CW         ROT_MOVE_DOWN_RIGHT
 
 /**
  * \brief Rotator status flags
@@ -413,8 +534,8 @@ struct rot_caps {
     int (*rot_open)(ROT *rot);     /*!< Pointer to backend implementation of ::rot_open(). */
     int (*rot_close)(ROT *rot);    /*!< Pointer to backend implementation of ::rot_close(). */
 
-    int (*set_conf)(ROT *rot, token_t token, const char *val); /*!< Pointer to backend implementation of ::rot_set_conf(). */
-    int (*get_conf)(ROT *rot, token_t token, char *val);       /*!< Pointer to backend implementation of ::rot_get_conf(). */
+    int (*set_conf)(ROT *rot, hamlib_token_t token, const char *val); /*!< Pointer to backend implementation of ::rot_set_conf(). */
+    int (*get_conf)(ROT *rot, hamlib_token_t token, char *val);       /*!< Pointer to backend implementation of ::rot_get_conf(). */
 
     /*
      *  General API commands, from most primitive to least.. :()
@@ -441,18 +562,19 @@ struct rot_caps {
     int (*set_parm)(ROT *rot, setting_t parm, value_t val);    /*!< Pointer to backend implementation of ::rot_set_parm(). */
     int (*get_parm)(ROT *rot, setting_t parm, value_t *val);   /*!< Pointer to backend implementation of ::rot_get_parm(). */
 
-    int (*set_ext_level)(ROT *rot, token_t token, value_t val);    /*!< Pointer to backend implementation of ::rot_set_ext_level(). */
-    int (*get_ext_level)(ROT *rot, token_t token, value_t *val);   /*!< Pointer to backend implementation of ::rot_get_ext_level(). */
+    int (*set_ext_level)(ROT *rot, hamlib_token_t token, value_t val);    /*!< Pointer to backend implementation of ::rot_set_ext_level(). */
+    int (*get_ext_level)(ROT *rot, hamlib_token_t token, value_t *val);   /*!< Pointer to backend implementation of ::rot_get_ext_level(). */
 
-    int (*set_ext_func)(ROT *rot, token_t token, int status);  /*!< Pointer to backend implementation of ::rot_set_ext_func(). */
-    int (*get_ext_func)(ROT *rot, token_t token, int *status); /*!< Pointer to backend implementation of ::rot_get_ext_func(). */
+    int (*set_ext_func)(ROT *rot, hamlib_token_t token, int status);  /*!< Pointer to backend implementation of ::rot_set_ext_func(). */
+    int (*get_ext_func)(ROT *rot, hamlib_token_t token, int *status); /*!< Pointer to backend implementation of ::rot_get_ext_func(). */
 
-    int (*set_ext_parm)(ROT *rot, token_t token, value_t val);     /*!< Pointer to backend implementation of ::rot_set_ext_parm(). */
-    int (*get_ext_parm)(ROT *rot, token_t token, value_t *val);    /*!< Pointer to backend implementation of ::rot_get_ext_parm(). */
+    int (*set_ext_parm)(ROT *rot, hamlib_token_t token, value_t val);     /*!< Pointer to backend implementation of ::rot_set_ext_parm(). */
+    int (*get_ext_parm)(ROT *rot, hamlib_token_t token, value_t *val);    /*!< Pointer to backend implementation of ::rot_get_ext_parm(). */
 
     int (*get_status)(ROT *rot, rot_status_t *status); /*!< Pointer to backend implementation of ::rot_get_status(). */
 
     const char *macro_name;                    /*!< Rotator model macro name. */
+    int (*get_conf2)(ROT *rot, hamlib_token_t token, char *val, int val_len);       /*!< Pointer to backend implementation of ::rot_get_conf2(). */
 };
 //! @cond Doxygen_Suppress
 #define ROT_MODEL(arg) .rot_model=arg,.macro_name=#arg
@@ -496,15 +618,18 @@ struct rot_state {
     /*
      * non overridable fields, internal use
      */
-    hamlib_port_t rotport;  /*!< Rotator port (internal use). */
-    hamlib_port_t rotport2;  /*!< 2nd Rotator port (internal use). */
+    hamlib_port_t_deprecated rotport_deprecated;  /*!< Rotator port (internal use). Deprecated */
+    hamlib_port_t_deprecated rotport2_deprecated;  /*!< 2nd Rotator port (internal use). Deprecated */
 
     int comm_state;         /*!< Comm port state, i.e. opened or closed. */
     rig_ptr_t priv;         /*!< Pointer to private rotator state data. */
     rig_ptr_t obj;          /*!< Internal use by hamlib++ for event handling. */
 
     int current_speed;      /*!< Current speed 1-100, to be used when no change to speed is requested. */
-    /* etc... */
+    hamlib_port_t rotport;  /*!< Rotator port (internal use). */
+    hamlib_port_t rotport2;  /*!< 2nd Rotator port (internal use). */
+    rig_ptr_t *pstrotator_handler_priv_data;
+    deferred_config_header_t config_queue;
 };
 
 
@@ -542,12 +667,18 @@ rot_cleanup HAMLIB_PARAMS((ROT *rot));
 
 extern HAMLIB_EXPORT(int)
 rot_set_conf HAMLIB_PARAMS((ROT *rot,
-                            token_t token,
+                            hamlib_token_t token,
                             const char *val));
 extern HAMLIB_EXPORT(int)
 rot_get_conf HAMLIB_PARAMS((ROT *rot,
-                            token_t token,
+                            hamlib_token_t token,
                             char *val));
+
+extern HAMLIB_EXPORT(int)
+rot_get_conf2 HAMLIB_PARAMS((ROT *rot,
+                            hamlib_token_t token,
+                            char *val,
+                            int val_len));
 
 /*
  *  General API commands, from most primitive to least.. )
@@ -627,29 +758,29 @@ rot_get_parm HAMLIB_PARAMS((ROT *rig,
 
 extern HAMLIB_EXPORT(int)
 rot_set_ext_level HAMLIB_PARAMS((ROT *rig,
-                                 token_t token,
+                                 hamlib_token_t token,
                                  value_t val));
 extern HAMLIB_EXPORT(int)
 rot_get_ext_level HAMLIB_PARAMS((ROT *rig,
-                                 token_t token,
+                                 hamlib_token_t token,
                                  value_t *val));
 
 extern HAMLIB_EXPORT(int)
 rot_set_ext_func HAMLIB_PARAMS((ROT *rig,
-                                 token_t token,
+                                 hamlib_token_t token,
                                  int status));
 extern HAMLIB_EXPORT(int)
 rot_get_ext_func HAMLIB_PARAMS((ROT *rig,
-                                 token_t token,
+                                 hamlib_token_t token,
                                  int *status));
 
 extern HAMLIB_EXPORT(int)
 rot_set_ext_parm HAMLIB_PARAMS((ROT *rig,
-                                token_t token,
+                                hamlib_token_t token,
                                 value_t val));
 extern HAMLIB_EXPORT(int)
 rot_get_ext_parm HAMLIB_PARAMS((ROT *rig,
-                                token_t token,
+                                hamlib_token_t token,
                                 value_t *val));
 
 extern HAMLIB_EXPORT(const char *)
@@ -692,7 +823,7 @@ extern HAMLIB_EXPORT(const struct confparams *)
 rot_confparam_lookup HAMLIB_PARAMS((ROT *rot,
                                    const char *name));
 
-extern HAMLIB_EXPORT(token_t)
+extern HAMLIB_EXPORT(hamlib_token_t)
 rot_token_lookup HAMLIB_PARAMS((ROT *rot,
                                 const char *name));
 
@@ -721,8 +852,8 @@ rot_ext_lookup HAMLIB_PARAMS((ROT *rot,
 
 extern HAMLIB_EXPORT(const struct confparams *)
 rot_ext_lookup_tok HAMLIB_PARAMS((ROT *rot,
-                                  token_t token));
-extern HAMLIB_EXPORT(token_t)
+                                  hamlib_token_t token));
+extern HAMLIB_EXPORT(hamlib_token_t)
 rot_ext_token_lookup HAMLIB_PARAMS((ROT *rot,
                                     const char *name));
 
@@ -743,6 +874,7 @@ distance_long_path HAMLIB_PARAMS((double distance));
 extern HAMLIB_EXPORT(double)
 azimuth_long_path HAMLIB_PARAMS((double azimuth));
 
+#if 0
 extern HAMLIB_EXPORT(int)
 longlat2locator HAMLIB_PARAMS((double longitude,
                                double latitude,
@@ -753,6 +885,7 @@ extern HAMLIB_EXPORT(int)
 locator2longlat HAMLIB_PARAMS((double *longitude,
                                double *latitude,
                                const char *locator));
+#endif
 
 extern HAMLIB_EXPORT(double)
 dms2dec HAMLIB_PARAMS((int degrees,
@@ -786,6 +919,8 @@ extern HAMLIB_EXPORT(const char *) rot_strfunc(setting_t);
 extern HAMLIB_EXPORT(const char *) rot_strlevel(setting_t);
 extern HAMLIB_EXPORT(const char *) rot_strparm(setting_t);
 extern HAMLIB_EXPORT(const char *) rot_strstatus(rot_status_t);
+
+extern HAMLIB_EXPORT(void *) rot_data_pointer(ROT *rot, rig_ptrx_t idx);
 
 //! @endcond
 

@@ -18,20 +18,13 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include <hamlib/rig.h>
 #include <serial.h>
-#include <misc.h>
-#include <cal.h>
 #include <token.h>
 #include <register.h>
 
@@ -120,7 +113,7 @@ int icmarine_init(RIG *rig)
 {
     struct icmarine_priv_data *priv;
     const struct icmarine_priv_caps *priv_caps;
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
 
     if (!rig || !rig->caps)
     {
@@ -136,16 +129,16 @@ int icmarine_init(RIG *rig)
 
     priv_caps = (const struct icmarine_priv_caps *) caps->priv;
 
-    rig->state.priv = (struct icmarine_priv_data *)malloc(sizeof(
-                          struct icmarine_priv_data));
+    STATE(rig)->priv = (struct icmarine_priv_data *)calloc(1, sizeof(
+                           struct icmarine_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         /* whoops! memory shortage! */
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     priv->remote_id = priv_caps->default_remote_id;
     priv->split = RIG_SPLIT_OFF;
@@ -160,12 +153,12 @@ int icmarine_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
@@ -190,11 +183,11 @@ int icmarine_open(RIG *rig)
 #endif
 
 
-int icmarine_set_conf(RIG *rig, token_t token, const char *val)
+int icmarine_set_conf(RIG *rig, hamlib_token_t token, const char *val)
 {
     struct icmarine_priv_data *priv;
 
-    priv = (struct icmarine_priv_data *)rig->state.priv;
+    priv = (struct icmarine_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
@@ -209,16 +202,16 @@ int icmarine_set_conf(RIG *rig, token_t token, const char *val)
     return RIG_OK;
 }
 
-int icmarine_get_conf(RIG *rig, token_t token, char *val)
+int icmarine_get_conf2(RIG *rig, hamlib_token_t token, char *val, int val_len)
 {
     struct icmarine_priv_data *priv;
 
-    priv = (struct icmarine_priv_data *)rig->state.priv;
+    priv = (struct icmarine_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
     case TOK_REMOTEID:
-        sprintf(val, "%u", priv->remote_id);
+        SNPRINTF(val, val_len, "%u", priv->remote_id);
         break;
 
     default:
@@ -228,10 +221,15 @@ int icmarine_get_conf(RIG *rig, token_t token, char *val)
     return RIG_OK;
 }
 
+int icmarine_get_conf(RIG *rig, hamlib_token_t token, char *val)
+{
+    return icmarine_get_conf2(rig, token, val, 128);
+}
+
 
 /*
  * icmarine_transaction
- * We assume that rig!=NULL, rig->state!= NULL, data!=NULL, data_len!=NULL
+ * We assume that rig!=NULL, STATE(rig)!= NULL, data!=NULL, data_len!=NULL
  *
  * cmd: mandatory
  * param: only 1 optional NMEA parameter, NULL for none (=query)
@@ -243,33 +241,35 @@ int icmarine_transaction(RIG *rig, const char *cmd, const char *param,
     struct icmarine_priv_data *priv;
     int i, retval;
     struct rig_state *rs;
+    hamlib_port_t *rp = RIGPORT(rig);
     char cmdbuf[BUFSZ + 1];
     char respbuf[BUFSZ + 1];
     char *p;
     char *strip;
-    int cmd_len = 0;
+    int cmd_len;
     unsigned csum = 0;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: cmd='%s', param=%s\n", __func__, cmd,
               param == NULL ? "NULL" : param);
 
-    rs = &rig->state;
+    rs = STATE(rig);
     priv = (struct icmarine_priv_data *)rs->priv;
 
-    rig_flush(&rs->rigport);
+    rig_flush(rp);
 
     /* command formatting */
-    cmd_len = snprintf(cmdbuf, BUFSZ, "$PICOA,%02d,%02u,%s",
-                       CONTROLLER_ID,
-                       priv->remote_id,
-                       cmd);
+    SNPRINTF(cmdbuf, BUFSZ, "$PICOA,%02d,%02u,%s",
+             CONTROLLER_ID,
+             priv->remote_id,
+             cmd);
+    cmd_len = strlen(cmdbuf);
 
     if (param)
     {
         cmd_len += snprintf(cmdbuf + cmd_len, BUFSZ - cmd_len, ",%s", param);
     }
 
-    /* NMEA checksum, betwwen '$' and '*' */
+    /* NMEA checksum, between '$' and '*' */
     for (i = 1; i < cmd_len; i++)
     {
         csum = csum ^ (unsigned)cmdbuf[i];
@@ -278,7 +278,7 @@ int icmarine_transaction(RIG *rig, const char *cmd, const char *param,
     cmd_len += snprintf(cmdbuf + cmd_len, BUFSZ - cmd_len, "*%02X" EOM, csum);
 
     /* I/O */
-    retval = write_block(&rs->rigport, cmdbuf, cmd_len);
+    retval = write_block(rp, (unsigned char *) cmdbuf, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -288,7 +288,8 @@ int icmarine_transaction(RIG *rig, const char *cmd, const char *param,
     /*
      * Transceiver sends an echo of cmd followed by a CR/LF
      */
-    retval = read_string(&rs->rigport, respbuf, BUFSZ, LF, strlen(LF));
+    retval = read_string(rp, (unsigned char *) respbuf, BUFSZ, LF,
+                         strlen(LF), 0, 1);
 
     if (retval < 0)
     {
@@ -302,7 +303,7 @@ int icmarine_transaction(RIG *rig, const char *cmd, const char *param,
     }
 
     /* check response */
-    if (memcmp(respbuf, "$PICOA,", strlen("$PICOA,")))
+    if (memcmp(respbuf, "$PICOA,", strlen("$PICOA,")) != 0)
     {
         return -RIG_EPROTO;
     }
@@ -361,9 +362,9 @@ int icmarine_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
 
-    priv = (struct icmarine_priv_data *)rig->state.priv;
+    priv = (struct icmarine_priv_data *)STATE(rig)->priv;
 
-    sprintf(freqbuf, "%.6f", freq / MHz(1));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "%.6f", freq / MHz(1));
 
     /* no error reporting upon TXFREQ failure */
     if (RIG_SPLIT_OFF == priv->split)
@@ -417,7 +418,7 @@ int icmarine_set_tx_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
     rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
 
-    sprintf(freqbuf, "%.6f", freq / MHz(1));
+    SNPRINTF(freqbuf, sizeof(freqbuf), "%.6f", freq / MHz(1));
 
     return icmarine_transaction(rig, CMD_TXFREQ, freqbuf, NULL);
 }
@@ -460,7 +461,7 @@ int icmarine_set_split_vfo(RIG *rig, vfo_t rx_vfo, split_t split, vfo_t tx_vfo)
 
     rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
 
-    priv = (struct icmarine_priv_data *)rig->state.priv;
+    priv = (struct icmarine_priv_data *)STATE(rig)->priv;
 
     /* when disabling split mode */
     if (RIG_SPLIT_ON == priv->split &&
@@ -486,7 +487,7 @@ int icmarine_get_split_vfo(RIG *rig, vfo_t rx_vfo, split_t *split,
 
     rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
 
-    priv = (struct icmarine_priv_data *)rig->state.priv;
+    priv = (struct icmarine_priv_data *)STATE(rig)->priv;
 
     *split = priv->split;
     *tx_vfo = rx_vfo;
@@ -718,17 +719,17 @@ int icmarine_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     switch (level)
     {
     case RIG_LEVEL_AF:
-        sprintf(lvlbuf, "%u", (unsigned)(val.f * 255));
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "%u", (unsigned)(val.f * 255));
         retval = icmarine_transaction(rig, CMD_AFGAIN, lvlbuf, NULL);
         break;
 
     case RIG_LEVEL_RF:
-        sprintf(lvlbuf, "%u", (unsigned)(val.f * 9));
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "%u", (unsigned)(val.f * 9));
         retval = icmarine_transaction(rig, CMD_RFGAIN, lvlbuf, NULL);
         break;
 
     case RIG_LEVEL_RFPOWER:
-        sprintf(lvlbuf, "%u", 1 + (unsigned)(val.f * 2));
+        SNPRINTF(lvlbuf, sizeof(lvlbuf), "%u", 1 + (unsigned)(val.f * 2));
         retval = icmarine_transaction(rig, CMD_RFPWR, lvlbuf, NULL);
         break;
 

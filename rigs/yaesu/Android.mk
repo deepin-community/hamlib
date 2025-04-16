@@ -13,8 +13,8 @@ LOCAL_SRC_FILES := ft100.c ft747.c ft817.c ft847.c ft890.c ft900.c ft920.c \
 
 LOCAL_MODULE := yaesu
 
-LOCAL_CFLAGS := -DHAVE_CONFIG_H
+LOCAL_CFLAGS := 
 LOCAL_C_INCLUDES := android include src
-LOCAL_LDLIBS := -Lobj/local/armeabi
+LOCAL_LDLIBS := -Lobj/local/$(TARGET_ARCH_ABI)
 
 include $(BUILD_STATIC_LIBRARY)

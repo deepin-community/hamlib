@@ -19,20 +19,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
-#include "misc.h"
-#include "cal.h"
 #include "register.h"
 #include "token.h"
 
@@ -69,24 +61,23 @@ const struct confparams racal_cfg_params[] =
 
 /*
  * racal_transaction
- * We assume that rig!=NULL, rig->state!= NULL
+ * We assume that rig!=NULL, RIGPORT(rig)!= NULL
  *
  * TODO: Status Response handling with G/T commands
  */
 static int racal_transaction(RIG *rig, const char *cmd, char *data,
                              int *data_len)
 {
-    struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
-    struct rig_state *rs = &rig->state;
+    const struct racal_priv_data *priv = (struct racal_priv_data *)STATE(rig)->priv;
+    hamlib_port_t *rp = RIGPORT(rig);
     char cmdbuf[BUFSZ + 1];
-    int cmd_len;
     int retval;
 
-    cmd_len = sprintf(cmdbuf, SOM "%u%s" EOM, priv->receiver_id, cmd);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), SOM "%u%s" EOM, priv->receiver_id, cmd);
 
-    rig_flush(&rs->rigport);
+    rig_flush(rp);
 
-    retval = write_block(&rs->rigport, cmdbuf, cmd_len);
+    retval = write_block(rp, (unsigned char *) cmdbuf, strlen(cmdbuf));
 
     if (retval != RIG_OK)
     {
@@ -100,7 +91,8 @@ static int racal_transaction(RIG *rig, const char *cmd, char *data,
         return retval;
     }
 
-    retval = read_string(&rs->rigport, data, BUFSZ, EOM, strlen(EOM));
+    retval = read_string(rp, (unsigned char *) data, BUFSZ, EOM,
+                         strlen(EOM), 0, 1);
 
     if (retval <= 0)
     {
@@ -128,16 +120,16 @@ int racal_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct racal_priv_data *)malloc(sizeof(
-                          struct racal_priv_data));
+    STATE(rig)->priv = (struct racal_priv_data *)calloc(1, sizeof(
+                           struct racal_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         /* whoops! memory shortage! */
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     priv->receiver_id = 0;
     priv->bfo = 0;
@@ -155,12 +147,12 @@ int racal_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
@@ -168,11 +160,11 @@ int racal_cleanup(RIG *rig)
 
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
-int racal_set_conf(RIG *rig, token_t token, const char *val)
+int racal_set_conf(RIG *rig, hamlib_token_t token, const char *val)
 {
-    struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
+    struct racal_priv_data *priv = (struct racal_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
@@ -189,17 +181,17 @@ int racal_set_conf(RIG *rig, token_t token, const char *val)
 
 /*
  * assumes rig!=NULL,
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-int racal_get_conf(RIG *rig, token_t token, char *val)
+int racal_get_conf2(RIG *rig, hamlib_token_t token, char *val, int val_len)
 {
-    struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
+    const struct racal_priv_data *priv = (struct racal_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
     case TOK_RIGID:
-        sprintf(val, "%u", priv->receiver_id);
+        SNPRINTF(val, val_len, "%u", priv->receiver_id);
         break;
 
     default:
@@ -207,6 +199,11 @@ int racal_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int racal_get_conf(RIG *rig, hamlib_token_t token, char *val)
+{
+    return racal_get_conf2(rig, token, val, 128);
 }
 
 /*
@@ -242,14 +239,8 @@ int racal_close(RIG *rig)
 int racal_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[BUFSZ];
-    int freq_len;
 
-    freq_len = sprintf(freqbuf, "F%0g", (double)(freq / MHz(1)));
-
-    if (freq_len < 0)
-    {
-        return -RIG_ETRUNC;
-    }
+    SNPRINTF(freqbuf, sizeof(freqbuf), "F%0g", (double)(freq / MHz(1)));
 
     return racal_transaction(rig, freqbuf, NULL, NULL);
 }
@@ -284,7 +275,7 @@ int racal_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
  */
 int racal_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
-    struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
+    const struct racal_priv_data *priv = (struct racal_priv_data *)STATE(rig)->priv;
     int ra_mode;
     char buf[BUFSZ];
 
@@ -315,11 +306,11 @@ int racal_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
             width = rig_passband_normal(rig, mode);
         }
 
-        sprintf(buf, "D%dI%.0f", ra_mode, (double)(width / kHz(1)));
+        SNPRINTF(buf, sizeof(buf), "D%dI%.0f", ra_mode, (double)(width / kHz(1)));
     }
     else
     {
-        sprintf(buf, "D%d", ra_mode);
+        SNPRINTF(buf, sizeof(buf), "D%d", ra_mode);
     }
 
     return racal_transaction(rig, buf, NULL, NULL);
@@ -380,7 +371,7 @@ int racal_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
  */
 int racal_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
-    struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
+    struct racal_priv_data *priv = (struct racal_priv_data *)STATE(rig)->priv;
     char cmdbuf[BUFSZ];
     int agc;
 
@@ -388,12 +379,12 @@ int racal_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     {
     case RIG_LEVEL_RF:
         /* Manually set threshold */
-        sprintf(cmdbuf, "A%d", (int)(val.f * 120));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "A%d", (int)(val.f * 120));
         priv->threshold = val.f;
         break;
 
     case RIG_LEVEL_IF:
-        sprintf(cmdbuf, "B%+0g", ((double)val.i) / kHz(1));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "B%+0g", ((double)val.i) / kHz(1));
         priv->bfo = val.i;
         break;
 
@@ -416,7 +407,7 @@ int racal_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             agc += 4;    /* with manually set threshold */
         }
 
-        sprintf(cmdbuf, "M%d", agc);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "M%d", agc);
         break;
 
     default:
@@ -436,7 +427,7 @@ int racal_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
  */
 int racal_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
-    struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
+    struct racal_priv_data *priv = (struct racal_priv_data *)STATE(rig)->priv;
     char resbuf[BUFSZ];
     int retval, len, att;
     double f;
@@ -519,7 +510,7 @@ int racal_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 }
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
 int racal_reset(RIG *rig, reset_t reset)
 {
@@ -564,8 +555,8 @@ const char *racal_get_info(RIG *rig)
         strcpy(filterbuf, "IO error");
     }
 
-    sprintf(infobuf, "BITE errors: %s, Filters: %s\n",
-            bitebuf + 1, filterbuf);
+    SNPRINTF(infobuf, sizeof(infobuf), "BITE errors: %s, Filters: %s\n",
+             bitebuf + 1, filterbuf);
 
     return infobuf;
 }

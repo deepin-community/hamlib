@@ -18,18 +18,9 @@
  *
  */
 
-
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
-#include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include <hamlib/rig.h>
-#include "misc.h"
 
 #ifdef HAVE_XML2
 #  include <libxml/parser.h>
@@ -129,6 +120,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
 {
     xmlChar *prop;
     int i, n;
+    struct rig_state *rs = STATE(rig);
 
     memset(chan, 0, sizeof(channel_t));
     chan->vfo = RIG_VFO_MEM;
@@ -147,8 +139,8 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
     /* find channel caps */
     for (i = 0; i < HAMLIB_CHANLSTSIZ ; i++)
     {
-        if (rig->state.chan_list[i].startc <= n
-                && rig->state.chan_list[i].endc >= n)
+        if (rs->chan_list[i].startc <= n
+                && rs->chan_list[i].endc >= n)
         {
 
             break;
@@ -159,7 +151,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
 
     fprintf(stderr, "node %d %d\n", n, i);
 
-    if (rig->state.chan_list[i].mem_caps.bank_num)
+    if (rs->chan_list[i].mem_caps.bank_num)
     {
         prop = xmlGetProp(node, (unsigned char *) "bank_num");
 
@@ -169,7 +161,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.channel_desc)
+    if (rs->chan_list[i].mem_caps.channel_desc)
     {
         prop = xmlGetProp(node, (unsigned char *) "channel_desc");
 
@@ -179,7 +171,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.ant)
+    if (rs->chan_list[i].mem_caps.ant)
     {
         prop = xmlGetProp(node, (unsigned char *) "ant");
 
@@ -189,7 +181,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.freq)
+    if (rs->chan_list[i].mem_caps.freq)
     {
         prop = xmlGetProp(node, (unsigned char *) "freq");
 
@@ -199,7 +191,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.mode)
+    if (rs->chan_list[i].mem_caps.mode)
     {
         prop = xmlGetProp(node, (unsigned char *) "mode");
 
@@ -209,7 +201,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.width)
+    if (rs->chan_list[i].mem_caps.width)
     {
         prop = xmlGetProp(node, (unsigned char *) "width");
 
@@ -219,7 +211,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.tx_freq)
+    if (rs->chan_list[i].mem_caps.tx_freq)
     {
         prop = xmlGetProp(node, (unsigned char *) "tx_freq");
 
@@ -229,7 +221,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.tx_mode)
+    if (rs->chan_list[i].mem_caps.tx_mode)
     {
         prop = xmlGetProp(node, (unsigned char *)"tx_mode");
 
@@ -239,7 +231,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.tx_width)
+    if (rs->chan_list[i].mem_caps.tx_width)
     {
         prop = xmlGetProp(node, (unsigned char *)"tx_width");
 
@@ -249,7 +241,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.split)
+    if (rs->chan_list[i].mem_caps.split)
     {
         chan->split = RIG_SPLIT_OFF;
         prop = xmlGetProp(node, (unsigned char *)"split");
@@ -260,7 +252,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
             {
                 chan->split = RIG_SPLIT_ON;
 
-                if (rig->state.chan_list[i].mem_caps.tx_vfo)
+                if (rs->chan_list[i].mem_caps.tx_vfo)
                 {
                     prop = xmlGetProp(node, (unsigned char *)"tx_vfo");
 
@@ -273,7 +265,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.rptr_shift)
+    if (rs->chan_list[i].mem_caps.rptr_shift)
     {
         prop = xmlGetProp(node, (unsigned char *)"rptr_shift");
 
@@ -295,7 +287,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
             }
         }
 
-        if (rig->state.chan_list[i].mem_caps.rptr_offs
+        if (rs->chan_list[i].mem_caps.rptr_offs
                 && chan->rptr_shift != RIG_RPT_SHIFT_NONE)
         {
             prop = xmlGetProp(node, (unsigned char *)"rptr_offs");
@@ -307,7 +299,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.tuning_step)
+    if (rs->chan_list[i].mem_caps.tuning_step)
     {
         prop = xmlGetProp(node, (unsigned char *)"tuning_step");
 
@@ -317,7 +309,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.rit)
+    if (rs->chan_list[i].mem_caps.rit)
     {
         prop = xmlGetProp(node, (unsigned char *)"rit");
 
@@ -327,7 +319,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.xit)
+    if (rs->chan_list[i].mem_caps.xit)
     {
         prop = xmlGetProp(node, (unsigned char *)"xit");
 
@@ -337,7 +329,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.funcs)
+    if (rs->chan_list[i].mem_caps.funcs)
     {
         prop = xmlGetProp(node, (unsigned char *)"funcs");
 
@@ -347,7 +339,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.ctcss_tone)
+    if (rs->chan_list[i].mem_caps.ctcss_tone)
     {
         prop = xmlGetProp(node, (unsigned char *)"ctcss_tone");
 
@@ -357,7 +349,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.ctcss_sql)
+    if (rs->chan_list[i].mem_caps.ctcss_sql)
     {
         prop = xmlGetProp(node, (unsigned char *)"ctcss_sql");
 
@@ -367,7 +359,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.dcs_code)
+    if (rs->chan_list[i].mem_caps.dcs_code)
     {
         prop = xmlGetProp(node, (unsigned char *)"dcs_code");
 
@@ -377,7 +369,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.dcs_sql)
+    if (rs->chan_list[i].mem_caps.dcs_sql)
     {
         prop = xmlGetProp(node, (unsigned char *)"dcs_sql");
 
@@ -387,7 +379,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.scan_group)
+    if (rs->chan_list[i].mem_caps.scan_group)
     {
         prop = xmlGetProp(node, (unsigned char *)"scan_group");
 
@@ -397,7 +389,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
         }
     }
 
-    if (rig->state.chan_list[i].mem_caps.flags)
+    if (rs->chan_list[i].mem_caps.flags)
     {
         prop = xmlGetProp(node, (unsigned char *)"flags");
 

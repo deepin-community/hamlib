@@ -19,25 +19,19 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
-#include "misc.h"
 
 #include "sprintflst.h"
 #include "ampctl_parse.h"
+#include "amplifier.h"
 
 
 /*
  * the amp may be in amp_init state, but not opened
  */
-int dumpcaps_amp(AMP *amp, FILE *fout)
+int dumpcaps_amp(const AMP *amp, FILE *fout)
 {
     const struct amp_caps *caps;
     int backend_warnings = 0;
@@ -76,7 +70,7 @@ int dumpcaps_amp(AMP *amp, FILE *fout)
     case RIG_PORT_SERIAL:
         fprintf(fout, "RS-232\n");
         fprintf(fout,
-                "Serial speed:\t\t%d..%d bauds, %d%c%d%s\n",
+                "Serial speed:\t\t%d..%d baud, %d%c%d, ctrl=%s\n",
                 caps->serial_rate_min,
                 caps->serial_rate_max,
                 caps->serial_data_bits,
@@ -85,8 +79,8 @@ int dumpcaps_amp(AMP *amp, FILE *fout)
                 caps->serial_parity == RIG_PARITY_EVEN ? 'E' :
                 caps->serial_parity == RIG_PARITY_MARK ? 'M' : 'S',
                 caps->serial_stop_bits,
-                caps->serial_handshake == RIG_HANDSHAKE_NONE ? "" :
-                (caps->serial_handshake == RIG_HANDSHAKE_XONXOFF ? " XONXOFF" : " CTS/RTS")
+                caps->serial_handshake == RIG_HANDSHAKE_NONE ? "NONE" :
+                (caps->serial_handshake == RIG_HANDSHAKE_XONXOFF ? "XONXOFF" : "CTS/RTS")
                );
         break;
 
@@ -120,13 +114,13 @@ int dumpcaps_amp(AMP *amp, FILE *fout)
     }
 
     fprintf(fout,
-            "Write delay:\t\t%dmS, timeout %dmS, %d retr%s\n",
+            "Write delay:\t\t%dms, timeout %dms, %d retr%s\n",
             caps->write_delay,
             caps->timeout, caps->retry,
             (caps->retry == 1) ? "y" : "ies");
 
     fprintf(fout,
-            "Post Write delay:\t%dmS\n",
+            "Post write delay:\t%dms\n",
             caps->post_write_delay);
 
     fprintf(fout, "Has priv data:\t\t%c\n", caps->priv != NULL ? 'Y' : 'N');

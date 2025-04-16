@@ -19,17 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 
 #include "hamlib/rig.h"
-#include "bandplan.h"
 #include "serial.h"
-#include "misc.h"
 #include "num_stdio.h"
 
 
@@ -83,14 +77,14 @@ static const char *rx340_get_info(RIG *rig);
  * TODO: from/to memory, scan, get_level, ..
  * supposes non-multidrop
  */
-const struct rig_caps rx340_caps =
+struct rig_caps rx340_caps =
 {
     RIG_MODEL(RIG_MODEL_RX340),
     .model_name = "RX-340",
     .mfg_name =  "Ten-Tec",
     .version =  "20160409.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -169,7 +163,7 @@ const struct rig_caps rx340_caps =
     .set_level =  rx340_set_level,
     .get_level =  rx340_get_level,
     .get_info =  rx340_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -193,20 +187,18 @@ const struct rig_caps rx340_caps =
 /*
  * rx340_transaction
  * read exactly data_len bytes
- * We assume that rig!=NULL, rig->state!= NULL, data!=NULL, data_len!=NULL
+ * We assume that rig!=NULL, STATE(rig)!= NULL, data!=NULL, data_len!=NULL
  * Otherwise, you'll get a nice seg fault. You've been warned!
  */
 static int rx340_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
                              int *data_len)
 {
     int retval;
-    struct rig_state *rs;
+    hamlib_port_t *rp = RIGPORT(rig);
 
-    rs = &rig->state;
+    rig_flush(rp);
 
-    rig_flush(&rs->rigport);
-
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(rp, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -219,7 +211,7 @@ static int rx340_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
         return RIG_OK;
     }
 
-    retval = read_string(&rs->rigport, data, BUFSZ, EOM, 1);
+    retval = read_string(rp, (unsigned char *) data, BUFSZ, EOM, 1, 0, 1);
 
     if (retval < 0)
     {
@@ -241,7 +233,7 @@ int rx340_init(RIG *rig)
 {
     struct rx340_priv_data *priv;
 
-    priv = (struct rx340_priv_data *)malloc(sizeof(struct rx340_priv_data));
+    priv = (struct rx340_priv_data *)calloc(1, sizeof(struct rx340_priv_data));
 
     if (!priv)
     {
@@ -255,7 +247,7 @@ int rx340_init(RIG *rig)
      * set arbitrary initial status
      */
 
-    rig->state.priv = (rig_ptr_t)priv;
+    STATE(rig)->priv = (rig_ptr_t)priv;
 
     return RIG_OK;
 }
@@ -266,12 +258,12 @@ int rx340_init(RIG *rig)
  */
 int rx340_cleanup(RIG *rig)
 {
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
@@ -279,18 +271,18 @@ int rx340_cleanup(RIG *rig)
 
 int rx340_open(RIG *rig)
 {
-    struct rig_state *rs = &rig->state;
 
 #define REMOTE_CMD "*R1"EOM
-    return write_block(&rs->rigport, REMOTE_CMD, strlen(REMOTE_CMD));
+    return write_block(RIGPORT(rig), (unsigned char *) REMOTE_CMD,
+                       strlen(REMOTE_CMD));
 }
 
 int rx340_close(RIG *rig)
 {
-    struct rig_state *rs = &rig->state;
 
 #define LOCAL_CMD "*R0"EOM
-    return write_block(&rs->rigport, LOCAL_CMD, strlen(LOCAL_CMD));
+    return write_block(RIGPORT(rig), (unsigned char *) LOCAL_CMD,
+                       strlen(LOCAL_CMD));
 }
 
 /*
@@ -298,13 +290,12 @@ int rx340_close(RIG *rig)
  */
 int rx340_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct rig_state *rs = &rig->state;
-    int freq_len, retval;
+    int retval;
     char freqbuf[16];
 
-    freq_len = num_sprintf(freqbuf, "F%.6f" EOM, freq / 1e6);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "F%.6f" EOM, freq / 1e6);
 
-    retval = write_block(&rs->rigport, freqbuf, freq_len);
+    retval = write_block(RIGPORT(rig), (unsigned char *) freqbuf, strlen(freqbuf));
 
     return retval;
 }
@@ -345,9 +336,8 @@ int rx340_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
  */
 int rx340_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
-    struct rig_state *rs = &rig->state;
     char dmode;
-    int mdbuf_len, retval;
+    int retval;
     char mdbuf[32];
 
     switch (mode)
@@ -383,18 +373,18 @@ int rx340_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         /*
          * Set DETECTION MODE and IF FILTER
          */
-        mdbuf_len = num_sprintf(mdbuf,  "D%cI%.02f" EOM,
-                                dmode, (float)width / 1e3);
+        SNPRINTF(mdbuf, sizeof(mdbuf), "D%cI%.02f" EOM,
+                 dmode, (float)width / 1e3);
     }
     else
     {
         /*
          * Set DETECTION MODE
          */
-        mdbuf_len = num_sprintf(mdbuf,  "D%c" EOM, dmode);
+        SNPRINTF(mdbuf, sizeof(mdbuf),  "D%c" EOM, dmode);
     }
 
-    retval = write_block(&rs->rigport, mdbuf, mdbuf_len);
+    retval = write_block(RIGPORT(rig), (unsigned char *) mdbuf, strlen(mdbuf));
 
     return retval;
 }
@@ -466,46 +456,45 @@ int rx340_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
  */
 int rx340_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
-    struct rig_state *rs = &rig->state;
-    int cmd_len, retval = RIG_OK;
+    int retval = RIG_OK;
     char cmdbuf[32];
 
     switch (level)
     {
     case RIG_LEVEL_ATT:
-        cmd_len = sprintf(cmdbuf, "K%c" EOM, val.i ? '3' : '1');
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "K%c" EOM, val.i ? '3' : '1');
         break;
 
     case RIG_LEVEL_PREAMP:
-        cmd_len = sprintf(cmdbuf, "K%c" EOM, val.i ? '2' : '1');
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "K%c" EOM, val.i ? '2' : '1');
         break;
 
     case RIG_LEVEL_AGC:
         /* default to MEDIUM */
-        cmd_len = sprintf(cmdbuf, "M%c" EOM,
-                          val.i == RIG_AGC_SLOW ? '3' : (
-                              val.i == RIG_AGC_FAST ? '1' : '2'));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "M%c" EOM,
+                 val.i == RIG_AGC_SLOW ? '3' : (
+                     val.i == RIG_AGC_FAST ? '1' : '2'));
         break;
 
     case RIG_LEVEL_RF:
-        cmd_len = sprintf(cmdbuf, "A%d" EOM, 120 - (int)(val.f * 120));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "A%d" EOM, 120 - (int)(val.f * 120));
         break;
 
     case RIG_LEVEL_SQL:
-        cmd_len = sprintf(cmdbuf, "Q%d" EOM, 150 - (int)(val.f * 150));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "Q%d" EOM, 150 - (int)(val.f * 150));
         break;
 
     case RIG_LEVEL_NOTCHF:
-        cmd_len = num_sprintf(cmdbuf, "N%f" EOM, ((float)val.i) / 1e3);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "N%f" EOM, ((float)val.i) / 1e3);
         break;
 
     case RIG_LEVEL_IF:
-        cmd_len = num_sprintf(cmdbuf, "P%f" EOM, ((float)val.i) / 1e3);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "P%f" EOM, ((float)val.i) / 1e3);
         break;
 
     case RIG_LEVEL_CWPITCH:
         /* only in CW mode */
-        cmd_len = num_sprintf(cmdbuf, "B%f" EOM, ((float)val.i) / 1e3);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "B%f" EOM, ((float)val.i) / 1e3);
         break;
 
     default:
@@ -514,7 +503,7 @@ int rx340_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         return -RIG_EINVAL;
     }
 
-    retval = write_block(&rs->rigport, cmdbuf, cmd_len);
+    retval = write_block(RIGPORT(rig), (unsigned char *) cmdbuf, strlen(cmdbuf));
     return retval;
 }
 

@@ -19,11 +19,13 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <string.h>  /* String function definitions */
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -31,6 +33,7 @@
 #include "icom.h"
 #include "icom_defs.h"
 #include "frame.h"
+#include "cache.h"
 
 /*
  * Build a CI-V frame.
@@ -46,12 +49,13 @@
  * NB: the frame array must be big enough to hold the frame.
  *      The smallest frame is 6 bytes, the biggest is at least 13 bytes.
  */
-int make_cmd_frame(char frame[], char re_id, char ctrl_id, char cmd, int subcmd,
+int make_cmd_frame(unsigned char frame[], unsigned char re_id,
+                   unsigned char ctrl_id,
+                   unsigned char cmd, int subcmd,
                    const unsigned char *data, int data_len)
 {
     int i = 0;
 
-    ENTERFUNC;
 #if 0
     frame[i++] = PAD;   /* give old rigs a chance to flush their rx buffers */
 #endif
@@ -85,7 +89,7 @@ int make_cmd_frame(char frame[], char re_id, char ctrl_id, char cmd, int subcmd,
 
     frame[i++] = FI;        /* EOM code */
 
-    RETURNFUNC(i);
+    return (i);
 }
 
 int icom_frame_fix_preamble(int frame_len, unsigned char *frame)
@@ -103,7 +107,7 @@ int icom_frame_fix_preamble(int frame_len, unsigned char *frame)
     {
         rig_debug(RIG_DEBUG_WARN, "%s: invalid Icom CI-V frame, no preamble found\n",
                   __func__);
-        RETURNFUNC(-RIG_EPROTO);
+        return (-RIG_EPROTO);
     }
 
     return frame_len;
@@ -112,7 +116,7 @@ int icom_frame_fix_preamble(int frame_len, unsigned char *frame)
 /*
  * icom_one_transaction
  *
- * We assume that rig!=NULL, rig->state!= NULL, payload!=NULL, data!=NULL, data_len!=NULL
+ * We assume that rig!=NULL, STATE(rig)!= NULL, payload!=NULL, data!=NULL, data_len!=NULL
  * Otherwise, you'll get a nice seg fault. You've been warned!
  * payload can be NULL if payload_len == 0
  * subcmd can be equal to -1 (no subcmd wanted)
@@ -121,47 +125,56 @@ int icom_frame_fix_preamble(int frame_len, unsigned char *frame)
  * return RIG_OK if transaction completed,
  * or a negative value otherwise indicating the error.
  */
-int icom_one_transaction(RIG *rig, int cmd, int subcmd,
+int icom_one_transaction(RIG *rig, unsigned char cmd, int subcmd,
                          const unsigned char *payload, int payload_len, unsigned char *data,
                          int *data_len)
 {
     struct icom_priv_data *priv;
     const struct icom_priv_caps *priv_caps;
-    struct rig_state *rs;
+    struct rig_state *rs = STATE(rig);
+    hamlib_port_t *rp = RIGPORT(rig);
     struct timeval start_time, current_time, elapsed_time;
     // this buf needs to be large enough for 0xfe strings for power up
     // at 115,200 this is now at least 150
     unsigned char buf[200];
     unsigned char sendbuf[MAXFRAMELEN];
     int frm_len, frm_data_len, retval;
-    int ctrl_id;
+    unsigned char ctrl_id;
+    int collision_retry = 0;
 
     ENTERFUNC;
     memset(buf, 0, 200);
     memset(sendbuf, 0, MAXFRAMELEN);
-    rs = &rig->state;
     priv = (struct icom_priv_data *)rs->priv;
     priv_caps = (struct icom_priv_caps *)rig->caps->priv;
 
     ctrl_id = priv_caps->serial_full_duplex == 0 ? CTRLID : 0x80;
 
-    frm_len = make_cmd_frame((char *) sendbuf, priv->re_civ_addr, ctrl_id, cmd,
+    // Should check return code and that write wrote cmd_len chars!
+
+    set_transaction_active(rig);
+
+collision_retry:
+
+    // The IC7100 cannot separate the CI-V port from the USB CI-V
+    // We see async packets coming in so we'll try and do the flush
+    // This also means the IC7100 will not support async packets anymore
+    if (rig->caps->rig_model == RIG_MODEL_IC7100)
+    {
+        rig_flush(rp);
+    }
+
+    frm_len = make_cmd_frame(sendbuf, priv->re_civ_addr, ctrl_id, cmd,
                              subcmd, payload, payload_len);
 
-    /*
-     * should check return code and that write wrote cmd_len chars!
-     */
-    Hold_Decode(rig);
-
-    rig_flush(&rs->rigport);
 
     if (data_len) { *data_len = 0; }
 
-    retval = write_block(&rs->rigport, (char *) sendbuf, frm_len);
+    retval = write_block(rp, sendbuf, frm_len);
 
     if (retval != RIG_OK)
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         RETURNFUNC(retval);
     }
 
@@ -177,33 +190,84 @@ int icom_one_transaction(RIG *rig, int cmd, int subcmd,
          *          up to rs->retry times.
          */
 
-        retval = read_icom_frame(&rs->rigport, buf, sizeof(buf));
+again1:
+        retval = read_icom_frame(rp, buf, sizeof(buf));
 
         if (retval == -RIG_ETIMEOUT || retval == 0)
         {
             /* Nothing received, CI-V interface is not echoing */
-            Unhold_Decode(rig);
+            set_transaction_inactive(rig);
             RETURNFUNC(-RIG_BUSERROR);
         }
 
         if (retval < 0)
         {
-            Unhold_Decode(rig);
-            /* Other error, return it */
+            set_transaction_inactive(rig);
+            // Other error, return it
             RETURNFUNC(retval);
         }
 
         if (retval < 1)
         {
-            Unhold_Decode(rig);
+            set_transaction_inactive(rig);
             RETURNFUNC(-RIG_EPROTO);
+        }
+
+        if (icom_is_async_frame(rig, frm_len, buf))
+        {
+            icom_process_async_frame(rig, frm_len, buf);
+            goto again1;
+        }
+
+        // if we get a reply that is not our cmd/subcmd we should just ignore it and retry the read.
+        // this should somewhat allow splitting the COM port between two controllers
+        if (cmd != buf[4])
+        {
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: cmd x%02x != buf x%02x so retry read\n",
+                      __func__, cmd, buf[4]);
+            goto again1;
+        }
+
+        if (subcmd != -1 && subcmd != buf[5])
+        {
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: subcmd x%02x != buf x%02x so retry read\n",
+                      __func__, subcmd, buf[5]);
+            goto again1;
+        }
+
+        // we might have 0xfe string during rig wakeup
+        rig_debug(RIG_DEBUG_TRACE, "%s: DEBUG retval=%d, frm_len=%d, cmd=0x%02x\n",
+                  __func__, retval, frm_len, cmd);
+
+        if (retval != frm_len && cmd == C_SET_PWR)
+        {
+            rig_debug(RIG_DEBUG_TRACE, "%s: removing 0xfe power up echo, len=%d", __func__,
+                      frm_len);
+
+            while (buf[2] == 0xfe)
+            {
+                memmove(buf, &buf[1], frm_len--);
+            }
+
+            dump_hex(buf, frm_len);
         }
 
         switch (buf[retval - 1])
         {
         case COL:
+
             /* Collision */
-            Unhold_Decode(rig);
+            // IC746 for example responds 0xfc when tuning is active so we will retry
+            if (collision_retry++ < 20)
+            {
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: collision retry#%d\n", __func__,
+                          collision_retry);
+                hl_usleep(500 *
+                          1000); // 500ms 20 times for ~15 second max before we back out for a retry if needed
+                goto collision_retry;
+            }
+
+            set_transaction_inactive(rig);
             RETURNFUNC(-RIG_BUSBUSY);
 
         case FI:
@@ -213,7 +277,7 @@ int icom_one_transaction(RIG *rig, int cmd, int subcmd,
         default:
             /* Timeout after reading at least one character */
             /* Problem on ci-v bus? */
-            Unhold_Decode(rig);
+            set_transaction_inactive(rig);
             RETURNFUNC(-RIG_BUSERROR);
         }
 
@@ -222,16 +286,18 @@ int icom_one_transaction(RIG *rig, int cmd, int subcmd,
             /* Not the same length??? */
             /* Problem on ci-v bus? */
             /* Someone else got a packet in? */
-            Unhold_Decode(rig);
+            set_transaction_inactive(rig);
             RETURNFUNC(-RIG_EPROTO);
         }
 
-        if (memcmp(buf, sendbuf, frm_len))
+        // first 2 bytes of everything are 0xfe so we won't test those
+        // this allows some corruptin of the 0xfe bytes which has been seen in the wild
+        if (memcmp(&buf[2], &sendbuf[2], frm_len - 2) != 0)
         {
             /* Frames are different? */
             /* Problem on ci-v bus? */
             /* Someone else got a packet in? */
-            Unhold_Decode(rig);
+            set_transaction_inactive(rig);
             RETURNFUNC(-RIG_EPROTO);
         }
     }
@@ -241,7 +307,7 @@ int icom_one_transaction(RIG *rig, int cmd, int subcmd,
      */
     if (data_len == NULL)
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         RETURNFUNC(RIG_OK);
     }
 
@@ -253,8 +319,51 @@ read_another_frame:
      * FIXME: handle padding/collisions
      * ACKFRMLEN is the smallest frame we can expect from the rig
      */
+    priv->serial_USB_echo_off = 1;
+again2:
     buf[0] = 0;
-    frm_len = read_icom_frame(&rs->rigport, buf, sizeof(buf));
+    frm_len = read_icom_frame(rp, buf, sizeof(buf));
+
+    if (frm_len <= 0)
+    {
+        set_transaction_inactive(rig);
+        RETURNFUNC(frm_len);
+    }
+
+    if (frm_len > 4 && memcmp(buf, sendbuf, frm_len) == 0)
+    {
+        priv->serial_USB_echo_off = 0;
+        goto again2;
+    }
+
+    // https://github.com/Hamlib/Hamlib/issues/1575
+    // these types of async can interrupt the cmd we sent
+    // if our host number changes must not be for us
+    if (icom_is_async_frame(rig, frm_len, buf))
+    {
+        icom_process_async_frame(rig, frm_len, buf);
+        goto again2;
+    }
+
+    // IC-PW2 was sending fe fe 94 aa 1c 03
+    if (buf[3] == 0xaa || buf[2] == 0xaa)
+    {
+        goto again2;
+    }
+
+    if (sendbuf[3] != buf[2])
+    {
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: unknown async?  read again\n", __func__);
+        hl_usleep(100);
+        rig_flush(rp);
+        collision_retry++;
+
+        if (collision_retry < 2)
+        {
+            goto collision_retry;
+        }
+    }
+
 
 #if 0
 
@@ -265,22 +374,29 @@ read_another_frame:
         // Hmmm -- got an echo back when not expected so let's change
         priv->serial_USB_echo_off = 0;
         // And try again
-        frm_len = read_icom_frame(&rs->rigport, buf, sizeof(buf));
+        frm_len = read_icom_frame(rp, buf, sizeof(buf));
     }
 
 #endif
 
     if (frm_len < 0)
     {
-        Unhold_Decode(rig);
-        /* RIG_TIMEOUT: timeout getting response, return timeout */
-        /* other error: return it */
+        set_transaction_inactive(rig);
+
+        if (priv_caps->re_civ_addr != priv->re_civ_addr)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: Icom timeout civ expected=%02x, used=%02x\n",
+                      __func__, priv_caps->re_civ_addr, priv->re_civ_addr);
+        }
+
+        // RIG_TIMEOUT: timeout getting response, return timeout
+        // other error: return it
         RETURNFUNC(frm_len);
     }
 
     if (frm_len < 1)
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         RETURNFUNC(-RIG_EPROTO);
     }
 
@@ -288,16 +404,22 @@ read_another_frame:
 
     if (retval < 0)
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         RETURNFUNC(retval);
     }
 
     frm_len = retval;
 
+    if (frm_len < 1)
+    {
+        rig_debug(RIG_DEBUG_ERR, "Unexpected frame len=%d\n", frm_len);
+        RETURNFUNC(-RIG_EPROTO);
+    }
+
     switch (buf[frm_len - 1])
     {
     case COL:
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         /* Collision */
         RETURNFUNC(-RIG_BUSBUSY);
 
@@ -306,11 +428,11 @@ read_another_frame:
         break;
 
     case NAK:
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         RETURNFUNC(-RIG_ERJCTED);
 
     default:
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         /* Timeout after reading at least one character */
         /* Problem on ci-v bus? */
         RETURNFUNC(-RIG_EPROTO);
@@ -318,7 +440,7 @@ read_another_frame:
 
     if (frm_len < ACKFRMLEN)
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         RETURNFUNC(-RIG_EPROTO);
     }
 
@@ -326,7 +448,7 @@ read_another_frame:
     // e.g. fe fe e0 50 fa fd
     if (frm_len == 6 && NAK == buf[frm_len - 2])
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         RETURNFUNC(-RIG_ERJCTED);
     }
 
@@ -336,7 +458,7 @@ read_another_frame:
     // has to be one of these two now or frame is corrupt
     if (FI != buf[frm_len - 1] && ACK != buf[frm_len - 1])
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         RETURNFUNC(-RIG_BUSBUSY);
     }
 
@@ -344,34 +466,35 @@ read_another_frame:
 
     if (frm_data_len <= 0)
     {
-        Unhold_Decode(rig);
+        set_transaction_inactive(rig);
         RETURNFUNC(-RIG_EPROTO);
     }
 
     // TODO: Does ctrlid (detected by icom_is_async_frame) vary (seeing some code above using 0x80 for non-full-duplex)?
     if (icom_is_async_frame(rig, frm_len, buf))
     {
-        int elapsed_ms;
+        int elapsedms;
         icom_process_async_frame(rig, frm_len, buf);
 
         gettimeofday(&current_time, NULL);
         timersub(&current_time, &start_time, &elapsed_time);
 
-        elapsed_ms = (int)(elapsed_time.tv_sec * 1000 + elapsed_time.tv_usec / 1000);
+        elapsedms = (int)(elapsed_time.tv_sec * 1000 + elapsed_time.tv_usec / 1000);
 
-        if (elapsed_ms > rs->rigport.timeout)
+        if (elapsedms > rp->timeout)
         {
-            Unhold_Decode(rig);
+            set_transaction_inactive(rig);
             RETURNFUNC(-RIG_ETIMEOUT);
         }
 
         goto read_another_frame;
     }
 
-    Unhold_Decode(rig);
+    set_transaction_inactive(rig);
 
     *data_len = frm_data_len;
-    memcpy(data, buf + 4, *data_len);
+
+    if (data != NULL) { memcpy(data, buf + 4, *data_len); }
 
     /*
      * TODO: check addresses in reply frame
@@ -385,7 +508,7 @@ read_another_frame:
  *
  * This function honors rigport.retry count.
  *
- * We assume that rig!=NULL, rig->state!= NULL, payload!=NULL, data!=NULL, data_len!=NULL
+ * We assume that rig!=NULL, STATE(rig)!= NULL, payload!=NULL, data!=NULL, data_len!=NULL
  * Otherwise, you'll get a nice seg fault. You've been warned!
  * payload can be NULL if payload_len == 0
  * subcmd can be equal to -1 (no subcmd wanted)
@@ -404,14 +527,15 @@ int icom_transaction(RIG *rig, int cmd, int subcmd,
               "%s: cmd=0x%02x, subcmd=0x%02x, payload_len=%d\n", __func__,
               cmd, subcmd, payload_len);
 
-    retry = rig->state.rigport.retry;
+    retry = RIGPORT(rig)->retry;
 
     do
     {
         retval = icom_one_transaction(rig, cmd, subcmd, payload, payload_len, data,
                                       data_len);
 
-        if (retval == RIG_OK || retval == -RIG_ERJCTED)
+        // codes that make us return immediately
+        if (retval == RIG_OK || retval == -RIG_ERJCTED || retval == -RIG_BUSERROR)
         {
             break;
         }
@@ -433,59 +557,90 @@ int icom_transaction(RIG *rig, int cmd, int subcmd,
 }
 
 /* used in read_icom_frame as end of block */
-static const char icom_block_end[2] = {FI, COL};
+static const char icom_block_end[2] = { FI, COL};
 #define icom_block_end_length 2
 
 /*
- * read_icom_frame
- * read a whole CI-V frame (until 0xfd is encountered)
+ * Read a whole CI-V frame (until 0xfd is encountered).
+ *
  * TODO: strips padding/collisions
  * FIXME: check return codes/bytes read
  */
-int read_icom_frame(hamlib_port_t *p, unsigned char rxbuffer[],
-                    int rxbuffer_len)
+static int read_icom_frame_generic(hamlib_port_t *p,
+                                   const unsigned char rxbuffer[],
+                                   size_t rxbuffer_len, int direct)
 {
     int read = 0;
     int retries = 10;
-    char *rx_ptr = (char *)rxbuffer;
+    unsigned char *rx_ptr = (unsigned char *) rxbuffer;
 
-    ENTERFUNC;
     // zeroize the buffer so we can still check contents after timeouts
     memset(rx_ptr, 0, rxbuffer_len);
 
     /*
      * OK, now sometimes we may time out, e.g. the IC7000 can time out
-     * during a PTT operation. So, we will insure that the last thing we
+     * during a PTT operation. So, we will ensure that the last thing we
      * read was a proper end marker - if not, we will try again.
      */
     do
     {
-        int i = read_string(p, rx_ptr, MAXFRAMELEN - read,
-                            icom_block_end, icom_block_end_length);
+        int i;
 
-        if (i < 0) /* die on errors */
+        if (direct)
         {
-            RETURNFUNC(i);
+            i = read_string_direct(p, rx_ptr, MAXFRAMELEN - read,
+                                   icom_block_end, icom_block_end_length, 0, 1);
+        }
+        else
+        {
+            i = read_string(p, rx_ptr, MAXFRAMELEN - read,
+                            icom_block_end, icom_block_end_length, 0, 1);
+        }
+
+        if (i < 0 && i != -RIG_BUSBUSY) /* die on errors */
+        {
+            return (i);
         }
 
         if (i == 0) /* nothing read?*/
         {
             if (--retries <= 0) /* Tried enough times? */
             {
-                RETURNFUNC(read);
+                return (read);
             }
         }
 
         /* OK, we got something. add it in and continue */
-        read   += i;
-        rx_ptr += i;
+        if (i > 0)
+        {
+            read   += i;
+            rx_ptr += i;
+        }
     }
     while ((read < rxbuffer_len) && (rxbuffer[read - 1] != FI)
             && (rxbuffer[read - 1] != COL));
 
-    RETURNFUNC(read);
+    // Check that we have a valid frame preamble (which might be just a single preable character)
+    // Or an error code
+    if (rxbuffer[0] != PR && rxbuffer[0] != COL)
+    {
+        return -RIG_EPROTO;
+    }
+
+    return (read);
 }
 
+int read_icom_frame(hamlib_port_t *p, const unsigned char rxbuffer[],
+                    size_t rxbuffer_len)
+{
+    return read_icom_frame_generic(p, rxbuffer, rxbuffer_len, 0);
+}
+
+int read_icom_frame_direct(hamlib_port_t *p, const unsigned char rxbuffer[],
+                           size_t rxbuffer_len)
+{
+    return read_icom_frame_generic(p, rxbuffer, rxbuffer_len, 1);
+}
 
 /*
  * convert mode and width as expressed by Hamlib frontend
@@ -504,7 +659,8 @@ int rig2icom_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
     unsigned char icmode;
     signed char icmode_ext;
     pbwidth_t width_tmp = width;
-    struct icom_priv_data *priv_data = (struct icom_priv_data *) rig->state.priv;
+    const struct icom_priv_data *priv_data = (struct icom_priv_data *)
+            STATE(rig)->priv;
 
     ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s: mode=%d, width=%d\n", __func__, (int)mode,
@@ -541,11 +697,27 @@ int rig2icom_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
 
     case RIG_MODE_USB:  icmode = S_USB; break;
 
-    case RIG_MODE_PKTUSB:  icmode = S_USB; break;
+    case RIG_MODE_PKTUSB:
+        icmode = S_USB;
+
+        if (rig->caps->rig_model == RIG_MODEL_IC7800)
+        {
+            icmode = S_PSK;
+        }
+
+        break;
 
     case RIG_MODE_LSB:  icmode = S_LSB; break;
 
-    case RIG_MODE_PKTLSB:  icmode = S_LSB; break;
+    case RIG_MODE_PKTLSB:
+        icmode = S_LSB;
+
+        if (rig->caps->rig_model == RIG_MODEL_IC7800)
+        {
+            icmode = S_PSKR;
+        }
+
+        break;
 
     case RIG_MODE_RTTY: icmode = S_RTTY; break;
 
@@ -639,8 +811,20 @@ int rig2icom_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
 void icom2rig_mode(RIG *rig, unsigned char md, int pd, rmode_t *mode,
                    pbwidth_t *width)
 {
-    ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s: mode=0x%02x, pd=%d\n", __func__, md, pd);
+
+    // Some rigs return fixed with for FM mode
+    if ((RIG_IS_IC7300 || RIG_IS_IC9700) && (md == S_FM || md == S_WFM))
+    {
+        *mode = RIG_MODE_FM;
+
+        if (*width == 1) { *width = 15000; }
+        else if (*width == 2) { *width = 10000; }
+        else { *width = 7000; }
+
+        return;
+    }
+
     *width = RIG_PASSBAND_NORMAL;
 
     switch (md)
@@ -686,9 +870,25 @@ void icom2rig_mode(RIG *rig, unsigned char md, int pd, rmode_t *mode,
 
     case S_RTTYR:   *mode = RIG_MODE_RTTYR; break;
 
-    case S_PSK:     *mode = RIG_MODE_PSK; break;
+    case S_PSK:
+        *mode = RIG_MODE_PSK;
 
-    case S_PSKR:    *mode = RIG_MODE_PSKR; break;
+        if (rig->caps->rig_model == RIG_MODEL_IC7800)
+        {
+            *mode = RIG_MODE_PKTUSB;
+        }
+
+        break;
+
+    case S_PSKR:
+        *mode = RIG_MODE_PSKR;
+
+        if (rig->caps->rig_model == RIG_MODEL_IC7800)
+        {
+            *mode = RIG_MODE_PKTLSB;
+        }
+
+        break;
 
     case S_DSTAR:   *mode = RIG_MODE_DSTAR; break;
 
@@ -754,6 +954,5 @@ void icom2rig_mode(RIG *rig, unsigned char md, int pd, rmode_t *mode,
     default:
         rig_debug(RIG_DEBUG_ERR, "icom: Unsupported Icom mode width %#.2x\n", pd);
     }
-
 }
 

@@ -27,15 +27,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "hamlib/rig.h"
 #include "bandplan.h"
-#include "idx_builtin.h"
 #include "tones.h"
 #include "newcat.h"
+#include "yaesu.h"
 #include "ftdx101.h"
 
 const struct newcat_priv_caps ftdx101mp_priv_caps =
@@ -69,15 +65,18 @@ const struct confparams ftdx101mp_ext_levels[] =
 
 int ftdx101mp_ext_tokens[] =
 {
+    TOK_ROOFING_FILTER, TOK_KEYER, TOK_APF_FREQ, TOK_APF_WIDTH,
+    TOK_CONTOUR, TOK_CONTOUR_FREQ, TOK_CONTOUR_LEVEL, TOK_CONTOUR_WIDTH,
+    TOK_MAXPOWER_HF, TOK_MAXPOWER_6M, TOK_MAXPOWER_4M, TOK_MAXPOWER_AM,
     TOK_ROOFING_FILTER, TOK_BACKEND_NONE
 };
 
-const struct rig_caps ftdx101mp_caps =
+struct rig_caps ftdx101mp_caps =
 {
     RIG_MODEL(RIG_MODEL_FTDX101MP),
     .model_name =         "FTDX-101MP",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".2",
+    .version =            NEWCAT_VER ".12",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -98,14 +97,33 @@ const struct rig_caps ftdx101mp_caps =
     .has_set_func =       FTDX101_FUNCS,
     .has_get_level =      FTDX101_LEVELS,
     .has_set_level =      RIG_LEVEL_SET(FTDX101_LEVELS),
-    .has_get_parm =       RIG_PARM_NONE,
-    .has_set_parm =       RIG_PARM_NONE,
+    .has_get_parm =       RIG_PARM_BANDSELECT,
+    .has_set_parm =       RIG_PARM_BANDSELECT,
     .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 10 } },
-        [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
-        [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 3200 }, .step = { .i = 10 } },
+#define NO_LVL_MICGAIN
+#define NO_LVL_SQL
+#define NO_LVL_MONITOR_GAIN
+#define NO_LVL_RFPOWER
+#define NO_LVL_USB_AF
+#define NO_LVL_USB_AF_INPUT
+#include "level_gran_yaesu.h"
+#undef NO_LVL_MICGAIN
+#undef NO_LVL_SQL
+#undef NO_LVL_MONITOR_GAIN
+#undef NO_LVL_RFPOWER
+#undef NO_LVL_USB_AF
+#undef NO_LVL_USB_AF_INPUT
+        [LVL_MICGAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
+        [LVL_SQL] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
+        [LVL_MONITOR_GAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
+        [LVL_RFPOWER] = { .min = { .f = .025 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 200.0f } },
+        [LVL_USB_AF] = { .min = { .f = .0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
+        [LVL_USB_AF_INPUT] = { .min = { .f = .0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 100.0f } },
     },
+    .parm_gran =  {
+        [PARM_BANDSELECT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.s = "BAND160M,BAND80M,BANDUNUSED,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN,BANDMW,BANDUNUSED,BANDUNUSED,BANDUNUSED,BANDUNUSED,BAND4M"}}
+    },
+
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           NULL,
     .preamp =             { 10, 20, RIG_DBLST_END, },
@@ -114,15 +132,20 @@ const struct rig_caps ftdx101mp_caps =
     .max_xit =            Hz(9999),
     .max_ifshift =        Hz(1200),
     .vfo_ops =            FTDX101_VFO_OPS,
-    .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE | RIG_TARGETABLE_FUNC | RIG_TARGETABLE_LEVEL | RIG_TARGETABLE_COMMON | RIG_TARGETABLE_ANT,
+    .scan_ops =           RIG_SCAN_VFO,
+    .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE | RIG_TARGETABLE_FUNC | RIG_TARGETABLE_LEVEL | RIG_TARGETABLE_COMMON | RIG_TARGETABLE_ANT | RIG_TARGETABLE_ROOFING | RIG_TARGETABLE_TONE,
     .transceive =         RIG_TRN_OFF, /* May enable later as the FTDX101 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
     .rfpower_meter_cal =  FTDX101MP_RFPOWER_METER_WATTS_CAL,
+    .vd_meter_cal =       YAESU_DEFAULT_VD_METER_200W_CAL,
     .str_cal =            FTDX101D_STR_CAL,
     .swr_cal =            FTDX101D_SWR_CAL,
     .chan_list =          {
         {   1,  99, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP },
+        {   100,  117, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP }, // P1L-P9U PMS channels
+        {   501,  510, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP }, // 5xx 5MHz band
+        {   1,    5,   RIG_MTYPE_MORSE },
         RIG_CHAN_END,
     },
 
@@ -201,7 +224,7 @@ const struct rig_caps ftdx101mp_caps =
 
     .cfgparams =          newcat_cfg_params,
     .set_conf =           newcat_set_conf,
-    .get_conf =           newcat_get_conf,
+    .get_conf2 =          newcat_get_conf2,
     .set_freq =           newcat_set_freq,
     .get_freq =           newcat_get_freq,
     .set_mode =           newcat_set_mode,
@@ -246,4 +269,11 @@ const struct rig_caps ftdx101mp_caps =
     .get_channel =        newcat_get_channel,
     .set_ext_level =      newcat_set_ext_level,
     .get_ext_level =      newcat_get_ext_level,
+    .send_morse =         newcat_send_morse,
+    .wait_morse =         rig_wait_morse,
+    .set_clock =          newcat_set_clock,
+    .get_clock =          newcat_get_clock,
+    .scan =               newcat_scan,
+    .morse_qsize =        50,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

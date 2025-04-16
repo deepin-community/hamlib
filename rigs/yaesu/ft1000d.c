@@ -28,13 +28,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
@@ -42,6 +37,128 @@
 #include "misc.h"
 #include "yaesu.h"
 #include "ft1000d.h"
+
+// FT1000D native commands
+enum FT1000D_native_cmd_e
+{
+    FT1000D_NATIVE_SPLIT_OFF = 0,
+    FT1000D_NATIVE_SPLIT_ON,
+    FT1000D_NATIVE_RECALL_MEM,
+    FT1000D_NATIVE_VFO_TO_MEM,
+    FT1000D_NATIVE_LOCK_OFF,
+    FT1000D_NATIVE_LOCK_ON,
+    FT1000D_NATIVE_VFO_A,
+    FT1000D_NATIVE_VFO_B,
+    FT1000D_NATIVE_MEM_TO_VFO,
+    FT1000D_NATIVE_VFO_STEP_UP,
+    FT1000D_NATIVE_VFO_STEP_UP_FAST,
+    FT1000D_NATIVE_VFO_STEP_DOWN,
+    FT1000D_NATIVE_VFO_STEP_DOWN_FAST,
+    FT1000D_NATIVE_RX_CLARIFIER_OFF,
+    FT1000D_NATIVE_RX_CLARIFIER_ON,
+    FT1000D_NATIVE_TX_CLARIFIER_OFF,
+    FT1000D_NATIVE_TX_CLARIFIER_ON,
+    FT1000D_NATIVE_CLEAR_CLARIFIER_OFFSET,
+    FT1000D_NATIVE_CLARIFIER_OPS,
+    FT1000D_NATIVE_FREQ_SET,
+    FT1000D_NATIVE_MODE_SET_LSB,
+    FT1000D_NATIVE_MODE_SET_USB,
+    FT1000D_NATIVE_MODE_SET_CW_W,
+    FT1000D_NATIVE_MODE_SET_CW_N,
+    FT1000D_NATIVE_MODE_SET_AM_W,
+    FT1000D_NATIVE_MODE_SET_AM_N,
+    FT1000D_NATIVE_MODE_SET_FM,
+    FT1000D_NATIVE_MODE_SET_RTTY_LSB,
+    FT1000D_NATIVE_MODE_SET_RTTY_USB,
+    FT1000D_NATIVE_MODE_SET_PKT_LSB,
+    FT1000D_NATIVE_MODE_SET_PKT_FM,
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_LSB, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_USB, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_CW_W, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_CW_N, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_AM_W, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_AM_N, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_FM, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_RTTY_LSB, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_RTTY_USB, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_PKT_LSB, /* Added December 2016 */
+    FT1000D_NATIVE_MODE_SUB_VFOB_SET_PKT_FM, /* Added December 2016 */
+    FT1000D_NATIVE_PACING,
+    FT1000D_NATIVE_PTT_OFF,
+    FT1000D_NATIVE_PTT_ON,
+    FT1000D_NATIVE_UPDATE_ALL_DATA,
+    FT1000D_NATIVE_UPDATE_MEM_CHNL,
+    FT1000D_NATIVE_UPDATE_OP_DATA,
+    FT1000D_NATIVE_UPDATE_VFO_DATA,
+    FT1000D_NATIVE_UPDATE_MEM_CHNL_DATA,
+    FT1000D_NATIVE_TUNER_OFF,
+    FT1000D_NATIVE_TUNER_ON,
+    FT1000D_NATIVE_TUNER_START,
+    FT1000D_NATIVE_RPTR_SHIFT_NONE,
+    FT1000D_NATIVE_RPTR_SHIFT_MINUS,
+    FT1000D_NATIVE_RPTR_SHIFT_PLUS,
+    FT1000D_NATIVE_VFO_TO_VFO,
+    FT1000D_NATIVE_SET_SUB_VFO_FREQ,
+    FT1000D_NATIVE_BANDWIDTH,
+    FT1000D_NATIVE_OP_FREQ_STEP_UP,
+    FT1000D_NATIVE_OP_FREQ_STEP_DOWN,
+    FT1000D_NATIVE_READ_METER,
+    FT1000D_NATIVE_DIM_LEVEL,
+    FT1000D_NATIVE_RPTR_OFFSET,
+    FT1000D_NATIVE_READ_FLAGS,
+    FT1000D_NATIVE_SIZE
+};
+
+static int ft1000d_init(RIG *rig);
+static int ft1000d_cleanup(RIG *rig);
+static int ft1000d_open(RIG *rig);
+static int ft1000d_close(RIG *rig);
+static int ft1000d_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
+static int ft1000d_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
+static int ft1000_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
+static int ft1000d_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
+static int ft1000d_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode,
+                            pbwidth_t *width);
+static int ft1000_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode,
+                           pbwidth_t *width);
+static int ft1000d_set_vfo(RIG *rig, vfo_t vfo);
+static int ft1000d_get_vfo(RIG *rig, vfo_t *vfo);
+static int ft1000_get_vfo(RIG *rig, vfo_t *vfo);
+static int ft1000d_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
+static int ft1000d_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
+static int ft1000_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
+static int ft1000d_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t rptr_shift);
+static int ft1000d_get_rptr_shift(RIG *rig, vfo_t vfo,
+                                  rptr_shift_t *rptr_shift);
+static int ft1000d_set_rptr_offs(RIG *rig, vfo_t vfo, shortfreq_t offs);
+static int ft1000d_set_split_freq(RIG *rig, vfo_t vfo,
+                                  freq_t tx_freq); /* Added December 2016 */
+static int ft1000d_get_split_freq(RIG *rig, vfo_t vfo,
+                                  freq_t *tx_freq); /* Added December 2016 */
+static int ft1000d_set_split_vfo(RIG *rig, vfo_t vfo, split_t split,
+                                 vfo_t tx_vfo);
+static int ft1000d_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split,
+                                 vfo_t *tx_vfo);
+static int ft1000d_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
+                                  pbwidth_t tx_width); /* Added December 2016 */
+static int ft1000d_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
+                                  pbwidth_t *tx_width); /* Added December 2016 */
+static int ft1000d_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit);
+static int ft1000d_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit);
+static int ft1000d_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
+static int ft1000d_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status);
+static int ft1000d_set_parm(RIG *rig, setting_t parm, value_t val);
+static int ft1000d_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit);
+static int ft1000d_get_xit(RIG *rig, vfo_t vfo, shortfreq_t *xit);
+static int ft1000d_get_level(RIG *rig, vfo_t vfo, setting_t level,
+                             value_t *value);
+static int ft1000d_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
+static int ft1000d_set_mem(RIG *rig, vfo_t vfo, int ch);
+static int ft1000d_get_mem(RIG *rig, vfo_t vfo, int *ch);
+static int ft1000d_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan);
+static int ft1000d_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                               int read_only);
+
 
 
 
@@ -130,12 +247,10 @@ static const yaesu_cmd_set_t ncmd[] =
 struct ft1000d_priv_data
 {
     unsigned char pacing;                     /* pacing value */
-    unsigned int read_update_delay;           /* depends on pacing value */
     vfo_t current_vfo;                        /* active VFO from last cmd */
     vfo_t split_vfo;                          /* TX VFO in split mode Added on 16 Dec 2016 to include FT1000D function */
     split_t split;                              /* split active or not Added on 16 Dec 2016 to include FT1000D function */
     unsigned char p_cmd[YAESU_CMD_LENGTH];    /* private copy of CAT cmd */
-    yaesu_cmd_set_t pcs[FT1000D_NATIVE_SIZE];   /* private cmd set */
     ft1000d_update_data_t update_data;          /* returned data */
 };
 
@@ -152,13 +267,13 @@ struct ft1000d_priv_data
                 .flags = 1,      \
 }
 
-const struct rig_caps ft1000d_caps =
+struct rig_caps ft1000d_caps =
 {
 
     RIG_MODEL(RIG_MODEL_FT1000D),
     .model_name =         "FT-1000D",
     .mfg_name =           "Yaesu",
-    .version =            "20210121.0",
+    .version =            "20240228.0",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -179,9 +294,16 @@ const struct rig_caps ft1000d_caps =
     .has_set_func =       RIG_FUNC_LOCK | RIG_FUNC_TUNER,
     .has_get_level =      RIG_LEVEL_STRENGTH | RIG_LEVEL_SWR | RIG_LEVEL_ALC | \
     RIG_LEVEL_RFPOWER | RIG_LEVEL_COMP,
-    .has_set_level =      RIG_LEVEL_NONE,
+    .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_BACKLIGHT,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 13.0f}},
+    },
     .ctcss_list =         NULL,
     .dcs_list =           NULL,
     .preamp =             { RIG_DBLST_END, },
@@ -290,8 +412,155 @@ const struct rig_caps ft1000d_caps =
     .vfo_op =             ft1000d_vfo_op,
     .set_channel =        ft1000d_set_channel,
     .get_channel =        ft1000d_get_channel,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
+struct rig_caps ft1000_caps =
+{
+
+    RIG_MODEL(RIG_MODEL_FT1000),
+    .model_name =         "FT-1000",
+    .mfg_name =           "Yaesu",
+    .version =            "20231124.0",
+    .copyright =          "LGPL",
+    .status =             RIG_STATUS_BETA,
+    .rig_type =           RIG_TYPE_TRANSCEIVER,
+    .ptt_type =           RIG_PTT_RIG,
+    .dcd_type =           RIG_DCD_NONE,
+    .port_type =          RIG_PORT_SERIAL,
+    .serial_rate_min =    4800,
+    .serial_rate_max =    4800,
+    .serial_data_bits =   8,
+    .serial_stop_bits =   2,
+    .serial_parity =      RIG_PARITY_NONE,
+    .serial_handshake =   RIG_HANDSHAKE_NONE,
+    .write_delay =        FT1000D_WRITE_DELAY,
+    .post_write_delay =   FT1000D_POST_WRITE_DELAY,
+    .timeout =            500,
+    .retry =              2,
+//    .has_get_func =       RIG_FUNC_LOCK | RIG_FUNC_TUNER | RIG_FUNC_MON,
+//    .has_set_func =       RIG_FUNC_LOCK | RIG_FUNC_TUNER,
+//    .has_get_level =      RIG_LEVEL_STRENGTH | RIG_LEVEL_SWR | RIG_LEVEL_ALC |  RIG_LEVEL_RFPOWER | RIG_LEVEL_COMP,
+//    .has_set_level =      RIG_LEVEL_BAND_SELECT,
+    .has_get_parm =       RIG_PARM_NONE,
+//    .has_set_parm =       RIG_PARM_BACKLIGHT,
+//    .level_gran =
+//    {
+//#include "level_gran_yaesu.h"
+//    },
+//    .parm_gran =  {
+//        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 13.0f}},
+//    },
+    .ctcss_list =         NULL,
+    .dcs_list =           NULL,
+    .preamp =             { RIG_DBLST_END, },
+    .attenuator =         { RIG_DBLST_END, },
+    .max_rit =            Hz(9999),
+    .max_xit =            Hz(9999),
+    .max_ifshift =        Hz(1200),
+//    .vfo_ops =            RIG_OP_CPY | RIG_OP_FROM_VFO | RIG_OP_TO_VFO |
+//    RIG_OP_UP | RIG_OP_DOWN | RIG_OP_TUNE | RIG_OP_TOGGLE,
+    .targetable_vfo =     RIG_TARGETABLE_ALL,
+    .transceive =         RIG_TRN_OFF,        /* Yaesus have to be polled, sigh */
+    .bank_qty =           0,
+    .chan_desc_sz =       0,
+//    .chan_list =          {
+//        {1, 90, RIG_MTYPE_MEM, FT1000D_MEM_CAP},
+//        RIG_CHAN_END,
+//    },
+    .rx_range_list1 =     {
+        {kHz(100), MHz(30), FT1000D_ALL_RX_MODES, -1, -1, FT1000D_VFO_ALL, FT1000D_ANTS},   /* General coverage + ham */
+        RIG_FRNG_END,
+    },
+
+    .tx_range_list1 =     {
+        FRQ_RNG_HF(1, FT1000D_OTHER_TX_MODES, W(5), W(100), FT1000D_VFO_ALL, FT1000D_ANTS),
+        FRQ_RNG_HF(1, FT1000D_AM_TX_MODES, W(2), W(25), FT1000D_VFO_ALL, FT1000D_ANTS), /* AM class */
+        RIG_FRNG_END,
+    },
+
+    .rx_range_list2 =     {
+        {kHz(100), MHz(30), FT1000D_ALL_RX_MODES, -1, -1, FT1000D_VFO_ALL, FT1000D_ANTS},
+        RIG_FRNG_END,
+    },
+
+    .tx_range_list2 =     {
+        FRQ_RNG_HF(2, FT1000D_OTHER_TX_MODES, W(5), W(100), FT1000D_VFO_ALL, FT1000D_ANTS),
+        FRQ_RNG_HF(2, FT1000D_AM_TX_MODES, W(2), W(25), FT1000D_VFO_ALL, FT1000D_ANTS), /* AM class */
+
+        RIG_FRNG_END,
+    },
+
+    .tuning_steps =       {
+        {FT1000D_SSB_CW_RX_MODES, Hz(10)},    /* Normal */
+        {FT1000D_SSB_CW_RX_MODES, Hz(100)},   /* Fast */
+
+        {FT1000D_AM_RX_MODES,     Hz(100)},   /* Normal */
+        {FT1000D_AM_RX_MODES,     kHz(1)},    /* Fast */
+
+        {FT1000D_FM_RX_MODES,     Hz(100)},   /* Normal */
+        {FT1000D_FM_RX_MODES,     kHz(1)},    /* Fast */
+
+        {FT1000D_RTTY_RX_MODES,   Hz(10)},    /* Normal */
+        {FT1000D_RTTY_RX_MODES,   Hz(100)},   /* Fast */
+
+        RIG_TS_END,
+
+    },
+
+    /* mode/filter list, .remember =  order matters! */
+    .filters =            {
+        {RIG_MODE_SSB,  RIG_FLT_ANY}, /* Enable all filters for SSB */
+        {RIG_MODE_CW,   RIG_FLT_ANY}, /* Enable all filters for CW */
+        {RIG_MODE_RTTY, RIG_FLT_ANY}, /* Enable all filters for RTTY */
+        {RIG_MODE_RTTYR, RIG_FLT_ANY}, /* Enable all filters for Reverse RTTY */
+        {RIG_MODE_PKTLSB, RIG_FLT_ANY}, /* Enable all filters for Packet Radio LSB */
+        {RIG_MODE_AM,   kHz(6)},      /* normal AM filter */
+        {RIG_MODE_AM,   kHz(2.4)},    /* narrow AM filter */
+        {RIG_MODE_FM,   kHz(8)},      /* FM standard filter */
+        {RIG_MODE_PKTFM, kHz(8)},     /* FM standard filter for Packet Radio FM */
+        RIG_FLT_END,
+    },
+
+    .priv =               NULL,           /* private data FIXME: */
+
+    .rig_init =           ft1000d_init,
+    .rig_cleanup =        ft1000d_cleanup,
+    .rig_open =           ft1000d_open,     /* port opened */
+    .rig_close =          ft1000d_close,    /* port closed */
+
+    .set_freq =           ft1000d_set_freq,
+    .get_freq =           ft1000_get_freq,
+    .set_mode =           ft1000d_set_mode,
+    .get_mode =           ft1000_get_mode,
+    .set_vfo =            ft1000d_set_vfo,
+    .get_vfo =            ft1000_get_vfo,
+    .set_ptt =            ft1000d_set_ptt,
+    .get_ptt =            ft1000_get_ptt,
+//    .set_rptr_shift =     ft1000d_set_rptr_shift,
+//    .get_rptr_shift =     ft1000d_get_rptr_shift,
+//    .set_rptr_offs =      ft1000d_set_rptr_offs,
+//    .set_split_freq =     ft1000d_set_split_freq, /* Added December 2016 to expand range of FT1000D functions. */
+//    .get_split_freq =     ft1000d_get_split_freq, /* Added December 2016 to expand range of FT1000D functions. */
+//    .set_split_mode =     ft1000d_set_split_mode, /* Added December 2016 to expand range of FT1000D functions. */
+//    .get_split_mode =     ft1000d_get_split_mode, /* Added December 2016 to expand range of FT1000D functions. */
+//    .set_split_vfo =      ft1000d_set_split_vfo, /* Changed in December 2016 so that vfos toggle back and forth like pressing Split button on rig */
+//    .get_split_vfo =      ft1000d_get_split_vfo,
+//    .set_rit =            ft1000d_set_rit,
+//    .get_rit =            ft1000d_get_rit,
+//    .set_xit =            ft1000d_set_xit,
+//    .get_xit =            ft1000d_get_xit,
+//    .set_func =           ft1000d_set_func,
+//    .get_func =           ft1000d_get_func,
+//    .set_parm =           ft1000d_set_parm,
+//    .get_level =          ft1000d_get_level,
+//    .set_mem =            ft1000d_set_mem,
+//    .get_mem =            ft1000d_get_mem,
+//    .vfo_op =             ft1000d_vfo_op,
+//    .set_channel =        ft1000d_set_channel,
+//    .get_channel =        ft1000d_get_channel,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
+};
 
 /*
  * ************************************
@@ -304,7 +573,7 @@ const struct rig_caps ft1000d_caps =
 /*
  * rig_init
  */
-int ft1000d_init(RIG *rig)
+static int ft1000d_init(RIG *rig)
 {
     struct ft1000d_priv_data *priv;
 
@@ -315,24 +584,18 @@ int ft1000d_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct ft1000d_priv_data *) calloc(1,
-                      sizeof(struct ft1000d_priv_data));
+    STATE(rig)->priv = (struct ft1000d_priv_data *) calloc(1,
+                       sizeof(struct ft1000d_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
-
-// Copy native cmd set to private cmd storage area
-    memcpy(priv->pcs, ncmd, sizeof(ncmd));
+    priv = STATE(rig)->priv;
 
     // Set default pacing value
     priv->pacing = FT1000D_PACING_DEFAULT_VALUE;
-
-    // Set update timeout
-    priv->read_update_delay = FT1000D_DEFAULT_READ_TIMEOUT;
 
     // Set operating vfo mode to current VFO changed from RIG_VFO_MAIN to RIG_VFO_A December 2016
     priv->current_vfo =  RIG_VFO_A;
@@ -344,7 +607,7 @@ int ft1000d_init(RIG *rig)
 /*
  * rig_cleanup
  */
-int ft1000d_cleanup(RIG *rig)
+static int ft1000d_cleanup(RIG *rig)
 {
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -354,12 +617,12 @@ int ft1000d_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
@@ -368,9 +631,8 @@ int ft1000d_cleanup(RIG *rig)
 /*
  * rig_open
  */
-int  ft1000d_open(RIG *rig)
+static int  ft1000d_open(RIG *rig)
 {
-    struct rig_state *rig_s;
     struct ft1000d_priv_data *priv;
     int err;
 
@@ -381,13 +643,12 @@ int  ft1000d_open(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
-    rig_s = &rig->state;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: write_delay = %i msec\n",
-              __func__, rig_s->rigport.write_delay);
+              __func__, RIGPORT(rig)->write_delay);
     rig_debug(RIG_DEBUG_TRACE, "%s: post_write_delay = %i msec\n",
-              __func__, rig_s->rigport.post_write_delay);
+              __func__, RIGPORT(rig)->post_write_delay);
     rig_debug(RIG_DEBUG_TRACE,
               "%s: read pacing = %i\n", __func__, priv->pacing);
 
@@ -401,11 +662,14 @@ int  ft1000d_open(RIG *rig)
 
 
     // Get current rig settings and status
-    err = ft1000d_get_update_data(rig, FT1000D_NATIVE_UPDATE_OP_DATA, 0);
-
-    if (err != RIG_OK)
+    if (rig->caps->rig_model != RIG_MODEL_FT1000)
     {
-        return err;
+        err = ft1000d_get_update_data(rig, FT1000D_NATIVE_UPDATE_OP_DATA, 0);
+
+        if (err != RIG_OK)
+        {
+            return err;
+        }
     }
 
     return RIG_OK;
@@ -414,7 +678,7 @@ int  ft1000d_open(RIG *rig)
 /*
  * rig_close
  */
-int ft1000d_close(RIG *rig)
+static int ft1000d_close(RIG *rig)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -444,7 +708,7 @@ int ft1000d_close(RIG *rig)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
+static int ft1000d_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -465,7 +729,7 @@ int ft1000d_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -515,7 +779,7 @@ int ft1000d_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
+static int ft1000d_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
     struct ft1000d_priv_data *priv;
     unsigned char *p;
@@ -531,7 +795,7 @@ int ft1000d_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -608,7 +872,7 @@ int ft1000d_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
+static int ft1000d_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -624,7 +888,7 @@ int ft1000d_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ptt = 0x%02x\n", __func__, ptt);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -686,7 +950,7 @@ int ft1000d_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
  * Comments: The passed value for the vfo is ignored since the PTT status
  *           is independent from the VFO selection.
  */
-int ft1000d_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
+static int ft1000d_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -700,7 +964,7 @@ int ft1000d_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     err = ft1000d_get_update_data(rig, FT1000D_NATIVE_READ_FLAGS, 0);
 
@@ -737,7 +1001,7 @@ int ft1000d_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
  *           from the currently selected VFO.
  *           Repeater shift can only be set when in FM mode.
  */
-int ft1000d_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t rptr_shift)
+static int ft1000d_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t rptr_shift)
 {
     struct ft1000d_priv_data *priv;
     unsigned char ci;
@@ -755,7 +1019,7 @@ int ft1000d_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t rptr_shift)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed rptr_shift = 0x%02x\n", __func__,
               rptr_shift);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -866,7 +1130,7 @@ int ft1000d_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t rptr_shift)
  *           from the currently selected VFO.
  *           Repeater shift can only be obtained when in FM mode.
  */
-int ft1000d_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *rptr_shift)
+static int ft1000d_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *rptr_shift)
 {
     struct ft1000d_priv_data *priv;
     ft1000d_op_data_t *p;
@@ -882,7 +1146,7 @@ int ft1000d_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *rptr_shift)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -960,7 +1224,7 @@ int ft1000d_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *rptr_shift)
  * Comments: The passed value for the vfo is ignored since the
  *           repeater frequency offset is independent from the VFO selection.
  */
-int ft1000d_set_rptr_offs(RIG *rig, vfo_t vfo, shortfreq_t offs)
+static int ft1000d_set_rptr_offs(RIG *rig, vfo_t vfo, shortfreq_t offs)
 {
     unsigned char bcd[(int) FT1000D_BCD_RPTR_OFFSET / 2];
     int err;
@@ -1019,7 +1283,8 @@ int ft1000d_set_rptr_offs(RIG *rig, vfo_t vfo, shortfreq_t offs)
  *           the correct TX VFO is selected by the rig in split mode.
  *           An error is returned if vfo and tx_vfo are the same.
  */
-int ft1000d_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
+static int ft1000d_set_split_vfo(RIG *rig, vfo_t vfo, split_t split,
+                                 vfo_t tx_vfo)
 {
     struct ft1000d_priv_data *priv;
     unsigned char ci;
@@ -1036,7 +1301,7 @@ int ft1000d_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed split = 0x%02x\n", __func__, split);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed tx_vfo = 0x%02x\n", __func__, tx_vfo);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1120,7 +1385,8 @@ int ft1000d_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
  * Comments: The passed value for the vfo is ignored in order to
  *           preserve the current split vfo system settings.
  */
-int ft1000d_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
+static int ft1000d_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split,
+                                 vfo_t *tx_vfo)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -1134,7 +1400,7 @@ int ft1000d_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     // Read status flags
     err = ft1000d_get_update_data(rig, FT1000D_NATIVE_READ_FLAGS, 0);
@@ -1221,7 +1487,7 @@ int ft1000d_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
  *           rit = 0 && xit enabled   -> disable rit
  *           rit = 0 && xit disabled  -> disable rit and set frequency = 0
  */
-int ft1000d_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
+static int ft1000d_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -1242,7 +1508,7 @@ int ft1000d_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -1333,7 +1599,7 @@ int ft1000d_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit)
+static int ft1000d_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit)
 {
     struct ft1000d_priv_data *priv;
     unsigned char ci;
@@ -1349,7 +1615,7 @@ int ft1000d_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1428,7 +1694,7 @@ int ft1000d_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit)
  *           xit = 0 && rit enabled   -> disable xit
  *           xit = 0 && rit disabled  -> disable xit and set frequency = 0
  */
-int ft1000d_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit)
+static int ft1000d_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -1448,7 +1714,7 @@ int ft1000d_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -1538,7 +1804,7 @@ int ft1000d_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_get_xit(RIG *rig, vfo_t vfo, shortfreq_t *xit)
+static int ft1000d_get_xit(RIG *rig, vfo_t vfo, shortfreq_t *xit)
 {
     struct ft1000d_priv_data *priv;
     unsigned char ci;
@@ -1554,7 +1820,7 @@ int ft1000d_get_xit(RIG *rig, vfo_t vfo, shortfreq_t *xit)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1625,7 +1891,7 @@ int ft1000d_get_xit(RIG *rig, vfo_t vfo, shortfreq_t *xit)
  * Comments: The passed value for the vfo is ignored since the
  *           the status of rig functions are vfo independent.
  */
-int ft1000d_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
+static int ft1000d_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
 {
     unsigned char ci;
     int err;
@@ -1699,7 +1965,7 @@ int ft1000d_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
  * Comments: The passed value for the vfo is ignored since the
  *           the status of rig function are vfo independent.
  */
-int ft1000d_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
+static int ft1000d_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -1714,7 +1980,7 @@ int ft1000d_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed func = %s\n", __func__,
               rig_strfunc(func));
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     err = ft1000d_get_update_data(rig, FT1000D_NATIVE_READ_FLAGS, 0);
 
@@ -1759,7 +2025,7 @@ int ft1000d_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
  *
  * Comments:
  */
-int ft1000d_set_parm(RIG *rig, setting_t parm, value_t val)
+static int ft1000d_set_parm(RIG *rig, setting_t parm, value_t val)
 {
     int err;
 
@@ -1820,7 +2086,7 @@ int ft1000d_set_parm(RIG *rig, setting_t parm, value_t val)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
+static int ft1000d_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     struct ft1000d_priv_data *priv;
     unsigned char bw;
@@ -1839,7 +2105,7 @@ int ft1000d_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
               rig_strrmode(mode));
     rig_debug(RIG_DEBUG_TRACE, "%s: passed width = %d Hz\n", __func__, (int)width);
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     // Set to selected VFO
     if (vfo == RIG_VFO_CURR)
@@ -1974,7 +2240,8 @@ int ft1000d_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
+static int ft1000d_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode,
+                            pbwidth_t *width)
 {
     struct ft1000d_priv_data *priv;
     unsigned char *p;
@@ -1992,7 +2259,7 @@ int ft1000d_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, RIG_VFO_CURR);
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2158,7 +2425,7 @@ int ft1000d_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_set_vfo(RIG *rig, vfo_t vfo)
+static int ft1000d_set_vfo(RIG *rig, vfo_t vfo)
 {
     struct ft1000d_priv_data *priv;
     unsigned char ci;
@@ -2171,8 +2438,9 @@ int ft1000d_set_vfo(RIG *rig, vfo_t vfo)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
-    rig_debug(RIG_DEBUG_TRACE, "%s: MADE IT TO rig.state.priv = 0x%02x\n", __func__,
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
+    rig_debug(RIG_DEBUG_TRACE, "%s: MADE IT TO STATE(rig)->priv = 0x%02x\n",
+              __func__,
               RIG_VFO_CURR);
 
 // if (vfo == RIG_VFO_CURR) {
@@ -2251,7 +2519,7 @@ int ft1000d_set_vfo(RIG *rig, vfo_t vfo)
  *           The result is stored in the priv->current_vfo data structure
  *           for later retrieval.
  */
-int ft1000d_get_vfo(RIG *rig, vfo_t *vfo)
+static int ft1000d_get_vfo(RIG *rig, vfo_t *vfo)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -2264,7 +2532,7 @@ int ft1000d_get_vfo(RIG *rig, vfo_t *vfo)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     /* Get flags for VFO status */
     err = ft1000d_get_update_data(rig, FT1000D_NATIVE_READ_FLAGS, 0);
@@ -2333,10 +2601,10 @@ int ft1000d_get_vfo(RIG *rig, vfo_t *vfo)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *value)
+static int ft1000d_get_level(RIG *rig, vfo_t vfo, setting_t level,
+                             value_t *value)
 {
     struct ft1000d_priv_data *priv;
-    struct rig_state *rig_s;
     unsigned char mdata[YAESU_CMD_LENGTH];
     int err;
 
@@ -2351,7 +2619,7 @@ int ft1000d_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *value)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed level %s\n", __func__,
               rig_strlevel(level));
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2379,8 +2647,7 @@ int ft1000d_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *value)
         return err;
     }
 
-    rig_s = &rig->state;
-    err = read_block(&rig_s->rigport, (char *) mdata, FT1000D_READ_METER_LENGTH);
+    err = read_block(RIGPORT(rig), mdata, FT1000D_READ_METER_LENGTH);
 
     if (err < 0)
     {
@@ -2435,7 +2702,7 @@ int ft1000d_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *value)
  *           In all other cases the passed vfo is selected if it differs
  *           from the currently selected VFO.
  */
-int ft1000d_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
+static int ft1000d_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
 {
     struct ft1000d_priv_data *priv;
     unsigned char ci;
@@ -2451,7 +2718,7 @@ int ft1000d_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo %s\n", __func__, rig_strvfo(vfo));
     rig_debug(RIG_DEBUG_TRACE, "%s: passed op %sn", __func__, rig_strvfop(op));
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2558,7 +2825,7 @@ int ft1000d_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
  * Comments: The passed value for the vfo is ignored since the
  *           the channel selection is vfo independent.
  */
-int ft1000d_set_mem(RIG *rig, vfo_t vfo, int ch)
+static int ft1000d_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -2572,7 +2839,7 @@ int ft1000d_set_mem(RIG *rig, vfo_t vfo, int ch)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ch = %i\n", __func__, ch);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     // Check for valid channel number
     if (ch < 1 || ch > 90)
@@ -2610,7 +2877,7 @@ int ft1000d_set_mem(RIG *rig, vfo_t vfo, int ch)
  * Comments: The passed value for the vfo is ignored since
  *           the channel selection is vfo independent.
  */
-int ft1000d_get_mem(RIG *rig, vfo_t vfo, int *ch)
+static int ft1000d_get_mem(RIG *rig, vfo_t vfo, int *ch)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -2624,7 +2891,7 @@ int ft1000d_get_mem(RIG *rig, vfo_t vfo, int *ch)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2666,7 +2933,7 @@ int ft1000d_get_mem(RIG *rig, vfo_t vfo, int *ch)
  * -------------------------------------------------------------------------
  * Returns RIG_OK on success or an error code on failure
  */
-int ft1000d_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
+static int ft1000d_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -2698,7 +2965,8 @@ int ft1000d_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
  *           Status for split operation, active rig functions and tuning steps
  *           are only relevant for currVFO
  */
-int ft1000d_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
+static int ft1000d_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                               int read_only)
 {
     struct ft1000d_priv_data *priv;
     ft1000d_op_data_t *p;
@@ -2718,7 +2986,7 @@ int ft1000d_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed chan->channel_num = %i\n",
               __func__, chan->channel_num);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     if (chan->channel_num < 0 || chan->channel_num > 90)
     {
@@ -3177,18 +3445,19 @@ int ft1000d_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
  *              rl      expected length of returned data in octets
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
-int ft1000d_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
+static int ft1000d_get_update_data(RIG *rig, unsigned char ci,
+                                   unsigned short ch)
 {
-    struct rig_state *rig_s;
+    hamlib_port_t *rp = RIGPORT(rig);
     struct ft1000d_priv_data *priv;
     int n;
     int err;
     int rl;
     int retry;
-    char temp[5];
-    char *p;
+    unsigned char temp[5];
+    unsigned char *p;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ci 0x%02x\n", __func__, ci);
@@ -3199,10 +3468,9 @@ int ft1000d_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
-    rig_s = &rig->state;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
-    retry = rig_s->rigport.retry;
+    retry = rp->retry;
 
     do
     {
@@ -3224,7 +3492,7 @@ int ft1000d_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
         switch (ci)
         {
         case FT1000D_NATIVE_UPDATE_ALL_DATA:
-            p = (char *) &priv->update_data;
+            p = (unsigned char *) &priv->update_data;
             rl = FT1000D_ALL_DATA_LENGTH;
 
             /* FT1000D */
@@ -3236,12 +3504,12 @@ int ft1000d_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
             break;
 
         case FT1000D_NATIVE_UPDATE_MEM_CHNL:
-            p = (char *) &priv->update_data.channelnumber;
+            p = (unsigned char *) &priv->update_data.channelnumber;
             rl = FT1000D_MEM_CHNL_LENGTH;
             break;
 
         case FT1000D_NATIVE_UPDATE_OP_DATA:
-            p = (char *) &priv->update_data.current_front;
+            p = (unsigned char *) &priv->update_data.current_front;
             rl = FT1000D_OP_DATA_LENGTH;
 
             /* FT1000D */
@@ -3253,12 +3521,12 @@ int ft1000d_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
             break;
 
         case FT1000D_NATIVE_UPDATE_VFO_DATA:
-            p = (char *) &priv->update_data.vfoa;
+            p = (unsigned char *) &priv->update_data.vfoa;
             rl = FT1000D_VFO_DATA_LENGTH;
             break;
 
         case FT1000D_NATIVE_UPDATE_MEM_CHNL_DATA:
-            p = (char *) &priv->update_data.channel[ch];
+            p = (unsigned char *) &priv->update_data.channel[ch];
             rl = FT1000D_MEM_CHNL_DATA_LENGTH;
             break;
 
@@ -3271,7 +3539,7 @@ int ft1000d_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
             return -RIG_EINVAL;
         }
 
-        n = read_block(&rig_s->rigport, p, rl);
+        n = read_block(rp, p, rl);
 
     }
     while (n < 0 && retry-- >= 0);
@@ -3297,16 +3565,15 @@ int ft1000d_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
-int ft1000d_send_static_cmd(RIG *rig, unsigned char ci)
+static int ft1000d_send_static_cmd(RIG *rig, unsigned char ci)
 {
-    struct rig_state *rig_s;
-    struct ft1000d_priv_data *priv;
     int err;
+    hamlib_port_t *rp = RIGPORT(rig);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
     rig_debug(RIG_DEBUG_TRACE, "%s: ci = 0x%02x\n", __func__, ci);
@@ -3316,25 +3583,21 @@ int ft1000d_send_static_cmd(RIG *rig, unsigned char ci)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
-    rig_s = &rig->state;
-
-    if (!priv->pcs[ci].ncomp)
+    if (!ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: Attempt to send incomplete sequence\n", __func__);
         return -RIG_EINVAL;
     }
 
-    err = write_block(&rig_s->rigport, (char *) priv->pcs[ci].nseq,
-                      YAESU_CMD_LENGTH);
+    err = write_block(rp, ncmd[ci].nseq, YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {
         return err;
     }
 
-    hl_usleep(rig_s->rigport.write_delay * 1000);
+    hl_usleep(rp->write_delay * 1000);
     return RIG_OK;
 }
 
@@ -3345,18 +3608,18 @@ int ft1000d_send_static_cmd(RIG *rig, unsigned char ci)
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *              p1-p4   Command parameters
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
-int ft1000d_send_dynamic_cmd(RIG *rig, unsigned char ci,
-                             unsigned char p1, unsigned char p2,
-                             unsigned char p3, unsigned char p4)
+static int ft1000d_send_dynamic_cmd(RIG *rig, unsigned char ci,
+                                    unsigned char p1, unsigned char p2,
+                                    unsigned char p3, unsigned char p4)
 {
-    struct rig_state *rig_s;
     struct ft1000d_priv_data *priv;
+    hamlib_port_t *rp = RIGPORT(rig);
     int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -3372,16 +3635,15 @@ int ft1000d_send_dynamic_cmd(RIG *rig, unsigned char ci,
               "%s: passed p1 = 0x%02x, p2 = 0x%02x, p3 = 0x%02x, p4 = 0x%02x,\n",
               __func__, p1, p2, p3, p4);
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
-    if (priv->pcs[ci].ncomp)
+    if (ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: Attempt to modify complete sequence\n", __func__);
         return -RIG_EINVAL;
     }
 
-    rig_s = &rig->state;
     memcpy(&priv->p_cmd, &ncmd[ci].nseq, YAESU_CMD_LENGTH);
 
     priv->p_cmd[3] = p1;
@@ -3389,15 +3651,14 @@ int ft1000d_send_dynamic_cmd(RIG *rig, unsigned char ci,
     priv->p_cmd[1] = p3;
     priv->p_cmd[0] = p4;
 
-    err = write_block(&rig_s->rigport, (char *) &priv->p_cmd,
-                      YAESU_CMD_LENGTH);
+    err = write_block(rp, (unsigned char *) &priv->p_cmd, YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {
         return err;
     }
 
-    hl_usleep(rig_s->rigport.write_delay * 1000);
+    hl_usleep(rp->write_delay * 1000);
     return RIG_OK;
 }
 
@@ -3408,16 +3669,15 @@ int ft1000d_send_dynamic_cmd(RIG *rig, unsigned char ci,
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
  *              freq    freq_t frequency value
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
-int ft1000d_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
+static int ft1000d_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
 {
-    struct rig_state *rig_s;
     struct ft1000d_priv_data *priv;
+    hamlib_port_t *rp = RIGPORT(rig);
     int err;
     // cppcheck-suppress *
     char *fmt = "%s: requested freq after conversion = %"PRIll" Hz\n";
@@ -3432,16 +3692,14 @@ int ft1000d_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ci = 0x%02x\n", __func__, ci);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed freq = %"PRIfreq" Hz\n", __func__, freq);
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
-    if (priv->pcs[ci].ncomp)
+    if (ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: Attempt to modify complete sequence\n", __func__);
         return -RIG_EINVAL;
     }
-
-    rig_s = &rig->state;
 
     /* Copy native cmd freq_set to private cmd storage area */
     memcpy(&priv->p_cmd, &ncmd[ci].nseq, YAESU_CMD_LENGTH);
@@ -3452,15 +3710,14 @@ int ft1000d_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
     rig_debug(RIG_DEBUG_TRACE, fmt, __func__, (int64_t)from_bcd(priv->p_cmd,
               FT1000D_BCD_DIAL) * 10);
 
-    err = write_block(&rig_s->rigport, (char *) &priv->p_cmd,
-                      YAESU_CMD_LENGTH);
+    err = write_block(rp, (unsigned char *) &priv->p_cmd, YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {
         return err;
     }
 
-    hl_usleep(rig_s->rigport.write_delay * 1000);
+    hl_usleep(rp->write_delay * 1000);
     return RIG_OK;
 }
 
@@ -3469,16 +3726,16 @@ int ft1000d_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
  * change the rit frequency.
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *              rit    shortfreq_t frequency value
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
-int ft1000d_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
+static int ft1000d_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
 {
     struct ft1000d_priv_data *priv;
-    struct rig_state *rig_s;
+    hamlib_port_t *rp = RIGPORT(rig);
     int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -3491,10 +3748,9 @@ int ft1000d_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ci = 0x%02x\n", __func__, ci);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed rit = %li Hz\n", __func__, rit);
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
-    rig_s = &rig->state;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
-    if (priv->pcs[ci].ncomp)
+    if (ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: Attempt to modify complete sequence\n",
                   __func__);
@@ -3520,15 +3776,14 @@ int ft1000d_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
     // Store bcd format into privat command storage area
     to_bcd(priv->p_cmd, labs(rit) / 10, FT1000D_BCD_RIT);
 
-    err = write_block(&rig_s->rigport, (char *) &priv->p_cmd,
-                      YAESU_CMD_LENGTH);
+    err = write_block(rp, (unsigned char *) &priv->p_cmd, YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {
         return err;
     }
 
-    hl_usleep(rig_s->rigport.write_delay * 1000);
+    hl_usleep(rp->write_delay * 1000);
     return RIG_OK;
 }
 
@@ -3554,7 +3809,7 @@ int ft1000d_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
   */
 
 
-int ft1000d_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
+static int ft1000d_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
 {
 
     int err;
@@ -3573,9 +3828,9 @@ int ft1000d_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
 
     err = rig_set_split_vfo(rig, vfo, RIG_SPLIT_ON, RIG_VFO_B);
 
-    if (err != RIG_OK) { RETURNFUNC(err); }
+    if (err != RIG_OK) { return err; }
 
-//  priv = (struct ft1000d_priv_data *)rig->state.priv;
+//  priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     err = ft1000d_send_dial_freq(rig, FT1000D_NATIVE_SET_SUB_VFO_FREQ, tx_freq);
 
@@ -3618,7 +3873,7 @@ int ft1000d_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
  *
  */
 
-int ft1000d_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
+static int ft1000d_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -3630,7 +3885,7 @@ int ft1000d_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *) rig->state.priv;
+    priv = (struct ft1000d_priv_data *) STATE(rig)->priv;
 
     err = ft1000d_get_split_vfo(rig, vfo, &priv->split, &priv->split_vfo);
 
@@ -3680,8 +3935,8 @@ int ft1000d_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
  *
  */
 
-int ft1000d_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
-                           pbwidth_t tx_width)
+static int ft1000d_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
+                                  pbwidth_t tx_width)
 {
     int err;
     unsigned char bw;
@@ -3701,7 +3956,7 @@ int ft1000d_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
     rig_debug(RIG_DEBUG_TRACE, "%s: passed width = %d Hz\n", __func__,
               (int)tx_width);
 
-//  priv = (struct ft1000d_priv_data *)rig->state.priv;
+//  priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     switch (tx_mode)
     {
@@ -3813,8 +4068,8 @@ int ft1000d_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
  *
  */
 
-int ft1000d_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
-                           pbwidth_t *tx_width)
+static int ft1000d_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
+                                  pbwidth_t *tx_width)
 {
     struct ft1000d_priv_data *priv;
     int err;
@@ -3826,7 +4081,7 @@ int ft1000d_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft1000d_priv_data *)rig->state.priv;
+    priv = (struct ft1000d_priv_data *)STATE(rig)->priv;
 
     err = ft1000d_get_split_vfo(rig, vfo, &priv->split, &priv->split_vfo);
 
@@ -3855,6 +4110,54 @@ int ft1000d_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
 
     return RIG_OK;
 }
+
+static int ft1000_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
+{
+    if (vfo == RIG_VFO_CURR)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: current_vfo=%s\n", __func__,
+                  rig_strvfo(STATE(rig)->current_vfo));
+        vfo = STATE(rig)->current_vfo;
+    }
+
+    if (vfo == RIG_VFO_A)
+    {
+        *freq = CACHE(rig)->freqMainA;
+    }
+    else
+    {
+        *freq = CACHE(rig)->freqMainB;
+    }
+
+    return RIG_OK;
+}
+
+static int ft1000_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
+{
+    if (vfo == RIG_VFO_A)
+    {
+        *mode = CACHE(rig)->modeMainA;
+    }
+    else
+    {
+        *mode = CACHE(rig)->modeMainB;
+    }
+
+    return RIG_OK;
+}
+
+static int ft1000_get_vfo(RIG *rig, vfo_t *vfo)
+{
+    *vfo = STATE(rig)->current_vfo;
+    return RIG_OK;
+}
+
+static int ft1000_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
+{
+    *ptt = CACHE(rig)->ptt;
+    return RIG_OK;
+}
+
 
 
 

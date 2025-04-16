@@ -23,6 +23,7 @@
 #define _RACAL_H 1
 
 #include "hamlib/rig.h"
+#include "token.h"
 
 #define BACKEND_VER "20200113"
 
@@ -36,8 +37,8 @@ struct racal_priv_data {
 	float threshold;	/* attenuation */
 };
 
-int racal_set_conf(RIG *rig, token_t token, const char *val);
-int racal_get_conf(RIG *rig, token_t token, char *val);
+int racal_set_conf(RIG *rig, hamlib_token_t token, const char *val);
+int racal_get_conf(RIG *rig, hamlib_token_t token, char *val);
 int racal_init(RIG *rig);
 int racal_cleanup(RIG *rig);
 int racal_open(RIG *rig);
@@ -52,8 +53,8 @@ int racal_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
 int racal_reset(RIG *rig, reset_t reset);
 const char* racal_get_info(RIG *rig);
 
-extern const struct rig_caps ra6790_caps;
-extern const struct rig_caps ra3702_caps;
+extern struct rig_caps ra6790_caps;
+extern struct rig_caps ra3702_caps;
 
 
 #endif	/* _RACAL_H */

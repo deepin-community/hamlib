@@ -20,9 +20,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 // cppcheck-suppress *
 #include <stdio.h>
@@ -37,7 +34,7 @@
 #include "idx_builtin.h"
 
 #define EOM "\r"
-#define REPLY_EOM "\n"
+#define REPLY_EOM "\r\n"
 
 #define BUFSZ 64
 
@@ -63,19 +60,17 @@ static int
 gs232b_transaction(ROT *rot, const char *cmdstr,
                    char *data, size_t data_len, int no_reply)
 {
-    struct rot_state *rs;
+    hamlib_port_t *rotp = ROTPORT(rot);
     int retval;
     int retry_read = 0;
 
-    rs = &rot->state;
-
 transaction_write:
 
-    rig_flush(&rs->rotport);
+    rig_flush(rotp);
 
     if (cmdstr)
     {
-        retval = write_block(&rs->rotport, cmdstr, strlen(cmdstr));
+        retval = write_block(rotp, (unsigned char *) cmdstr, strlen(cmdstr));
 
         if (retval != RIG_OK)
         {
@@ -84,7 +79,7 @@ transaction_write:
 
         if (!data)
         {
-            write_block(&rs->rotport, EOM, strlen(EOM));
+            write_block(rotp, (unsigned char *) EOM, strlen(EOM));
         }
     }
 
@@ -103,8 +98,8 @@ transaction_write:
 
 
     memset(data, 0, data_len);
-    retval = read_string(&rs->rotport, data, data_len, REPLY_EOM,
-                         strlen(REPLY_EOM));
+    retval = read_string(rotp, (unsigned char *) data, data_len,
+                         REPLY_EOM, strlen(REPLY_EOM), 0, 1);
 
     if (strncmp(data, "\r\n", 2) == 0 || strchr(data, '>'))
     {
@@ -117,7 +112,7 @@ transaction_write:
 
     if (retval < 0)
     {
-        if (retry_read++ < rot->state.rotport.retry)
+        if (retry_read++ < rotp->retry)
         {
             goto transaction_write;
         }
@@ -134,7 +129,7 @@ transaction_write:
                   "%s: Command is not correctly terminated '%s'\n",
                   __func__, data);
 
-        if (retry_read++ < rig->state.rotport.retry)
+        if (retry_read++ < rotp->retry)
         {
             goto transaction_write;
         }
@@ -194,7 +189,7 @@ gs232b_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
     u_az = (unsigned) rint(az);
     u_el = (unsigned) rint(el);
 
-    sprintf(cmdstr, "W%03u %03u" EOM, u_az, u_el);
+    SNPRINTF(cmdstr, sizeof(cmdstr), "W%03u %03u" EOM, u_az, u_el);
 #if 0 // do any GS232B models need a reply to the W command?
     retval = gs232b_transaction(rot, cmdstr, buf, sizeof(buf), 0);
 #else
@@ -231,7 +226,7 @@ gs232b_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
      * directives, any amount of space is matched, including none in the input.
      */
     // There's a 12PR1A rotor  that only returns AZ so we may only get AZ=xxx
-    if (sscanf(posbuf, "AZ=%d EL=%d", &int_az, &int_el) == 0)
+    if (sscanf(posbuf, "AZ=%d EL=%d", &int_az, &int_el) <= 0)
     {
         // only give error if we didn't parse anything
         rig_debug(RIG_DEBUG_ERR, "%s: wrong reply '%s', expected AZ=xxx EL=xxx\n",
@@ -270,7 +265,7 @@ gs232b_rot_stop(ROT *rot)
 
 static int gs232b_rot_get_level(ROT *rot, setting_t level, value_t *val)
 {
-    struct rot_state *rs = &rot->state;
+    const struct rot_state *rs = ROTSTATE(rot);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
 
@@ -290,14 +285,15 @@ static int gs232b_rot_get_level(ROT *rot, setting_t level, value_t *val)
 
 static int gs232b_rot_set_level(ROT *rot, setting_t level, value_t val)
 {
-    struct rot_state *rs = &rot->state;
+    struct rot_state *rs = ROTSTATE(rot);
     char cmdstr[24];
-    int retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
 
     switch (level)
     {
+        int retval;
+
     case ROT_LEVEL_SPEED:
     {
         int speed = val.i;
@@ -312,7 +308,7 @@ static int gs232b_rot_set_level(ROT *rot, setting_t level, value_t val)
         }
 
         /* between 1 (slowest) and 4 (fastest) */
-        sprintf(cmdstr, "X%u" EOM, speed);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "X%u" EOM, speed);
         retval = gs232b_transaction(rot, cmdstr, NULL, 0, 1);
 
         if (retval != RIG_OK)
@@ -364,19 +360,19 @@ static int gs232b_rot_move(ROT *rot, int direction, int speed)
     switch (direction)
     {
     case ROT_MOVE_UP:   /* Elevation increase */
-        sprintf(cmdstr, "U" EOM);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "U" EOM);
         break;
 
     case ROT_MOVE_DOWN: /* Elevation decrease */
-        sprintf(cmdstr, "D" EOM);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "D" EOM);
         break;
 
     case ROT_MOVE_LEFT: /* Azimuth decrease */
-        sprintf(cmdstr, "L" EOM);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "L" EOM);
         break;
 
     case ROT_MOVE_RIGHT:  /* Azimuth increase */
-        sprintf(cmdstr, "R" EOM);
+        SNPRINTF(cmdstr, sizeof(cmdstr), "R" EOM);
         break;
 
     default:
@@ -398,7 +394,7 @@ static int gs232b_rot_move(ROT *rot, int direction, int speed)
 
 static int gs232b_rot_init(ROT *rot)
 {
-    struct rot_state *rs = &rot->state;
+    struct rot_state *rs = ROTSTATE(rot);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -419,7 +415,7 @@ const struct rot_caps gs232b_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232B),
     .model_name = "GS-232B",
     .mfg_name = "Yaesu",
-    .version = "20201203.0",
+    .version = "20220109.0",
     .copyright = "LGPL",
     .status = RIG_STATUS_STABLE,
     .rot_type = ROT_TYPE_AZEL,
@@ -465,7 +461,7 @@ const struct rot_caps gs232b_az_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232B_AZ),
     .model_name = "GS-232B azimuth",
     .mfg_name = "Yaesu",
-    .version = "20201203.0",
+    .version = "20220109.0",
     .copyright = "LGPL",
     .status = RIG_STATUS_STABLE,
     .rot_type = ROT_TYPE_AZIMUTH,
@@ -511,7 +507,7 @@ const struct rot_caps gs232b_el_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232B_EL),
     .model_name = "GS-232B elevation",
     .mfg_name = "Yaesu",
-    .version = "20201203.0",
+    .version = "20220109.0",
     .copyright = "LGPL",
     .status = RIG_STATUS_STABLE,
     .rot_type = ROT_TYPE_ELEVATION,

@@ -19,22 +19,13 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rotator.h"
 #include "serial.h"
-#include "misc.h"
-#include "register.h"
-
-#include "gs232a.h"
 
 #define EOM "\r"
 #define REPLY_EOM "\r"
@@ -61,19 +52,17 @@ static int
 gs232_transaction(ROT *rot, const char *cmdstr,
                   char *data, size_t data_len)
 {
-    struct rot_state *rs;
+    hamlib_port_t *rotp = ROTPORT(rot);
     int retval;
     int retry_read = 0;
 
-    rs = &rot->state;
-
 transaction_write:
 
-    rig_flush(&rs->rotport);
+    rig_flush(rotp);
 
     if (cmdstr)
     {
-        retval = write_block(&rs->rotport, cmdstr, strlen(cmdstr));
+        retval = write_block(rotp, (unsigned char *) cmdstr, strlen(cmdstr));
 
         if (retval != RIG_OK)
         {
@@ -93,12 +82,12 @@ transaction_write:
     }
 
     memset(data, 0, data_len);
-    retval = read_string(&rs->rotport, data, data_len, REPLY_EOM,
-                         strlen(REPLY_EOM));
+    retval = read_string(rotp, (unsigned char *) data, data_len,
+                         REPLY_EOM, strlen(REPLY_EOM), 0, 1);
 
     if (retval < 0)
     {
-        if (retry_read++ < rot->state.rotport.retry)
+        if (retry_read++ < rotp->retry)
         {
             goto transaction_write;
         }
@@ -114,7 +103,7 @@ transaction_write:
         rig_debug(RIG_DEBUG_ERR, "%s: Command is not correctly terminated '%s'\n",
                   __func__, data);
 
-        if (retry_read++ < rig->state.rotport.retry)
+        if (retry_read++ < rotp->retry)
         {
             goto transaction_write;
         }
@@ -148,7 +137,8 @@ static int
 gs232_wo_transaction(ROT *rot, const char *cmdstr,
                      char *data, size_t data_len)
 {
-    return write_block(&rot->state.rotport, cmdstr, strlen(cmdstr));
+    return write_block(ROTPORT(rot), (unsigned char *) cmdstr,
+                       strlen(cmdstr));
 }
 
 
@@ -169,7 +159,7 @@ gs232_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
     u_az = (unsigned)rint(az);
     u_el = (unsigned)rint(el);
 
-    sprintf(cmdstr, "W%03u %03u" EOM, u_az, u_el);
+    SNPRINTF(cmdstr, sizeof(cmdstr), "W%03u %03u" EOM, u_az, u_el);
     retval = gs232_wo_transaction(rot, cmdstr, NULL, 0);
 
     if (retval != RIG_OK)
@@ -184,15 +174,35 @@ static int
 gs232_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 {
     char posbuf[32];
+    // these really shouldn't be static but it's fixing faulty firmware -- see below
+    static int expected = 12;
+    static int expected_flag = 0;
     int retval;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
-    retval = gs232_transaction(rot, "C2" EOM, posbuf, sizeof(posbuf));
+    if (expected_flag == 0)
+    {
+        ROTPORT(rot)->retry = 0;
+        expected_flag = 1;
+    }
 
-    if (retval != RIG_OK || strlen(posbuf) < 10)
+    retval = gs232_transaction(rot, "C2" EOM, posbuf, expected);
+
+    if (strlen(posbuf) < 10)
     {
         return retval;
+    }
+
+    // AF6SA WRC - Wifi Rotator Controller does not provide EOM byte so we allow timeout
+    // Still returns 10 chars though
+    if (strlen(posbuf) == 10 && expected == 12)
+    {
+        rig_debug(RIG_DEBUG_WARN,
+                  "%s: rotor didn't send CR...assuming it won't in the future\n", __func__);
+        retval = RIG_OK;
+        expected = 11; // we won't expect the CR
+        ROTPORT(rot)->retry = 3;
     }
 
     /* parse */
@@ -243,9 +253,9 @@ const struct rot_caps gs232_generic_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232_GENERIC),
     .model_name =     "GS-232 Generic",
     .mfg_name =       "Various",
-    .version =        "20200424.0",
+    .version =        "20240921.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,
@@ -257,7 +267,7 @@ const struct rot_caps gs232_generic_rot_caps =
     .write_delay =  0,
     .post_write_delay =  0,
     .timeout =  400,
-    .retry =  3,
+    .retry =  1,
 
     .min_az =     -180.0,
     .max_az =     450.0,  /* vary according to rotator type */
@@ -279,9 +289,9 @@ const struct rot_caps amsat_lvb_rot_caps =
     ROT_MODEL(ROT_MODEL_LVB),
     .model_name =     "LVB Tracker",
     .mfg_name =       "AMSAT",
-    .version =        "20200424.0",
+    .version =        "20240921.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,
@@ -316,9 +326,9 @@ const struct rot_caps st2_rot_caps =
     ROT_MODEL(ROT_MODEL_ST2),
     .model_name =     "GS232/ST2",
     .mfg_name =       "FoxDelta",
-    .version =        "20200424.0",
+    .version =        "20240921.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,
@@ -344,7 +354,7 @@ const struct rot_caps st2_rot_caps =
 
 /* ************************************************************************* */
 /*
- * F1TE Tracker, GS232 withtout position feedback
+ * F1TE Tracker, GS232 without position feedback
  *
  * http://www.f1te.org/index.php?option=com_content&view=article&id=19&Itemid=39
  */
@@ -354,9 +364,9 @@ const struct rot_caps f1tetracker_rot_caps =
     ROT_MODEL(ROT_MODEL_F1TETRACKER),
     .model_name =     "GS232/F1TE Tracker",
     .mfg_name =       "F1TE",
-    .version =        "20200424.0",
+    .version =        "20240921.0",
     .copyright =      "LGPL",
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_SERIAL,
     .serial_rate_min =   150,

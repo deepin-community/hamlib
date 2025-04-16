@@ -24,16 +24,9 @@
 // Version 2004.11.29 F.Melchert (DC9RP)
 //
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
-#include <string.h>
-#include <math.h>
 
 #include <hamlib/rig.h>
-#include "aor.h"
 #include "serial.h"
 #include "idx_builtin.h"
 
@@ -73,23 +66,23 @@
 
 static int rxr_writeByte(RIG *rig, unsigned char c)
 {
-    return write_block(&rig->state.rigport, (char *) &c, 1);
+    return write_block(RIGPORT(rig), &c, 1);
 }
 
 
 static int rxr_readByte(RIG *rig)
 {
     unsigned char response[1];
-    unsigned char buf[] = {0x71}; // Read command
+    const unsigned char buf[] = {0x71}; // Read command
     int retval;
-    retval = write_block(&rig->state.rigport, (char *) buf, 1);
+    retval = write_block(RIGPORT(rig), buf, 1);
 
     if (retval != RIG_OK)
     {
         return retval;
     }
 
-    retval = read_block(&rig->state.rigport, (char *) response, 1);
+    retval = read_block(RIGPORT(rig), response, 1);
 
     if (retval != RIG_OK)
     {
@@ -197,7 +190,8 @@ static void Execute_Routine_2_1(RIG *rig, char mp, char ad, int numSteps)
 }
 #endif
 // Routine 3    Set passband    Setup all IF parameters from filter, pbsval and bfoval bytes.
-static void Execute_Routine_3_1(RIG *rig, char mp, char ad, int numSteps)
+static void Execute_Routine_3_1(RIG *rig, char mp, char ad,
+                                unsigned int numSteps)
 {
     setLock(rig, 1);      //Set Lock Level
     setMemPtr(rig, mp, ad);   //page, address
@@ -276,16 +270,17 @@ static void Execute_Routine_6_1(RIG *rig, char mp, char ad, int numSteps)
 static int Execute_Routine_14(RIG *rig)
 {
     unsigned char response[1];
-    unsigned char buf[] = {0x2e}; // Read command
+    hamlib_port_t *rp = RIGPORT(rig);
+    const unsigned char buf[] = {0x2e}; // Read command
     int retval;
-    retval = write_block(&rig->state.rigport, (char *) buf, 1);
+    retval = write_block(rp, buf, 1);
 
     if (retval != RIG_OK)
     {
         return retval;
     }
 
-    retval = read_block(&rig->state.rigport, (char *) response, 1);
+    retval = read_block(rp, response, 1);
 
     if (retval != RIG_OK)
     {
@@ -495,7 +490,7 @@ static int ar7030_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
     setMemPtr(rig, 0, 0x38);
 
-    if ((*width = BCD_To_int(rig, rxr_readByte(rig)) * 100) < 0)
+    if ((*width = (pbwidth_t)BCD_To_int(rig, rxr_readByte(rig)) * 100) < 0)
     {
         return -RIG_EINVAL;
     }
@@ -779,14 +774,14 @@ static int ar7030_reset(RIG *rig, reset_t reset)
 
 
 
-const struct rig_caps ar7030_caps =
+struct rig_caps ar7030_caps =
 {
     RIG_MODEL(RIG_MODEL_AR7030),
     .model_name = "AR7030",
     .mfg_name =  "AOR",
     .version =  "20200324.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -809,7 +804,6 @@ const struct rig_caps ar7030_caps =
     .has_get_parm =  AR7030_PARM,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran =  {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  {},
@@ -944,6 +938,7 @@ const struct rig_caps ar7030_caps =
 //  .get_channel =  ar7030_get_channel,
 //  .set_trn =  ar7030_set_trn,
 //  .get_trn =  ar7030_get_trn,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

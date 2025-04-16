@@ -18,6 +18,7 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /**
  * \addtogroup amplifier
@@ -29,15 +30,12 @@
  * \file amp_conf.c
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/amplifier.h>
 
@@ -46,7 +44,7 @@
 
 
 /*
- * Configuration options available in the amp->state struct.
+ * Configuration options available in the amp_state struct.
  */
 static const struct confparams ampfrontend_cfg_params[] =
 {
@@ -80,34 +78,9 @@ static const struct confparams ampfrontend_cfg_params[] =
 
 static const struct confparams ampfrontend_serial_cfg_params[] =
 {
-    {
-        TOK_SERIAL_SPEED, "serial_speed", "Serial speed",
-        "Serial port baud rate",
-        "0", RIG_CONF_NUMERIC, { .n = { 300, 115200, 1 } }
-    },
-    {
-        TOK_DATA_BITS, "data_bits", "Serial data bits",
-        "Serial port data bits",
-        "8", RIG_CONF_NUMERIC, { .n = { 5, 8, 1 } }
-    },
-    {
-        TOK_STOP_BITS, "stop_bits", "Serial stop bits",
-        "Serial port stop bits",
-        "1", RIG_CONF_NUMERIC, { .n = { 0, 3, 1 } }
-    },
-    {
-        TOK_PARITY, "serial_parity", "Serial parity",
-        "Serial port parity",
-        "None", RIG_CONF_COMBO, { .c = {{ "None", "Odd", "Even", "Mark", "Space", NULL }} }
-    },
-    {
-        TOK_HANDSHAKE, "serial_handshake", "Serial handshake",
-        "Serial port handshake",
-        "None", RIG_CONF_COMBO, { .c = {{ "None", "XONXOFF", "Hardware", NULL }} }
-    },
-
-    { RIG_CONF_END, NULL, }
+#include "serial_cfg_params.h"
 };
+
 /** @} */ /* amplifier definitions */
 
 
@@ -133,19 +106,21 @@ static const struct confparams ampfrontend_serial_cfg_params[] =
  *
  * \sa frontamp_get_conf()
  */
-int frontamp_set_conf(AMP *amp, token_t token, const char *val)
+int frontamp_set_conf(AMP *amp, hamlib_token_t token, const char *val)
 {
     struct amp_state *rs;
+    hamlib_port_t *ampp = AMPPORT(amp);
     int val_i;
 
-    rs = &amp->state;
+    rs = AMPSTATE(amp);
 
     amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     switch (token)
     {
     case TOK_PATHNAME:
-        strncpy(rs->ampport.pathname, val, HAMLIB_FILPATHLEN - 1);
+        strncpy(ampp->pathname, val, HAMLIB_FILPATHLEN - 1);
+        strncpy(rs->ampport_deprecated.pathname, val, HAMLIB_FILPATHLEN - 1);
         break;
 
     case TOK_WRITE_DELAY:
@@ -154,7 +129,8 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        rs->ampport.write_delay = val_i;
+        ampp->write_delay = val_i;
+        rs->ampport_deprecated.write_delay = val_i;
         break;
 
     case TOK_POST_WRITE_DELAY:
@@ -163,7 +139,8 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        rs->ampport.post_write_delay = val_i;
+        ampp->post_write_delay = val_i;
+        rs->ampport_deprecated.post_write_delay = val_i;
         break;
 
     case TOK_TIMEOUT:
@@ -172,7 +149,8 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        rs->ampport.timeout = val_i;
+        ampp->timeout = val_i;
+        rs->ampport_deprecated.timeout = val_i;
         break;
 
     case TOK_RETRY:
@@ -181,11 +159,12 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        rs->ampport.retry = val_i;
+        ampp->retry = val_i;
+        rs->ampport_deprecated.retry = val_i;
         break;
 
     case TOK_SERIAL_SPEED:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
@@ -195,11 +174,12 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        rs->ampport.parm.serial.rate = val_i;
+        ampp->parm.serial.rate = val_i;
+        rs->ampport_deprecated.parm.serial.rate = val_i;
         break;
 
     case TOK_DATA_BITS:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
@@ -209,11 +189,12 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        rs->ampport.parm.serial.data_bits = val_i;
+        ampp->parm.serial.data_bits = val_i;
+        rs->ampport_deprecated.parm.serial.data_bits = val_i;
         break;
 
     case TOK_STOP_BITS:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
@@ -223,66 +204,127 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        rs->ampport.parm.serial.stop_bits = val_i;
+        ampp->parm.serial.stop_bits = val_i;
+        rs->ampport_deprecated.parm.serial.stop_bits = val_i;
         break;
 
     case TOK_PARITY:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
 
         if (!strcmp(val, "None"))
         {
-            rs->ampport.parm.serial.parity = RIG_PARITY_NONE;
+            val_i = RIG_PARITY_NONE;
         }
         else if (!strcmp(val, "Odd"))
         {
-            rs->ampport.parm.serial.parity = RIG_PARITY_ODD;
+            val_i = RIG_PARITY_ODD;
         }
         else if (!strcmp(val, "Even"))
         {
-            rs->ampport.parm.serial.parity = RIG_PARITY_EVEN;
+            val_i = RIG_PARITY_EVEN;
         }
         else if (!strcmp(val, "Mark"))
         {
-            rs->ampport.parm.serial.parity = RIG_PARITY_MARK;
+            val_i = RIG_PARITY_MARK;
         }
         else if (!strcmp(val, "Space"))
         {
-            rs->ampport.parm.serial.parity = RIG_PARITY_SPACE;
+            val_i = RIG_PARITY_SPACE;
         }
         else
         {
             return -RIG_EINVAL;
         }
 
+        ampp->parm.serial.parity = val_i;
+        rs->ampport_deprecated.parm.serial.parity = val_i;
         break;
 
     case TOK_HANDSHAKE:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
 
         if (!strcmp(val, "None"))
         {
-            rs->ampport.parm.serial.handshake = RIG_HANDSHAKE_NONE;
+            val_i = RIG_HANDSHAKE_NONE;
         }
         else if (!strcmp(val, "XONXOFF"))
         {
-            rs->ampport.parm.serial.handshake = RIG_HANDSHAKE_XONXOFF;
+            val_i = RIG_HANDSHAKE_XONXOFF;
         }
         else if (!strcmp(val, "Hardware"))
         {
-            rs->ampport.parm.serial.handshake = RIG_HANDSHAKE_HARDWARE;
+            val_i = RIG_HANDSHAKE_HARDWARE;
         }
         else
         {
             return -RIG_EINVAL;
         }
 
+        ampp->parm.serial.handshake = val_i;
         break;
+
+    case TOK_RTS_STATE:
+        if (ampp->type.rig != RIG_PORT_SERIAL)
+        {
+            return -RIG_EINVAL;
+        }
+
+        if (!strcmp(val, "Unset"))
+        {
+            val_i = RIG_SIGNAL_UNSET;
+        }
+        else if (!strcmp(val, "ON"))
+        {
+            val_i = RIG_SIGNAL_ON;
+        }
+        else if (!strcmp(val, "OFF"))
+        {
+            val_i = RIG_SIGNAL_OFF;
+        }
+        else
+        {
+            return -RIG_EINVAL;
+        }
+
+        ampp->parm.serial.rts_state = val_i;
+        rs->ampport_deprecated.parm.serial.rts_state = val_i;
+        break;
+
+    case TOK_DTR_STATE:
+        if (ampp->type.rig != RIG_PORT_SERIAL)
+        {
+            return -RIG_EINVAL;
+        }
+
+        if (!strcmp(val, "Unset"))
+        {
+            val_i = RIG_SIGNAL_UNSET;
+        }
+        else if (!strcmp(val, "ON"))
+        {
+            val_i = RIG_SIGNAL_ON;
+        }
+        else if (!strcmp(val, "OFF"))
+        {
+            val_i = RIG_SIGNAL_OFF;
+        }
+        else
+        {
+            return -RIG_EINVAL;
+        }
+
+        ampp->parm.serial.dtr_state = val_i;
+        rs->ampport_deprecated.parm.serial.dtr_state = val_i;
+        break;
+
+
+
 
 #if 0
 
@@ -327,71 +369,69 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
  *
  * \sa frontamp_set_conf()
  */
-int frontamp_get_conf(AMP *amp, token_t token, char *val)
+int frontamp_get_conf2(AMP *amp, hamlib_token_t token, char *val, int val_len)
 {
-    struct amp_state *rs;
+    hamlib_port_t *ampp = AMPPORT(amp);
     const char *s;
-
-    rs = &amp->state;
 
     amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     switch (token)
     {
     case TOK_PATHNAME:
-        strcpy(val, rs->ampport.pathname);
+        strncpy(val, ampp->pathname, val_len - 1);
         break;
 
     case TOK_WRITE_DELAY:
-        sprintf(val, "%d", rs->ampport.write_delay);
+        SNPRINTF(val, val_len, "%d", ampp->write_delay);
         break;
 
     case TOK_POST_WRITE_DELAY:
-        sprintf(val, "%d", rs->ampport.post_write_delay);
+        SNPRINTF(val, val_len, "%d", ampp->post_write_delay);
         break;
 
     case TOK_TIMEOUT:
-        sprintf(val, "%d", rs->ampport.timeout);
+        SNPRINTF(val, val_len, "%d", ampp->timeout);
         break;
 
     case TOK_RETRY:
-        sprintf(val, "%d", rs->ampport.retry);
+        SNPRINTF(val, val_len, "%d", ampp->retry);
         break;
 
     case TOK_SERIAL_SPEED:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
 
-        sprintf(val, "%d", rs->ampport.parm.serial.rate);
+        SNPRINTF(val, val_len, "%d", ampp->parm.serial.rate);
         break;
 
     case TOK_DATA_BITS:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
 
-        sprintf(val, "%d", rs->ampport.parm.serial.data_bits);
+        SNPRINTF(val, val_len, "%d", ampp->parm.serial.data_bits);
         break;
 
     case TOK_STOP_BITS:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
 
-        sprintf(val, "%d", rs->ampport.parm.serial.stop_bits);
+        SNPRINTF(val, val_len, "%d", ampp->parm.serial.stop_bits);
         break;
 
     case TOK_PARITY:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
 
-        switch (rs->ampport.parm.serial.parity)
+        switch (ampp->parm.serial.parity)
         {
         case RIG_PARITY_NONE:
             s = "None";
@@ -417,16 +457,16 @@ int frontamp_get_conf(AMP *amp, token_t token, char *val)
             return -RIG_EINVAL;
         }
 
-        strcpy(val, s);
+        strncpy(val, s, val_len - 1);
         break;
 
     case TOK_HANDSHAKE:
-        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        if (ampp->type.rig != RIG_PORT_SERIAL)
         {
             return -RIG_EINVAL;
         }
 
-        switch (rs->ampport.parm.serial.handshake)
+        switch (ampp->parm.serial.handshake)
         {
         case RIG_HANDSHAKE_NONE:
             s = "None";
@@ -444,7 +484,7 @@ int frontamp_get_conf(AMP *amp, token_t token, char *val)
             return -RIG_EINVAL;
         }
 
-        strcpy(val, s);
+        strncpy(val, s, val_len);
         break;
 
     default:
@@ -462,8 +502,6 @@ int frontamp_get_conf(AMP *amp, token_t token, char *val)
  */
 
 
-#ifdef XXREMOVEDXXC
-// Not referenced anywhere
 /**
  * \brief Executes cfunc on all the elements stored in the configuration
  * parameters table.
@@ -524,7 +562,6 @@ int HAMLIB_API amp_token_foreach(AMP *amp,
 
     return RIG_OK;
 }
-#endif
 
 
 /**
@@ -549,7 +586,7 @@ const struct confparams *HAMLIB_API amp_confparam_lookup(AMP *amp,
         const char *name)
 {
     const struct confparams *cfp;
-    token_t token;
+    hamlib_token_t token;
 
     amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -606,7 +643,7 @@ const struct confparams *HAMLIB_API amp_confparam_lookup(AMP *amp,
  *
  * \sa amp_confparam_lookup()
  */
-token_t HAMLIB_API amp_token_lookup(AMP *amp, const char *name)
+hamlib_token_t HAMLIB_API amp_token_lookup(AMP *amp, const char *name)
 {
     const struct confparams *cfp;
 
@@ -641,7 +678,7 @@ token_t HAMLIB_API amp_token_lookup(AMP *amp, const char *name)
  *
  * \sa amp_get_conf()
  */
-int HAMLIB_API amp_set_conf(AMP *amp, token_t token, const char *val)
+int HAMLIB_API amp_set_conf(AMP *amp, hamlib_token_t token, const char *val)
 {
     amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -654,7 +691,7 @@ int HAMLIB_API amp_set_conf(AMP *amp, token_t token, const char *val)
     {
         const struct confparams *cfp;
         char tokenstr[12];
-        sprintf(tokenstr, "%ld", token);
+        SNPRINTF(tokenstr, sizeof(tokenstr), "%ld", token);
         cfp = amp_confparam_lookup(amp, tokenstr);
 
         if (!cfp)
@@ -697,7 +734,8 @@ int HAMLIB_API amp_set_conf(AMP *amp, token_t token, const char *val)
  *
  * \sa amp_set_conf()
  */
-int HAMLIB_API amp_get_conf(AMP *amp, token_t token, char *val)
+int HAMLIB_API amp_get_conf2(AMP *amp, hamlib_token_t token, char *val,
+                             int val_len)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -708,7 +746,7 @@ int HAMLIB_API amp_get_conf(AMP *amp, token_t token, char *val)
 
     if (IS_TOKEN_FRONTEND(token))
     {
-        return frontamp_get_conf(amp, token, val);
+        return frontamp_get_conf2(amp, token, val, val_len);
     }
 
     if (amp->caps->get_conf == NULL)
@@ -719,4 +757,8 @@ int HAMLIB_API amp_get_conf(AMP *amp, token_t token, char *val)
     return amp->caps->get_conf(amp, token, val);
 }
 
+int HAMLIB_API amp_get_conf(AMP *amp, hamlib_token_t token, char *val)
+{
+    return amp_get_conf2(amp, token, val, 128);
+}
 /** @} */

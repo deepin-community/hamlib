@@ -4,25 +4,30 @@
 # AUTOMAKE_OPTIONS = dejagnu
 # DEJATOOL = testfreq testbcd testloc rigctl
 
+# For some reason this "if" is not working -- rigtestlibusb is still being included
+# Fix for now is to change rigtestlibusb.c instead
 if HAVE_LIBUSB
-    TESTLIBUSB = testlibusb
+    TESTLIBUSB = rigtestlibusb
 else
     TESTLIBUSB =
 endif
 
 DISTCLEANFILES = rigctl.log rigctl.sum testbcd.log testbcd.sum
 
-bin_PROGRAMS = rigctl rigctld rigmem rigsmtr rigswr rotctl rotctld rigctlcom ampctl ampctld $(TESTLIBUSB)
+bin_PROGRAMS = rigctl rigctld rigmem rigsmtr rigswr rotctl rotctld rigctlcom rigctltcp rigctlsync ampctl ampctld rigtestmcast rigtestmcastrx $(TESTLIBUSB) rigfreqwalk
 
-check_PROGRAMS = dumpmem testrig testrigopen testrigcaps testtrn testbcd testfreq listrigs testloc rig_bench testcache cachetest cachetest2 testcookie
+#check_PROGRAMS = dumpmem testrig testrigopen testrigcaps testtrn testbcd testfreq listrigs testloc rig_bench testcache cachetest cachetest2 testcookie testgrid testsecurity
+check_PROGRAMS = dumpmem testrig testrigopen testrigcaps testtrn testbcd testfreq listrigs testloc rig_bench testcache cachetest cachetest2 testcookie testgrid hamlibmodels testmW2power test2038
 
-RIGCOMMONSRC = rigctl_parse.c rigctl_parse.h dumpcaps.c uthash.h 
-ROTCOMMONSRC = rotctl_parse.c rotctl_parse.h dumpcaps_rot.c uthash.h 
+RIGCOMMONSRC = rigctl_parse.c rigctl_parse.h dumpcaps.c dumpstate.c uthash.h rig_tests.c rig_tests.h dumpcaps.h
+ROTCOMMONSRC = rotctl_parse.c rotctl_parse.h dumpcaps_rot.c uthash.h dumpcaps_rot.h
 AMPCOMMONSRC = ampctl_parse.c ampctl_parse.h dumpcaps_amp.c uthash.h 
 
 rigctl_SOURCES = rigctl.c $(RIGCOMMONSRC)
 rigctld_SOURCES = rigctld.c $(RIGCOMMONSRC)
 rigctlcom_SOURCES = rigctlcom.c $(RIGCOMMONSRC)
+rigctltcp_SOURCES = rigctltcp.c $(RIGCOMMONSRC)
+rigctlsync_SOURCES = rigctlsync.c $(RIGCOMMONSRC)
 rotctl_SOURCES = rotctl.c $(ROTCOMMONSRC)
 rotctld_SOURCES = rotctld.c $(ROTCOMMONSRC)
 ampctl_SOURCES = ampctl.c $(AMPCOMMONSRC)
@@ -31,25 +36,28 @@ rigswr_SOURCES = rigswr.c
 rigsmtr_SOURCES = rigsmtr.c
 rigmem_SOURCES = rigmem.c memsave.c memload.c memcsv.c
 if HAVE_LIBUSB
-    testlibusb_SOURCES = testlibusb.c
+    rigtestlibusb_SOURCES = rigtestlibusb.c
 endif
 
 # include generated include files ahead of any in sources
-rigctl_CPPFLAGS = -I$(top_builddir)/tests -I$(top_builddir)/src -I$(srcdir) $(AM_CPPFLAGS)
+rigctl_CPPFLAGS = -I$(top_builddir)/tests -I$(top_builddir)/src -I$(srcdir) -I$(top_builddir)/security $(AM_CPPFLAGS) 
 
 # all the programs need this
-LDADD = $(top_builddir)/src/libhamlib.la $(top_builddir)/lib/libmisc.la $(DL_LIBS)
+LDADD = $(top_builddir)/src/libhamlib.la $(top_builddir)/lib/libmisc.la $(DL_LIBS) -lm
 
 rigmem_CFLAGS = $(AM_CFLAGS) $(LIBXML2_CFLAGS) -I$(top_builddir)/src
-rigctld_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/src
+rigctld_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/src -I$(top_builddir)/security
 rotctl_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/src
 rotctld_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/src
 ampctl_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/src
 ampctld_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/src
-rigctlcom_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS)
+rigctlcom_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/security
+rigctltcp_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/security
+rigctlsync_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/security
 if HAVE_LIBUSB
-    testlibusb_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(LIBUSB_CFLAGS)
+    rigtestlibusb_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(LIBUSB_CFLAGS)
 endif
+#testsecurity_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -I$(top_builddir)/src -I$(top_builddir)/security
 
 rigctl_LDADD = $(PTHREAD_LIBS) $(READLINE_LIBS) $(LDADD)
 rigctld_LDADD = $(NET_LIBS) $(PTHREAD_LIBS) $(LDADD) $(READLINE_LIBS)
@@ -59,8 +67,10 @@ ampctl_LDADD = $(PTHREAD_LIBS) $(LDADD) $(READLINE_LIBS)
 ampctld_LDADD = $(NET_LIBS) $(PTHREAD_LIBS) $(LDADD) $(READLINE_LIBS)
 rigmem_LDADD = $(LIBXML2_LIBS) $(LDADD)
 rigctlcom_LDADD = $(NET_LIBS) $(PTHREAD_LIBS) $(LDADD) $(READLINE_LIBS)
+rigctltcp_LDADD = $(NET_LIBS) $(PTHREAD_LIBS) $(LDADD) $(READLINE_LIBS)
+rigctlsync_LDADD = $(NET_LIBS) $(PTHREAD_LIBS) $(LDADD) $(READLINE_LIBS)
 if HAVE_LIBUSB
-    testlibusb_LDADD = $(LIBUSB_LIBS)
+    rigtestlibusb_LDADD = $(LIBUSB_LIBS)
 endif
 
 # Linker options
@@ -74,8 +84,10 @@ rigctld_LDFLAGS = $(WINEXELDFLAGS)
 rotctld_LDFLAGS = $(WINEXELDFLAGS)
 ampctld_LDFLAGS = $(WINEXELDFLAGS)
 rigctlcom_LDFLAGS = $(WINEXELDFLAGS)
+rigctltcp_LDFLAGS = $(WINEXELDFLAGS)
+rigctlsync_LDFLAGS = $(WINEXELDFLAGS)
 if HAVE_LIBUSB
-    testlibusb_LDFLAGS = $(WINEXELDFLAGS)
+    rigtestlibusb_LDFLAGS = $(WINEXELDFLAGS)
 endif
 
 
@@ -94,7 +106,7 @@ endif
 EXTRA_DIST = rigmatrix_head.html rig_split_lst.awk testctld.pl testrotctld.pl
 
 # Support 'make check' target for simple tests
-check_SCRIPTS = testrig.sh testfreq.sh testbcd.sh testloc.sh testrigcaps.sh testcache.sh testcookie.sh
+check_SCRIPTS = testrig.sh testfreq.sh testbcd.sh testloc.sh testrigcaps.sh testcache.sh testcookie.sh testgrid.sh test2038.sh
 
 TESTS = $(check_SCRIPTS)
 
@@ -127,4 +139,12 @@ testcookie.sh:
 	echo './testcookie 1' > testcookie.sh
 	chmod +x ./testcookie.sh
 
-CLEANFILES = testrig.sh testfreq.sh testbcd.sh testloc.sh testrigcaps.sh testcache.sh testcookie.sh testlibusb build-w32.sh build-w64.sh build-w64-jtsdk.sh
+testgrid.sh:
+	echo './testgrid' > testgrid.sh
+	chmod +x ./testgrid.sh
+
+test2038.sh:
+	echo 'LD_LIBRARY_PATH=$(top_builddir)/src/.libs:$(top_builddir)/dummy/.libs ./test2038 1' > test2038.sh
+	chmod +x ./test2038.sh
+
+CLEANFILES = testrig.sh testfreq.sh testbcd.sh testloc.sh testrigcaps.sh testcache.sh testcookie.sh rigtestlibusb build-w32.sh build-w64.sh build-w64-jtsdk.sh testgrid.sh testrigcaps.sh test2038.sh

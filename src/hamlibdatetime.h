@@ -1,2 +1,2 @@
 /* This date time is from the last non-merge commit to Hamlib. */
-#define HAMLIBDATETIME "Mon Sep 13 23:12:03 2021 +0000 SHA=c2ed3d"
+#define HAMLIBDATETIME "2025-02-09T21:03:50Z SHA=870364"

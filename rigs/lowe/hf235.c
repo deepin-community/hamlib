@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -47,14 +43,14 @@
  *
  */
 
-const struct rig_caps hf235_caps =
+struct rig_caps hf235_caps =
 {
     RIG_MODEL(RIG_MODEL_HF235),
     .model_name = "HF-235",
     .mfg_name =  "Lowe",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,        /* and only basic support */
+    .status =  RIG_STATUS_STABLE,        /* and only basic support */
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -127,7 +123,7 @@ const struct rig_caps hf235_caps =
     .get_level = lowe_get_level,
     .reset =  lowe_reset,
     .get_info =  lowe_get_info,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

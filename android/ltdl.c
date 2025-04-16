@@ -17,7 +17,7 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <config.h>
+#include <hamlib/config.h>
 #include <ltdl.h>
 #include <dlfcn.h>
 #include <stdio.h>
@@ -62,7 +62,7 @@ char *getlibpath(void)
 
         if (!c) { continue; }
 
-        libpath = malloc(strlen(c) + 1);
+        libpath = calloc(1, strlen(c) + 1);
         strcpy(libpath, c);
         break;
     }
@@ -115,7 +115,7 @@ lt_dlhandle adlopen(const char *filename)
 
     if (libpath == NULL || filename == NULL) { return NULL; }
 
-    c = malloc(strlen(libpath) + strlen(APREFIX) + strlen(filename) + strlen(
+    c = calloc(1, strlen(libpath) + strlen(APREFIX) + strlen(filename) + strlen(
                    ASUFFIX) + 1);
     strcpy(c, libpath);
     strcat(c, APREFIX);

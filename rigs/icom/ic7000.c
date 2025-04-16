@@ -20,10 +20,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <string.h>  /* String function definitions */
 
 #include <hamlib/rig.h>
@@ -33,6 +29,7 @@
 #include "icom_defs.h"
 #include "frame.h"
 #include "bandplan.h"
+#include "tones.h"
 
 #define IC7000_ALL_RX_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM|RIG_MODE_WFM)
 #define IC7000_1HZ_TS_MODES (RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR)
@@ -43,7 +40,7 @@
 
 #define IC7000_FUNCS (RIG_FUNC_NB|RIG_FUNC_COMP|RIG_FUNC_VOX|RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_SBKIN|RIG_FUNC_FBKIN|RIG_FUNC_NR|RIG_FUNC_MON|RIG_FUNC_MN|RIG_FUNC_ANF|RIG_FUNC_VSC|RIG_FUNC_LOCK|RIG_FUNC_ARO)
 
-#define IC7000_LEVELS (RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_AGC|RIG_LEVEL_COMP|RIG_LEVEL_BKINDL|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_SQL|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_VOXDELAY|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_COMP_METER|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_NB)
+#define IC7000_LEVELS (RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_AGC|RIG_LEVEL_COMP|RIG_LEVEL_BKINDL|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_SQL|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_VOXDELAY|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_COMP_METER|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_NB|RIG_LEVEL_AGC_TIME)
 
 #define IC7000_VFOS (RIG_VFO_A|RIG_VFO_B|RIG_VFO_MEM)
 #define IC7000_PARMS (RIG_PARM_ANN|RIG_PARM_BACKLIGHT|RIG_PARM_APO|RIG_PARM_TIME|RIG_PARM_BEEP)
@@ -140,6 +137,7 @@
 struct cmdparams ic7000_extcmds[] =
 {
     { {.s = RIG_LEVEL_VOXDELAY}, CMD_PARAM_TYPE_LEVEL, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x17}, CMD_DAT_INT, 1 },
+    { {.s = RIG_PARM_TIME}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x41}, CMD_DAT_TIM, 2 },
     { {.s = RIG_PARM_NONE} }
 };
 
@@ -186,18 +184,18 @@ static const struct icom_priv_caps IC7000_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .extcmds = ic7000_extcmds,
     .r2i_mode = ic7000_r2i_mode
 };
 
-const struct rig_caps ic7000_caps =
+struct rig_caps ic7000_caps =
 {
     RIG_MODEL(RIG_MODEL_IC7000),
     .model_name = "IC-7000",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".1",
+    .version =  BACKEND_VER ".4",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -220,14 +218,24 @@ const struct rig_caps ic7000_caps =
     .has_set_level =  RIG_LEVEL_SET(IC7000_LEVELS),
     .has_get_parm =  IC7000_PARMS,
     .has_set_parm =  RIG_PARM_SET(IC7000_PARMS),
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
+    .level_gran =
+    {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
+#include "level_gran_icom.h"
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BEEP] = {.min = {.i = 0}, .max = {.i = 1}, .step = {.i = 1}},
+        [PARM_TIME] = {.min = {.i = 0}, .max = {.i = 86399}, .step = {.i = 1}},
+        [PARM_APO] = {.min = {.i = 0}, .max = {.i = 3}, .step = {.i = 1}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
+    },
+
     .ctcss_list =  common_ctcss_list,
     .dcs_list =  common_dcs_list,
     .preamp =   { 10, RIG_DBLST_END, }, /* FIXME: TBC it's a guess */
@@ -336,6 +344,7 @@ const struct rig_caps ic7000_caps =
     .get_freq =  icom_get_freq,
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
+//    .get_vfo =  icom_get_vfo,
     .set_vfo =  icom_set_vfo,
     .set_ant =  NULL,  /*automatically set by rig depending band */
     .get_ant =  NULL,
@@ -345,8 +354,8 @@ const struct rig_caps ic7000_caps =
     .get_level =  icom_get_level,
     .set_func =  icom_set_func,
     .get_func =  icom_get_func,
-    .set_parm =  NULL,
-    .get_parm =  NULL,
+    .set_parm =  icom_set_parm,
+    .get_parm =  icom_get_parm,
     .set_mem =  icom_set_mem,
     .set_bank =  icom_set_bank,
     .vfo_op =  icom_vfo_op,
@@ -373,4 +382,5 @@ const struct rig_caps ic7000_caps =
     .set_split_vfo =  icom_set_split_vfo,
     .get_split_vfo =  NULL,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

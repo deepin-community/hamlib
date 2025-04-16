@@ -21,21 +21,15 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 #include <ctype.h>   /* character class tests */
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
-#include "register.h"
 
 #include "kenwood.h"
 #include "ic10.h"
@@ -73,25 +67,29 @@ int ic10_cmd_trim(char *data, int data_len)
 
 /**
  * ic10_transaction
- * Assumes rig!=NULL rig->state!=NULL rig->caps!=NULL
+ * Assumes rig!=NULL STATE(rig)!=NULL rig->caps!=NULL
 **/
 int ic10_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
                      int *data_len)
 {
     int retval;
     int retry_cmd = 0;
-    struct rig_state *rs;
+    struct hamlib_port *rp = RIGPORT(rig);
+
+    if (cmd == NULL)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: cmd==NULL?\n", __func__);
+        return -RIG_EARG;
+    }
 
     rig_debug(RIG_DEBUG_TRACE,
               "%s: called cmd='%s', len=%d, data=%p, data_len=%p\n", __func__, cmd, cmd_len,
               data, data_len);
 
-    rs = &rig->state;
-
 transaction:
-    rig_flush(&rs->rigport);
+    rig_flush(rp);
 
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(rp, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -101,25 +99,26 @@ transaction:
     if (!data)
     {
         char buffer[50];
-        struct kenwood_priv_data *priv = rig->state.priv;
+        const struct kenwood_priv_data *priv = STATE(rig)->priv;
 
-        if (RIG_OK != (retval = write_block(&rs->rigport, priv->verify_cmd
-                                            , strlen(priv->verify_cmd))))
+        if (RIG_OK != (retval = write_block(rp,
+                                            (unsigned char *) priv->verify_cmd, strlen(priv->verify_cmd))))
         {
             return retval;
         }
 
         // this should be the ID response
-        retval = read_string(&rs->rigport, buffer, sizeof(buffer), ";", 1);
+        retval = read_string(rp, (unsigned char *) buffer, sizeof(buffer),
+                             ";", 1, 0, 1);
 
         // might be ?; too
-        if (buffer[0] == '?' && retry_cmd++ < rs->rigport.retry)
+        if (buffer[0] == '?' && retry_cmd++ < rp->retry)
         {
             rig_debug(RIG_DEBUG_ERR, "%s: retrying cmd #%d\n", __func__, retry_cmd);
             goto transaction;
         }
 
-        if (strncmp("ID", buffer, 2))
+        if (strncmp("ID", buffer, 2) != 0)
         {
             rig_debug(RIG_DEBUG_ERR, "%s: expected ID response and got %s\n", __func__,
                       buffer);
@@ -129,7 +128,7 @@ transaction:
         return RIG_OK;
     }
 
-    retval = read_string(&rs->rigport, data, 50, ";", 1);
+    retval = read_string(rp, (unsigned char *) data, 50, ";", 1, 0, 1);
 
     if (retval == -RIG_ETIMEOUT)
     {
@@ -151,12 +150,13 @@ transaction:
  */
 static int get_ic10_if(RIG *rig, char *data)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)
+                                           rig->caps->priv;
     int i, data_len, retval = RIG_EINVAL;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
-    for (i = 0; retval != RIG_OK && i < rig->caps->retry; i++)
+    for (i = 0; retval != RIG_OK && i < RIGPORT(rig)->retry; i++)
     {
         data_len = 37;
         retval = ic10_transaction(rig, "IF;", 3, data, &data_len);
@@ -166,9 +166,8 @@ static int get_ic10_if(RIG *rig, char *data)
             continue;
         }
 
-        if (retval == RIG_OK &&
-                (data_len < priv->if_len ||
-                 data[0] != 'I' || data[1] != 'F'))
+        if (data_len < priv->if_len ||
+                data[0] != 'I' || data[1] != 'F')
         {
             rig_debug(RIG_DEBUG_WARN, "%s: unexpected answer %s, len=%d\n",
                       __func__, data, data_len);
@@ -187,7 +186,7 @@ static int get_ic10_if(RIG *rig, char *data)
 int ic10_set_vfo(RIG *rig, vfo_t vfo)
 {
     char cmdbuf[6];
-    int cmd_len, retval;
+    int retval;
     char vfo_function;
 
     switch (vfo)
@@ -209,9 +208,9 @@ int ic10_set_vfo(RIG *rig, vfo_t vfo)
         return -RIG_EINVAL;
     }
 
-    cmd_len = sprintf(cmdbuf, "FN%c;", vfo_function);
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "FN%c;", vfo_function);
 
-    retval = ic10_transaction(rig, cmdbuf, cmd_len, NULL, 0);
+    retval = ic10_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, 0);
     return retval;
 }
 
@@ -222,7 +221,8 @@ int ic10_set_vfo(RIG *rig, vfo_t vfo)
  */
 int ic10_get_vfo(RIG *rig, vfo_t *vfo)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)
+                                           rig->caps->priv;
     char vfobuf[50];
     unsigned char c;
     int retval, iflen;
@@ -289,7 +289,8 @@ int ic10_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
 
 int ic10_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *txvfo)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)
+                                           rig->caps->priv;
     char infobuf[50];
     int retval, iflen;
 
@@ -318,7 +319,8 @@ int ic10_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *txvfo)
  */
 int ic10_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)
+                                           rig->caps->priv;
     char modebuf[50];
     unsigned char c;
     int retval, iflen;
@@ -374,7 +376,7 @@ int ic10_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 int ic10_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     char modebuf[6];
-    int mode_len, retval;
+    int retval;
     char mode_letter;
 
     switch (mode)
@@ -397,8 +399,8 @@ int ic10_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    mode_len = sprintf(modebuf, "MD%c;", mode_letter);
-    retval = ic10_transaction(rig, modebuf, mode_len, NULL, 0);
+    SNPRINTF(modebuf, sizeof(modebuf), "MD%c;", mode_letter);
+    retval = ic10_transaction(rig, modebuf, strlen(modebuf), NULL, 0);
 
     return retval;
 }
@@ -443,13 +445,13 @@ int ic10_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 int ic10_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[64];
-    int freq_len, retval;
+    int retval;
     unsigned char vfo_letter;
     vfo_t   tvfo;
 
     if (vfo == RIG_VFO_CURR)
     {
-        tvfo = rig->state.current_vfo;
+        tvfo = STATE(rig)->current_vfo;
     }
     else
     {
@@ -470,9 +472,9 @@ int ic10_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EINVAL;
     }
 
-    // cppcheck-suppress *
-    freq_len = sprintf(freqbuf, "F%c%011"PRIll";", vfo_letter, (int64_t)freq);
-    retval = ic10_transaction(rig, freqbuf, freq_len, NULL, 0);
+    SNPRINTF(freqbuf, sizeof(freqbuf), "F%c%011"PRIll";", vfo_letter,
+             (int64_t)freq);
+    retval = ic10_transaction(rig, freqbuf, strlen(freqbuf), NULL, 0);
 
     return retval;
 }
@@ -485,11 +487,11 @@ int ic10_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 int ic10_set_ant(RIG *rig, vfo_t vfo, ant_t ant, value_t option)
 {
     char buf[6], ackbuf[64];
-    int len, ack_len, retval;
+    int ack_len, retval;
 
-    len = sprintf(buf, "AN%c;", ant == RIG_ANT_1 ? '1' : '2');
+    SNPRINTF(buf, sizeof(buf), "AN%c;", ant == RIG_ANT_1 ? '1' : '2');
 
-    retval = ic10_transaction(rig, buf, len, ackbuf, &ack_len);
+    retval = ic10_transaction(rig, buf, strlen(buf), ackbuf, &ack_len);
 
     return retval;
 }
@@ -532,9 +534,10 @@ int ic10_get_ant(RIG *rig, vfo_t vfo, ant_t dummy, value_t *option,
  */
 int ic10_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)
+                                           rig->caps->priv;
     char infobuf[50];
-    int retval, iflen;
+    int retval, iflen, offset;
 
     retval = get_ic10_if(rig, infobuf);
 
@@ -548,8 +551,16 @@ int ic10_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 
     /* IFggmmmkkkhhh snnnzrx yytdfcp */
     /* IFggmmmkkkhhhxxxxxrrrrrssxcctmfcp */
+    /* IFggmmmkkkhhhxxxxxrrrrrssxcctmfcp####  what should be if p13/p14/p15 included  */
+    /* IF00014074000     +00000000003000000 ; QRP QDX bad IF command -- 36 bytes instead of 33 */
+    /* QRP QDX should be 37 bytes but used only 1 byte for p14 instead of 2 bytes */
+    /* 12345678901234567890123456789012345678 */
+    offset = 5;
 
-    *ptt = infobuf[iflen - 5] == '0' ? RIG_PTT_OFF : RIG_PTT_ON;
+    if (iflen == 36) { offset = 8; } // QRP QDX gets completely bogus length
+    else if (iflen == 37) { offset = 9; } // just in case somebody does this add p13/p14x2/p15
+
+    *ptt = infobuf[iflen - offset] == '0' ? RIG_PTT_OFF : RIG_PTT_ON;
 
     return RIG_OK;
 }
@@ -563,7 +574,7 @@ int ic10_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 int ic10_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 {
     char pttbuf[4];
-    int ptt_len, retval;
+    int retval;
     unsigned char ptt_letter;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
@@ -580,8 +591,8 @@ int ic10_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
         return -RIG_EINVAL;
     }
 
-    ptt_len = sprintf(pttbuf, "%cX;", ptt_letter);
-    retval = ic10_transaction(rig, pttbuf, ptt_len, NULL, 0);
+    SNPRINTF(pttbuf, sizeof(pttbuf), "%cX;", ptt_letter);
+    retval = ic10_transaction(rig, pttbuf, strlen(pttbuf), NULL, 0);
 
     return retval;
 }
@@ -593,7 +604,8 @@ int ic10_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
  */
 int ic10_get_mem(RIG *rig, vfo_t vfo, int *ch)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)
+                                           rig->caps->priv;
     char membuf[50];
     int retval, iflen;
 
@@ -623,11 +635,11 @@ int ic10_get_mem(RIG *rig, vfo_t vfo, int *ch)
 int ic10_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
     char membuf[8], ackbuf[64];
-    int mem_len, ack_len, retval;
+    int ack_len, retval;
 
-    mem_len = sprintf(membuf, "MC%02d;", ch);
+    SNPRINTF(membuf, sizeof(membuf), "MC%02d;", ch);
 
-    retval = ic10_transaction(rig, membuf, mem_len, ackbuf, &ack_len);
+    retval = ic10_transaction(rig, membuf, strlen(membuf), ackbuf, &ack_len);
 
     return retval;
 }
@@ -636,11 +648,11 @@ int ic10_set_mem(RIG *rig, vfo_t vfo, int ch)
 int ic10_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     char membuf[16], infobuf[32];
-    int retval, info_len, len;
+    int retval, info_len;
 
-    len = sprintf(membuf, "MR00%02d;", chan->channel_num);
+    SNPRINTF(membuf, sizeof(membuf), "MR00%02d;", chan->channel_num);
     info_len = 24;
-    retval = ic10_transaction(rig, membuf, len, infobuf, &info_len);
+    retval = ic10_transaction(rig, membuf, strlen(membuf), infobuf, &info_len);
 
     if (retval != RIG_OK)
     {
@@ -680,9 +692,9 @@ int ic10_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
     {
         chan->split = 1;
         /* TX VFO (Split channel only) */
-        len = sprintf(membuf, "MR10%02d;", chan->channel_num);
+        SNPRINTF(membuf, sizeof(membuf), "MR10%02d;", chan->channel_num);
         info_len = 24;
-        retval = ic10_transaction(rig, membuf, len, infobuf, &info_len);
+        retval = ic10_transaction(rig, membuf, strlen(membuf), infobuf, &info_len);
 
         if (retval == RIG_OK && info_len > 17)
         {
@@ -733,7 +745,7 @@ int ic10_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 int ic10_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     char membuf[64];
-    int retval, len, md;
+    int retval, md;
     int64_t freq;
 
     freq = (int64_t) chan->freq;
@@ -768,12 +780,12 @@ int ic10_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     }
 
     /* MWnxrrggmmmkkkhhhdzxxxx; */
-    len = sprintf(membuf, "MW0 %02d%011"PRIll"%c0    ;",
-                  chan->channel_num,
-                  freq,
-                  md
-                 );
-    retval = ic10_transaction(rig, membuf, len, NULL, 0);
+    SNPRINTF(membuf, sizeof(membuf), "MW0 %02d%011"PRIll"%c0    ;",
+             chan->channel_num,
+             freq,
+             md
+            );
+    retval = ic10_transaction(rig, membuf, strlen(membuf), NULL, 0);
 
     if (retval != RIG_OK)
     {
@@ -808,12 +820,12 @@ int ic10_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     if (chan->channel_num >= 90)
     {
         /* MWnxrrggmmmkkkhhhdzxxxx; */
-        len = sprintf(membuf, "MW1 %02d%011"PRIll"%c0    ;",
-                      chan->channel_num,
-                      freq,
-                      md
-                     );
-        retval = ic10_transaction(rig, membuf, len, NULL, 0);
+        SNPRINTF(membuf, sizeof(membuf), "MW1 %02d%011"PRIll"%c0    ;",
+                 chan->channel_num,
+                 freq,
+                 md
+                );
+        retval = ic10_transaction(rig, membuf, strlen(membuf), NULL, 0);
 
         // I assume we need to check the retval here -- W9MDB
         // This was found from cppcheck
@@ -836,13 +848,13 @@ int ic10_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 int ic10_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
 {
     char cmdbuf[6], fctbuf[50];
-    int cmdlen, fct_len, retval;
+    int fct_len, retval;
 
     fct_len = 4;
 
     switch (func)
     {
-    case RIG_FUNC_LOCK: cmdlen = sprintf(cmdbuf, "LK;"); break;
+    case RIG_FUNC_LOCK: SNPRINTF(cmdbuf, sizeof(cmdbuf), "LK;"); break;
 
     default:
         rig_debug(RIG_DEBUG_ERR, "%s: unsupported get_func %s",
@@ -850,7 +862,7 @@ int ic10_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
         return -RIG_EINVAL;
     }
 
-    retval = ic10_transaction(rig, cmdbuf, cmdlen, fctbuf, &fct_len);
+    retval = ic10_transaction(rig, cmdbuf, strlen(cmdbuf), fctbuf, &fct_len);
 
     if (retval != RIG_OK)
     {
@@ -877,18 +889,12 @@ int ic10_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
 int ic10_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
 {
     char cmdbuf[4], fctbuf[16], ackbuf[64];
-    int cmdlen, fct_len, ack_len;
+    int ack_len;
 
     switch (func)
     {
     case RIG_FUNC_LOCK:
-        cmdlen = sprintf(cmdbuf, "LK");
-
-        if (cmdlen < 0)
-        {
-            return -RIG_ETRUNC;
-        }
-
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "LK");
         break;
 
     default:
@@ -897,14 +903,9 @@ int ic10_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
         return -RIG_EINVAL;
     }
 
-    fct_len = sprintf(fctbuf, "%s%c;", cmdbuf, status == 0 ? '0' : '1');
+    SNPRINTF(fctbuf, sizeof(fctbuf), "%s%c;", cmdbuf, status == 0 ? '0' : '1');
 
-    if (fct_len < 0)
-    {
-        return -RIG_ETRUNC;
-    }
-
-    return ic10_transaction(rig, fctbuf, fct_len, ackbuf, &ack_len);
+    return ic10_transaction(rig, fctbuf, strlen(fctbuf), ackbuf, &ack_len);
 }
 
 
@@ -915,7 +916,6 @@ int ic10_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
 int ic10_set_parm(RIG *rig, setting_t parm, value_t val)
 {
     char cmdbuf[50];
-    int cmd_len;
     int hours;
     int minutes;
     int seconds;
@@ -927,8 +927,8 @@ int ic10_set_parm(RIG *rig, setting_t parm, value_t val)
         hours = minutes / 60;
         seconds = val.i - (minutes * 60);
         minutes = minutes % 60;
-        cmd_len = sprintf(cmdbuf, "CK1%02d%02d%02d;", hours, minutes, seconds);
-        return ic10_transaction(rig, cmdbuf, cmd_len, NULL, NULL);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "CK1%02d%02d%02d;", hours, minutes, seconds);
+        return ic10_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, NULL);
         break;
 
     default:
@@ -997,11 +997,11 @@ int ic10_get_parm(RIG *rig, setting_t parm, value_t *val)
 int ic10_set_powerstat(RIG *rig, powerstat_t status)
 {
     char pwrbuf[16], ackbuf[64];
-    int pwr_len, ack_len;
+    int ack_len;
 
-    pwr_len = sprintf(pwrbuf, "PS%c;", status == RIG_POWER_ON ? '1' : '0');
+    SNPRINTF(pwrbuf, sizeof(pwrbuf), "PS%c;", status == RIG_POWER_ON ? '1' : '0');
 
-    return ic10_transaction(rig, pwrbuf, pwr_len, ackbuf, &ack_len);
+    return ic10_transaction(rig, pwrbuf, strlen(pwrbuf), ackbuf, &ack_len);
 }
 
 
@@ -1042,11 +1042,11 @@ int ic10_get_powerstat(RIG *rig, powerstat_t *status)
 int ic10_set_trn(RIG *rig, int trn)
 {
     char trnbuf[16], ackbuf[64];
-    int trn_len, ack_len;
+    int ack_len;
 
-    trn_len = sprintf(trnbuf, "AI%c;", trn == RIG_TRN_RIG ? '1' : '0');
+    SNPRINTF(trnbuf, sizeof(trnbuf), "AI%c;", trn == RIG_TRN_RIG ? '1' : '0');
 
-    return ic10_transaction(rig, trnbuf, trn_len, ackbuf, &ack_len);
+    return ic10_transaction(rig, trnbuf, strlen(trnbuf), ackbuf, &ack_len);
 }
 
 
@@ -1160,7 +1160,8 @@ const char *ic10_get_info(RIG *rig)
  */
 int ic10_decode_event(RIG *rig)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)
+                                           rig->caps->priv;
     char asyncbuf[128], c;
     int retval, async_len = 128, iflen;
     vfo_t vfo;

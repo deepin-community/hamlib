@@ -20,16 +20,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <errno.h>
 #include <math.h>
 
 #include <getopt.h>
@@ -37,7 +30,8 @@
 #include <hamlib/rig.h>
 #include <hamlib/rotator.h>
 #include "misc.h"
-
+#include "riglist.h"
+#include "rotlist.h"
 
 /*
  * Prototypes
@@ -70,7 +64,7 @@ static struct option long_options[] =
     {0, 0, 0, 0}
 };
 
-#define MAXCONFLEN 1024
+#define MAXCONFLEN 2048
 
 
 int main(int argc, char *argv[])
@@ -182,7 +176,7 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            strncat(rig_conf_parms, optarg, MAXCONFLEN - strlen(rig_conf_parms));
+            strncat(rig_conf_parms, optarg, MAXCONFLEN - strlen(rig_conf_parms) - 1);
             break;
 
         case 'M':
@@ -227,7 +221,7 @@ int main(int argc, char *argv[])
                 strcat(rot_conf_parms, ",");
             }
 
-            strncat(rot_conf_parms, optarg, MAXCONFLEN - strlen(rot_conf_parms));
+            strncat(rot_conf_parms, optarg, MAXCONFLEN - strlen(rot_conf_parms) - 1);
             break;
 
         case 'v':
@@ -271,13 +265,13 @@ int main(int argc, char *argv[])
 
     if (rig_file)
     {
-        strncpy(rig->state.rigport.pathname, rig_file, HAMLIB_FILPATHLEN - 1);
+        strncpy(RIGPORT(rig)->pathname, rig_file, HAMLIB_FILPATHLEN - 1);
     }
 
     /* FIXME: bound checking and port type == serial */
     if (serial_rate != 0)
     {
-        rig->state.rigport.parm.serial.rate = serial_rate;
+        RIGPORT(rig)->parm.serial.rate = serial_rate;
     }
 
     if (civaddr)
@@ -335,13 +329,13 @@ int main(int argc, char *argv[])
 
     if (rot_file)
     {
-        strncpy(rot->state.rotport.pathname, rot_file, HAMLIB_FILPATHLEN - 1);
+        strncpy(ROTPORT(rot)->pathname, rot_file, HAMLIB_FILPATHLEN - 1);
     }
 
     /* FIXME: bound checking and port type == serial */
     if (rot_serial_rate != 0)
     {
-        rot->state.rotport.parm.serial.rate = rot_serial_rate;
+        ROTPORT(rot)->parm.serial.rate = rot_serial_rate;
     }
 
     retcode = rot_open(rot);
@@ -371,24 +365,24 @@ int main(int argc, char *argv[])
         step = atof(argv[optind]) * 1e6;
     }
 
-    fprintf(stderr, "Setting rotator to azimuth %.1f°\n", rot->state.min_az);
-    rot_set_position(rot, rot->state.min_az, 0);
+    fprintf(stderr, "Setting rotator to azimuth %.1f°\n", ROTSTATE(rot)->min_az);
+    rot_set_position(rot, ROTSTATE(rot)->min_az, 0);
     fprintf(stderr, "Wait for rotator to move...\n");
     rot_get_position(rot, &azimuth, &elevation);
 
-    while (fabs(azimuth - rot->state.min_az) > 1.)
+    while (fabs(azimuth - ROTSTATE(rot)->min_az) > 1.)
     {
         rot_get_position(rot, &azimuth, &elevation);
         hl_usleep(step);
     }
 
     fprintf(stderr, "Now initiating full 360° rotation...\n");
-    rot_set_position(rot, rot->state.max_az, 0);
+    rot_set_position(rot, ROTSTATE(rot)->max_az, 0);
 
     /* TODO: check CW or CCW */
     /* disable AGC? */
 
-    while (fabs(rot->state.max_az - azimuth) > 1.)
+    while (fabs(ROTSTATE(rot)->max_az - azimuth) > 1.)
     {
         value_t strength;
 

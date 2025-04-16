@@ -28,13 +28,8 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h> /* String function definitions */
-#include <unistd.h> /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
@@ -65,6 +60,269 @@
  * set_ptt
  * get_ptt
  */
+
+/*
+ * Native FT920 functions. More to come :-)
+ *
+ */
+
+enum ft920_native_cmd_e
+{
+    FT920_NATIVE_SPLIT_OFF = 0,
+    FT920_NATIVE_SPLIT_ON,
+    FT920_NATIVE_RECALL_MEM,
+    FT920_NATIVE_VFO_TO_MEM,
+    FT920_NATIVE_VFO_A,
+    FT920_NATIVE_VFO_B,
+    FT920_NATIVE_MEM_TO_VFO,
+    FT920_NATIVE_CLARIFIER_OPS,
+    FT920_NATIVE_VFO_A_FREQ_SET,
+    FT920_NATIVE_MODE_SET,
+    FT920_NATIVE_PACING,
+    FT920_NATIVE_PTT_OFF,
+    FT920_NATIVE_PTT_ON,
+    FT920_NATIVE_MEM_CHNL,
+    FT920_NATIVE_OP_DATA,
+    FT920_NATIVE_VFO_DATA,
+    FT920_NATIVE_MEM_CHNL_DATA,
+    FT920_NATIVE_TUNER_BYPASS,
+    FT920_NATIVE_TUNER_INLINE,
+    FT920_NATIVE_TUNER_START,
+    FT920_NATIVE_VFO_B_FREQ_SET,
+    FT920_NATIVE_VFO_A_PASSBAND_WIDE,
+    FT920_NATIVE_VFO_A_PASSBAND_NAR,
+    FT920_NATIVE_VFO_B_PASSBAND_WIDE,
+    FT920_NATIVE_VFO_B_PASSBAND_NAR,
+    FT920_NATIVE_STATUS_FLAGS,
+    FT920_NATIVE_SIZE   /* end marker, value indicates number of */
+    /* native cmd entries */
+};
+
+/*
+ * Internal MODES - when setting modes via FT920_NATIVE_MODE_SET
+ *
+ */
+
+/* VFO A */
+#define MODE_SET_A_LSB      0x00
+#define MODE_SET_A_USB      0x01
+#define MODE_SET_A_CW_U     0x02
+#define MODE_SET_A_CW_L     0x03
+#define MODE_SET_A_AM_W     0x04
+#define MODE_SET_A_AM_N     0x05
+#define MODE_SET_A_FM_W     0x06
+#define MODE_SET_A_FM_N     0x07
+#define MODE_SET_A_DATA_L   0x08
+#define MODE_SET_A_DATA_U   0x0a
+#define MODE_SET_A_DATA_F   0x0b
+
+/* VFO B */
+#define MODE_SET_B_LSB      0x80
+#define MODE_SET_B_USB      0x81
+#define MODE_SET_B_CW_U     0x82
+#define MODE_SET_B_CW_L     0x83
+#define MODE_SET_B_AM_W     0x84
+#define MODE_SET_B_AM_N     0x85
+#define MODE_SET_B_FM_W     0x86
+#define MODE_SET_B_FM_N     0x87
+#define MODE_SET_B_DATA_L   0x88
+#define MODE_SET_B_DATA_U   0x8a
+#define MODE_SET_B_DATA_F   0x8b
+
+
+/*
+ * Internal Clarifier parms - when setting clarifier via
+ * FT920_NATIVE_CLARIFIER_OPS
+ *
+ */
+
+/* P1 values */
+#define CLAR_RX_OFF     0x00
+#define CLAR_RX_ON      0x01
+#define CLAR_TX_OFF     0x80
+#define CLAR_TX_ON      0x81
+#define CLAR_SET_FREQ   0xff
+
+/* P2 values */
+#define CLAR_OFFSET_PLUS    0x00
+#define CLAR_OFFSET_MINUS   0xff
+
+
+/* Tuner status values used to set the
+ * tuner state and indicate tuner status.
+ */
+#define TUNER_BYPASS    0
+#define TUNER_INLINE    1
+#define TUNER_TUNING    2
+
+/*
+ * Local VFO CMD's, according to spec
+ *
+ */
+
+//#define FT920_VFO_A   0x00
+//#define FT920_VFO_B   0x01
+
+
+/*
+ * Some useful offsets in the status update flags (offset)
+ * SUMO--Status Update Memory Offset?
+ *
+ * SF_ bit tests are now grouped with flag bytes for ease of reference
+ *
+ * FIXME: complete flags and bits
+ *
+ * CAT command 0xFA, P1 = 01 requests the FT-920 to return its status flags.
+ * These flags consist of 8 bytes and are documented in the FT-920 manual
+ * on page 89.
+ *
+ */
+
+#define FT920_SUMO_DISPLAYED_STATUS_0   0x00    /* Status flag byte 0 */
+#define SF_VFOA     0x00    /* bits 0 & 1, VFO A TX/RX == 0 */
+#define SF_SPLITA   (1<<0)  /* Split operation with VFO-B on TX */
+#define SF_SPLITB   (1<<1)  /* Split operation with VFO-B on RX */
+#define SF_VFOB     (SF_SPLITA|SF_SPLITB)   /* bits 0 & 1, VFO B TX/RX  == 3 */
+#define SF_TUNER_TUNE   (1<<2)  /* Antenna tuner On and Tuning for match*/
+#define SF_PTT_OFF  (0<<7)  /* Receive mode (PTT line open) */
+#define SF_PTT_ON   (1<<7)  /* Transmission in progress (PTT line grounded) */
+#define SF_PTT_MASK (SF_PTT_ON)
+
+#define FT920_SUMO_DISPLAYED_STATUS_1   0x01    /* Status flag byte 1 */
+#define SF_QMB      (1<<3)  /* Quick Memory Bank (QMB) selected */
+#define SF_MT       (1<<4)  /* Memory Tuning in progress */
+#define SF_VFO      (1<<5)  /* VFO operation selected */
+#define SF_MR       (1<<6)  /* Memory Mode selected */
+#define SF_GC       (1<<7)  /* General Coverage Reception selected */
+#define SF_VFO_MASK (SF_QMB|SF_MT|SF_VFO|SF_MR)
+
+#define FT920_SUMO_DISPLAYED_STATUS_2   0x02    /* Status flag byte 2 */
+#define SF_TUNER_INLINE (1<<1)  /* Antenna tuner is inline or bypass */
+#define SF_VFOB_LOCK    (1<<2)  /* VFO B tuning lock status */
+#define SF_VFOA_LOCK    (1<<3)  /* VFO A tuning lock status */
+
+/*
+ * Offsets for VFO record retrieved via 0x10 P1 = 02, 03
+ *
+ * The FT-920 returns frequency and mode data via three separate commands.
+ * CAT command 0x10, P1 = 02 returns the current main and sub displays' data (28 bytes)
+ * CAT command 0x10, P1 = 03 returns VFO A data and the sub display data (sub display is always VFO B) (28 bytes)
+ * CAT command 0x10, P1 = 04, P4 = 0x00-0x89 returns memory channel data (14 bytes)
+ * In all cases the format is (from the FT-920 manual page 90):
+ *
+ * Offset   Value
+ * 0x00     Band Selection      (not documented!)
+ * 0x01     Operating Frequency (Hex value of display--Not BCD!)
+ * 0x05     Clarifier Offset    (Hex value)
+ * 0x07     Mode Data
+ * 0x08     Flag
+ * 0x09     Filter Data 1
+ * 0x0a     Filter Data 2
+ * 0x0b     CTCSS Encoder Data
+ * 0x0c     CTCSS Decoder Data
+ * 0x0d     Memory recall Flag
+ *
+ * Memory Channel data has the same layout and offsets
+ * VFO B data has the same layout, but the offset starts at 0x0e and
+ * continues through 0x1b
+ *
+ */
+
+#define FT920_SUMO_DISPLAYED_FREQ   0x01    /* Current main display, can be VFO A, Memory data, Memory tune */
+#define FT920_SUMO_VFO_A_FREQ       0x01    /* VFO A frequency, not necessarily currently displayed! */
+#define FT920_SUMO_DISPLAYED_CLAR   0x05    /* RIT/XIT offset -- current display */
+#define FT920_SUMO_VFO_A_CLAR       0x05    /* RIT/XIT offset -- VFO A */
+#define FT920_SUMO_DISPLAYED_MODE   0x07    /* Current main display mode */
+#define FT920_SUMO_VFO_A_MODE       0x07    /* VFO A mode, not necessarily currently displayed! */
+#define FT920_SUMO_VFO_B_FREQ       0x0f    /* Current sub display && VFO B */
+#define FT920_SUMO_VFO_B_CLAR       0x13    /* RIT/XIT offset -- VFO B */
+#define FT920_SUMO_VFO_B_MODE       0x15    /* Current sub display && VFO B */
+
+/*
+ * Mode Bitmap from offset 0x07 or 0x16 in VFO Record.
+ * Bits 5 and 6 ignored
+ * used when READING modes from FT-920
+ *
+ */
+
+#define MODE_LSB        0x00
+#define MODE_CW_L       0x01    /* CW listening on LSB */
+#define MODE_AM         0x02
+#define MODE_FM         0x03
+#define MODE_DATA_L     0x04    /* DATA on LSB */
+#define MODE_DATA_U     0x05    /* DATA on USB (who does that? :) */
+#define MODE_DATA_F     0x06    /* DATA on FM */
+#define MODE_USB        0x40
+#define MODE_CW_U       0x41    /* CW listening on USB */
+/* Narrow filter selected */
+#define MODE_LSBN       0x80    /* Not sure this actually exists */
+#define MODE_CW_LN      0x81
+#define MODE_AMN        0x82
+#define MODE_FMN        0x83
+#define MODE_DATA_LN    0x84
+#define MODE_DATA_UN    0x85
+#define MODE_DATA_FN    0x86
+#define MODE_USBN       0xc0    /* Not sure this actually exists */
+#define MODE_CW_UN      0xc1
+
+/* All relevant bits */
+#define MODE_MASK       0xc7
+
+
+/*
+ * Command string parameter offsets
+ */
+
+#define P1  3
+#define P2  2
+#define P3  1
+#define P4  0
+
+
+/*
+ * API local implementation
+ *
+ */
+
+static int ft920_init(RIG *rig);
+static int ft920_cleanup(RIG *rig);
+static int ft920_open(RIG *rig);
+static int ft920_close(RIG *rig);
+
+static int ft920_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
+static int ft920_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
+
+static int ft920_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
+static int ft920_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
+
+static int ft920_set_vfo(RIG *rig, vfo_t vfo);
+static int ft920_get_vfo(RIG *rig, vfo_t *vfo);
+
+static int ft920_set_split_vfo(RIG *rig, vfo_t vfo, split_t split,
+                               vfo_t tx_vfo);
+static int ft920_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split,
+                               vfo_t *tx_vfo);
+
+static int ft920_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq);
+static int ft920_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq);
+
+static int ft920_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
+                                pbwidth_t tx_width);
+static int ft920_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
+                                pbwidth_t *tx_width);
+
+static int ft920_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit);
+static int ft920_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit);
+
+static int ft920_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit);
+static int ft920_get_xit(RIG *rig, vfo_t vfo, shortfreq_t *xit);
+
+/* not documented in my FT-920 manual, but it works! - N0NB */
+static int ft920_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
+static int ft920_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
+
+static int ft920_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
+static int ft920_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status);
 
 
 /* Private helper function prototypes */
@@ -129,13 +387,11 @@ static const yaesu_cmd_set_t ncmd[] =
 struct ft920_priv_data
 {
     unsigned char pacing;                       /* pacing value */
-    unsigned int read_update_delay;             /* depends on pacing value */
     vfo_t current_vfo;                          /* active VFO from last cmd */
     vfo_t split_vfo;                            /* TX VFO in split mode */
     split_t split;                              /* split active or not */
     unsigned char
     p_cmd[YAESU_CMD_LENGTH];      /* private copy of 1 constructed CAT cmd */
-    yaesu_cmd_set_t pcs[FT920_NATIVE_SIZE];     /* private cmd set */
     unsigned char
     update_data[FT920_VFO_DATA_LENGTH];   /* returned data--max value, some are less */
 };
@@ -146,12 +402,12 @@ struct ft920_priv_data
  *
  */
 
-const struct rig_caps ft920_caps =
+struct rig_caps ft920_caps =
 {
     RIG_MODEL(RIG_MODEL_FT920),
     .model_name =       "FT-920",
     .mfg_name =         "Yaesu",
-    .version =          "20210221.0",           /* YYYYMMDD */
+    .version =          "20220060.0",           /* YYYYMMDD */
     .copyright =        "LGPL",
     .status =           RIG_STATUS_STABLE,
     .rig_type =         RIG_TYPE_TRANSCEIVER,
@@ -170,10 +426,14 @@ const struct rig_caps ft920_caps =
     .retry =            0,
     .has_get_func =     FT920_FUNC_ALL,
     .has_set_func =     RIG_FUNC_TUNER,
-    .has_get_level =    RIG_LEVEL_NONE,
-    .has_set_level =    RIG_LEVEL_NONE,
+    .has_get_level =    RIG_LEVEL_BAND_SELECT,
+    .has_set_level =    RIG_LEVEL_BAND_SELECT,
     .has_get_parm =     RIG_PARM_NONE,
     .has_set_parm =     RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .ctcss_list =       NULL,
     .dcs_list =         NULL,
     .preamp =           { RIG_DBLST_END, },
@@ -345,6 +605,7 @@ const struct rig_caps ft920_caps =
     .get_mem_all_cb =   NULL,
     .clone_combo_set =  NULL,
     .clone_combo_get =  NULL,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -372,26 +633,19 @@ static int ft920_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct ft920_priv_data *) calloc(1,
-                      sizeof(struct ft920_priv_data));
+    STATE(rig)->priv = (struct ft920_priv_data *) calloc(1,
+                       sizeof(struct ft920_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         return -RIG_ENOMEM;    /* whoops! memory shortage! */
     }
 
-    priv = rig->state.priv;
-
-    /*
-     * Copy native cmd set to private cmd storage area
-     */
-    memcpy(priv->pcs, ncmd, sizeof(ncmd));
+    priv = STATE(rig)->priv;
 
     /* TODO: read pacing from preferences */
     priv->pacing =
         FT920_PACING_DEFAULT_VALUE;              /* set pacing to minimum for now */
-    priv->read_update_delay =
-        FT920_DEFAULT_READ_TIMEOUT;   /* set update timeout to safe value */
     priv->current_vfo =  RIG_VFO_A;                         /* default to VFO_A */
 
     return RIG_OK;
@@ -414,12 +668,12 @@ static int ft920_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
@@ -432,7 +686,7 @@ static int ft920_cleanup(RIG *rig)
 
 static int ft920_open(RIG *rig)
 {
-    struct rig_state *rig_s;
+    hamlib_port_t *rp = RIGPORT(rig);
     struct ft920_priv_data *priv;
     int err;
 
@@ -443,13 +697,12 @@ static int ft920_open(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
-    rig_s = &rig->state;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: write_delay = %i msec\n",
-              __func__, rig_s->rigport.write_delay);
+              __func__, rp->write_delay);
     rig_debug(RIG_DEBUG_TRACE, "%s: post_write_delay = %i msec\n",
-              __func__, rig_s->rigport.post_write_delay);
+              __func__, rp->post_write_delay);
 
     /* Copy native cmd PACING to private cmd storage area */
     memcpy(&priv->p_cmd, &ncmd[FT920_NATIVE_PACING].nseq, YAESU_CMD_LENGTH);
@@ -459,7 +712,7 @@ static int ft920_open(RIG *rig)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: read pacing = %i\n", __func__, priv->pacing);
 
-    err = write_block(&rig_s->rigport, (char *) priv->p_cmd, YAESU_CMD_LENGTH);
+    err = write_block(rp, priv->p_cmd, YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {
@@ -520,7 +773,7 @@ static int ft920_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed freq = %"PRIfreq" Hz\n", __func__, freq);
@@ -600,7 +853,7 @@ static int ft920_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -692,7 +945,7 @@ static int ft920_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
               rig_strrmode(mode));
     rig_debug(RIG_DEBUG_TRACE, "%s: passed width = %d Hz\n", __func__, (int)width);
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -930,7 +1183,7 @@ static int ft920_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1118,7 +1371,7 @@ static int ft920_set_vfo(RIG *rig, vfo_t vfo)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1190,7 +1443,7 @@ static int ft920_get_vfo(RIG *rig, vfo_t *vfo)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     /* Get flags for VFO status */
     err = ft920_get_update_data(rig, FT920_NATIVE_STATUS_FLAGS,
@@ -1379,7 +1632,7 @@ static int ft920_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split,
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     /* Get flags for VFO split status */
     err = ft920_get_update_data(rig, FT920_NATIVE_STATUS_FLAGS,
@@ -1462,9 +1715,9 @@ static int ft920_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
 
     err = rig_set_split_vfo(rig, RIG_VFO_A, RIG_SPLIT_ON, RIG_VFO_B);
 
-    if (err != RIG_OK) { RETURNFUNC(err); }
+    if (err != RIG_OK) { return err; }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     err = ft920_get_split_vfo(rig, vfo, &priv->split, &priv->split_vfo);
 
@@ -1525,7 +1778,7 @@ static int ft920_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     err = ft920_get_split_vfo(rig, vfo, &priv->split, &priv->split_vfo);
 
@@ -1594,7 +1847,7 @@ static int ft920_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
     rig_debug(RIG_DEBUG_TRACE, "%s: passed width = %d Hz\n", __func__,
               (int)tx_width);
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     err = ft920_get_split_vfo(rig, vfo, &priv->split, &priv->split_vfo);
 
@@ -1658,7 +1911,7 @@ static int ft920_get_split_mode(RIG *rig, vfo_t vfo, rmode_t *tx_mode,
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     err = ft920_get_split_vfo(rig, vfo, &priv->split, &priv->split_vfo);
 
@@ -1803,7 +2056,7 @@ static int ft920_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit)
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -2006,7 +2259,7 @@ static int ft920_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = 0x%02x\n", __func__, vfo);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ptt = 0x%02x\n", __func__, ptt);
@@ -2043,6 +2296,8 @@ static int ft920_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
         return err;
     }
 
+    hl_usleep(200 * 1000); // give the rig some time before we try set_freq
+
     return RIG_OK;
 }
 
@@ -2076,7 +2331,7 @@ static int ft920_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     /* Get flags for VFO status */
     err = ft920_get_update_data(rig, FT920_NATIVE_STATUS_FLAGS,
@@ -2148,7 +2403,7 @@ static int ft920_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = %s, func = %s, status = %d\n",
               __func__, rig_strvfo(vfo), rig_strfunc(func), status);
@@ -2232,7 +2487,7 @@ static int ft920_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: passed vfo = %s, func = %s\n",
               __func__, rig_strvfo(vfo), rig_strfunc(func));
@@ -2351,12 +2606,11 @@ static int ft920_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
  *              rl      expected length of returned data in octets
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 
 static int ft920_get_update_data(RIG *rig, unsigned char ci, unsigned char rl)
 {
-    struct rig_state *rig_s;
     struct ft920_priv_data *priv;
     int n;                              /* for read_  */
     int err;
@@ -2368,8 +2622,7 @@ static int ft920_get_update_data(RIG *rig, unsigned char ci, unsigned char rl)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
-    rig_s = &rig->state;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     err = ft920_send_static_cmd(rig, ci);
 
@@ -2378,7 +2631,7 @@ static int ft920_get_update_data(RIG *rig, unsigned char ci, unsigned char rl)
         return err;
     }
 
-    n = read_block(&rig_s->rigport, (char *)priv->update_data, rl);
+    n = read_block(RIGPORT(rig), priv->update_data, rl);
 
     if (n < 0)
     {
@@ -2397,16 +2650,14 @@ static int ft920_get_update_data(RIG *rig, unsigned char ci, unsigned char rl)
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 
 static int ft920_send_static_cmd(RIG *rig, unsigned char ci)
 {
-    struct rig_state *rig_s;
-    struct ft920_priv_data *priv;
     int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -2416,22 +2667,18 @@ static int ft920_send_static_cmd(RIG *rig, unsigned char ci)
         return -RIG_EINVAL;
     }
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
-    rig_s = &rig->state;
-
     /*
      * If we've been passed a command index (ci) that is marked
      * as dynamic (0), then bail out.
      */
-    if (!priv->pcs[ci].ncomp)
+    if (!ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: Attempt to send incomplete sequence\n",
                   __func__);
         return -RIG_EINVAL;
     }
 
-    err = write_block(&rig_s->rigport, (char *) priv->pcs[ci].nseq,
-                      YAESU_CMD_LENGTH);
+    err = write_block(RIGPORT(rig), ncmd[ci].nseq, YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {
@@ -2449,18 +2696,17 @@ static int ft920_send_static_cmd(RIG *rig, unsigned char ci)
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *              p1-p4   Command parameters
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 
 static int ft920_send_dynamic_cmd(RIG *rig, unsigned char ci,
                                   unsigned char p1, unsigned char p2,
                                   unsigned char p3, unsigned char p4)
 {
-    struct rig_state *rig_s;
     struct ft920_priv_data *priv;
     int err;
 
@@ -2476,13 +2722,13 @@ static int ft920_send_dynamic_cmd(RIG *rig, unsigned char ci,
               "%s: passed p1 = 0x%02x, p2 = 0x%02x, p3 = 0x%02x, p4 = 0x%02x,\n",
               __func__, p1, p2, p3, p4);
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     /*
      * If we've been passed a command index (ci) that is marked
      * as static (1), then bail out.
      */
-    if (priv->pcs[ci].ncomp)
+    if (ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: Attempted to modify a complete command sequence: %i\n",
@@ -2490,7 +2736,6 @@ static int ft920_send_dynamic_cmd(RIG *rig, unsigned char ci,
         return -RIG_EINVAL;
     }
 
-    rig_s = &rig->state;
     memcpy(&priv->p_cmd, &ncmd[ci].nseq, YAESU_CMD_LENGTH);
 
     priv->p_cmd[P1] = p1;               /* ick */
@@ -2498,7 +2743,8 @@ static int ft920_send_dynamic_cmd(RIG *rig, unsigned char ci,
     priv->p_cmd[P3] = p3;
     priv->p_cmd[P4] = p4;
 
-    err = write_block(&rig_s->rigport, (char *) &priv->p_cmd, YAESU_CMD_LENGTH);
+    err = write_block(RIGPORT(rig), (unsigned char *) &priv->p_cmd,
+                      YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {
@@ -2516,16 +2762,15 @@ static int ft920_send_dynamic_cmd(RIG *rig, unsigned char ci,
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *              freq    freq_t frequency value
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 
 static int ft920_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
 {
-    struct rig_state *rig_s;
     struct ft920_priv_data *priv;
     int err;
     // cppcheck-suppress *
@@ -2541,20 +2786,18 @@ static int ft920_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ci = %i\n", __func__, ci);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed freq = %"PRIfreq" Hz\n", __func__, freq);
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     /*
      * If we've been passed a command index (ci) that is marked
      * as static (1), then bail out.
      */
-    if (priv->pcs[ci].ncomp)
+    if (ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: Attempt to modify complete sequence\n",
                   __func__);
         return -RIG_EINVAL;
     }
-
-    rig_s = &rig->state;
 
     /* Copy native cmd freq_set to private cmd storage area */
     memcpy(&priv->p_cmd, &ncmd[ci].nseq, YAESU_CMD_LENGTH);
@@ -2565,7 +2808,8 @@ static int ft920_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
     rig_debug(RIG_DEBUG_TRACE, fmt, __func__, (int64_t)from_bcd(priv->p_cmd,
               FT920_BCD_DIAL) * 10);
 
-    err = write_block(&rig_s->rigport, (char *) &priv->p_cmd, YAESU_CMD_LENGTH);
+    err = write_block(RIGPORT(rig), (unsigned char *) &priv->p_cmd,
+                      YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {
@@ -2583,20 +2827,19 @@ static int ft920_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
  * TODO: place variant of this in yaesu.c
  *
  * Arguments:   *rig    Valid RIG instance
- *              ci      Command index of the pcs struct
+ *              ci      Command index of the ncmd table
  *              rit     shortfreq_t frequency value
  *              p1      P1 value -- CLAR_SET_FREQ
  *              p2      P2 value -- CLAR_OFFSET_PLUS || CLAR_OFFSET_MINUS
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  *
  * Assumes:     rit doesn't exceed tuning limits of rig
  */
 
 static int ft920_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
 {
-    struct rig_state *rig_s;
     struct ft920_priv_data *priv;
     unsigned char p1;
     unsigned char p2;
@@ -2612,20 +2855,18 @@ static int ft920_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed ci = %i\n", __func__, ci);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed rit = %li Hz\n", __func__, rit);
 
-    priv = (struct ft920_priv_data *)rig->state.priv;
+    priv = (struct ft920_priv_data *)STATE(rig)->priv;
 
     /*
      * If we've been passed a command index (ci) that is marked
      * as static (1), then bail out.
      */
-    if (priv->pcs[ci].ncomp)
+    if (ncmd[ci].ncomp)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: Attempt to modify complete sequence\n",
                   __func__);
         return -RIG_EINVAL;
     }
-
-    rig_s = &rig->state;
 
     p1 = CLAR_SET_FREQ;
 
@@ -2651,7 +2892,8 @@ static int ft920_send_rit_freq(RIG *rig, unsigned char ci, shortfreq_t rit)
     priv->p_cmd[P1] = p1;               /* ick */
     priv->p_cmd[P2] = p2;
 
-    err = write_block(&rig_s->rigport, (char *) &priv->p_cmd, YAESU_CMD_LENGTH);
+    err = write_block(RIGPORT(rig), (unsigned char *) &priv->p_cmd,
+                      YAESU_CMD_LENGTH);
 
     if (err != RIG_OK)
     {

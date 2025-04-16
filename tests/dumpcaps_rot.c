@@ -19,18 +19,13 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
-#include "misc.h"
 
 #include "sprintflst.h"
+#include "rotator.h"
 #include "rotctl_parse.h"
 
 
@@ -93,7 +88,7 @@ int dumpcaps_rot(ROT *rot, FILE *fout)
     case RIG_PORT_SERIAL:
         fprintf(fout, "RS-232\n");
         fprintf(fout,
-                "Serial speed:\t\t%d..%d bauds, %d%c%d%s\n",
+                "Serial speed:\t\t%d..%d bauds, %d%c%d, ctrl=%s\n",
                 caps->serial_rate_min,
                 caps->serial_rate_max,
                 caps->serial_data_bits,
@@ -102,8 +97,8 @@ int dumpcaps_rot(ROT *rot, FILE *fout)
                 caps->serial_parity == RIG_PARITY_EVEN ? 'E' :
                 caps->serial_parity == RIG_PARITY_MARK ? 'M' : 'S',
                 caps->serial_stop_bits,
-                caps->serial_handshake == RIG_HANDSHAKE_NONE ? "" :
-                (caps->serial_handshake == RIG_HANDSHAKE_XONXOFF ? " XONXOFF" : " CTS/RTS")
+                caps->serial_handshake == RIG_HANDSHAKE_NONE ? "NONE" :
+                (caps->serial_handshake == RIG_HANDSHAKE_XONXOFF ? "XONXOFF" : "CTS/RTS")
                );
         break;
 
@@ -137,18 +132,18 @@ int dumpcaps_rot(ROT *rot, FILE *fout)
     }
 
     fprintf(fout,
-            "Write delay:\t\t%dmS, timeout %dmS, %d retr%s\n",
+            "Write delay:\t\t%dms, timeout %dms, %d retr%s\n",
             caps->write_delay,
             caps->timeout, caps->retry,
             (caps->retry == 1) ? "y" : "ies");
 
     fprintf(fout,
-            "Post Write delay:\t%dmS\n",
+            "Post write delay:\t%dms\n",
             caps->post_write_delay);
 
-    if (rot->state.has_status != 0)
+    if (ROTSTATE(rot)->has_status != 0)
     {
-        rot_sprintf_status(prntbuf, sizeof(prntbuf), rot->state.has_status);
+        rot_sprintf_status(prntbuf, sizeof(prntbuf), ROTSTATE(rot)->has_status);
     }
     else
     {
@@ -247,3 +242,10 @@ int dumpcaps_rot(ROT *rot, FILE *fout)
 
     return backend_warnings;
 }
+
+int dumpconf_list(ROT *rot, FILE *fout)
+{
+    rot_token_foreach(rot, print_conf_list, rot);
+    return 0;
+}
+

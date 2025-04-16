@@ -18,22 +18,13 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
-#include "cal.h"
-#include "register.h"
-#include "token.h"
 
 #include "ra37xx.h"
 
@@ -77,11 +68,11 @@ const struct confparams ra37xx_cfg_params[] =
 static int ra37xx_one_transaction(RIG *rig, const char *cmd, char *data,
                                   int *data_len)
 {
-    struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)rig->state.priv;
-    struct rig_state *rs = &rig->state;
+    const struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)
+                                          STATE(rig)->priv;
+    hamlib_port_t *rp = RIGPORT(rig);
     char cmdbuf[BUFSZ];
     char respbuf[BUFSZ];
-    int cmd_len;
     int retval;
     int pkt_header_len;
     struct timeval tv;
@@ -96,17 +87,17 @@ static int ra37xx_one_transaction(RIG *rig, const char *cmd, char *data,
     if (priv->receiver_id != -1)
     {
         pkt_header_len = 2;
-        cmd_len = sprintf(cmdbuf, SOM "%d%s" EOM, priv->receiver_id, cmd);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), SOM "%d%s" EOM, priv->receiver_id, cmd);
     }
     else
     {
         pkt_header_len = 1;
-        cmd_len = sprintf(cmdbuf, SOM "%s" EOM, cmd);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), SOM "%s" EOM, cmd);
     }
 
-    rig_flush(&rs->rigport);
+    rig_flush(rp);
 
-    retval = write_block(&rs->rigport, cmdbuf, cmd_len);
+    retval = write_block(rp, (unsigned char *) cmdbuf, strlen(cmdbuf));
 
     if (retval != RIG_OK)
     {
@@ -122,7 +113,8 @@ static int ra37xx_one_transaction(RIG *rig, const char *cmd, char *data,
 
     do
     {
-        retval = read_string(&rs->rigport, respbuf, BUFSZ, EOM, strlen(EOM));
+        retval = read_string(rp, (unsigned char *) respbuf, BUFSZ, EOM,
+                             strlen(EOM), 0, 1);
 
         if (retval < 0)
         {
@@ -132,7 +124,7 @@ static int ra37xx_one_transaction(RIG *rig, const char *cmd, char *data,
         /* drop short/invalid packets */
         if (retval <= pkt_header_len + 1 || respbuf[0] != '\x0a')
         {
-            if (!rig_check_cache_timeout(&tv, rs->rigport.timeout))
+            if (!rig_check_cache_timeout(&tv, rp->timeout))
             {
                 continue;
             }
@@ -143,10 +135,9 @@ static int ra37xx_one_transaction(RIG *rig, const char *cmd, char *data,
         }
 
         /* drop other receiver id, and "pause" (empty) packets */
-        if ((priv->receiver_id != -1 && (respbuf[1] - '0') != priv->receiver_id) ||
-                retval == pkt_header_len + 1)
+        if ((priv->receiver_id != -1 && (respbuf[1] - '0') != priv->receiver_id))
         {
-            if (!rig_check_cache_timeout(&tv, rs->rigport.timeout))
+            if (!rig_check_cache_timeout(&tv, rp->timeout))
             {
                 continue;
             }
@@ -174,7 +165,7 @@ static int ra37xx_one_transaction(RIG *rig, const char *cmd, char *data,
             rig_debug(RIG_DEBUG_WARN, "%s: unexpected revertive frame\n",
                       __func__);
 
-            if (!rig_check_cache_timeout(&tv, rs->rigport.timeout))
+            if (!rig_check_cache_timeout(&tv, rp->timeout))
             {
                 continue;
             }
@@ -198,7 +189,7 @@ static int ra37xx_transaction(RIG *rig, const char *cmd, char *data,
 {
     int retval, retry;
 
-    retry = rig->state.rigport.retry;
+    retry = RIGPORT(rig)->retry;
 
     do
     {
@@ -224,16 +215,16 @@ int ra37xx_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct ra37xx_priv_data *)malloc(sizeof(
-                          struct ra37xx_priv_data));
+    STATE(rig)->priv = (struct ra37xx_priv_data *)calloc(1, sizeof(
+                           struct ra37xx_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         /* whoops! memory shortage! */
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     priv->receiver_id = -1;
 
@@ -249,24 +240,23 @@ int ra37xx_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
 
-
-
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
-int ra37xx_set_conf(RIG *rig, token_t token, const char *val)
+int ra37xx_set_conf2(RIG *rig, hamlib_token_t token, const char *val,
+                     int val_len)
 {
-    struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)rig->state.priv;
+    struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)STATE(rig)->priv;
     int receiver_id;
 
     switch (token)
@@ -289,19 +279,25 @@ int ra37xx_set_conf(RIG *rig, token_t token, const char *val)
     return RIG_OK;
 }
 
+int ra37xx_set_conf(RIG *rig, hamlib_token_t token, const char *val)
+{
+    return ra37xx_set_conf2(rig, token, val, 128);
+}
+
 /*
  * assumes rig!=NULL,
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-int ra37xx_get_conf(RIG *rig, token_t token, char *val)
+int ra37xx_get_conf2(RIG *rig, hamlib_token_t token, char *val, int val_len)
 {
-    struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)rig->state.priv;
+    const struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)
+                                          STATE(rig)->priv;
 
     switch (token)
     {
     case TOK_RIGID:
-        sprintf(val, "%d", priv->receiver_id);
+        SNPRINTF(val, val_len, "%d", priv->receiver_id);
         break;
 
     default:
@@ -309,6 +305,11 @@ int ra37xx_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int ra37xx_get_conf(RIG *rig, hamlib_token_t token, char *val)
+{
+    return ra37xx_get_conf2(rig, token, val, 128);
 }
 
 /*
@@ -340,14 +341,8 @@ int ra37xx_close(RIG *rig)
 int ra37xx_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[BUFSZ];
-    int freq_len;
 
-    freq_len = sprintf(freqbuf, "F%lu", (unsigned long)freq);
-
-    if (freq_len < 0)
-    {
-        return -RIG_ETRUNC;
-    }
+    SNPRINTF(freqbuf, sizeof(freqbuf), "F%lu", (unsigned long)freq);
 
     return ra37xx_transaction(rig, freqbuf, NULL, NULL);
 }
@@ -377,7 +372,7 @@ int ra37xx_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
  */
 int ra37xx_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
-    //struct ra37xx_priv_data *priv = (struct ra37xx_priv_data*)rig->state.priv;
+    //struct ra37xx_priv_data *priv = (struct ra37xx_priv_data*)STATE(rig)->priv;
     int ra_mode, widthtype, widthnum = 0;
     char buf[BUFSZ];
 
@@ -418,9 +413,9 @@ int ra37xx_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 #endif
 
 #ifdef XXREMOVEDXX
-    sprintf(buf, "M%d;B%d,%d", ra_mode, widthtype, widthnum);
+    SNPRINTF(buf, sizeof(buf), "M%d;B%d,%d", ra_mode, widthtype, widthnum);
 #else
-    sprintf(buf, "M%d", ra_mode);
+    SNPRINTF(buf, sizeof(buf), "M%d", ra_mode);
 #endif
 
     return ra37xx_transaction(rig, buf, NULL, NULL);
@@ -474,7 +469,7 @@ int ra37xx_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
     /* FIXME */
     widthnum = 0;
-    sprintf(buf, "QBCON%d,%d", widthtype, widthnum);
+    SNPRINTF(buf, sizeof(buf), "QBCON%d,%d", widthtype, widthnum);
     retval = ra37xx_transaction(rig, buf, resbuf, &len);
 
     if (retval != RIG_OK)
@@ -495,7 +490,7 @@ int ra37xx_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
     switch (func)
     {
     case RIG_FUNC_MUTE:
-        sprintf(cmdbuf, "MUTE%d", status ? 1 : 0);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "MUTE%d", status ? 1 : 0);
         break;
 
     default:
@@ -547,23 +542,23 @@ int ra37xx_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     switch (level)
     {
     case RIG_LEVEL_AF:
-        sprintf(cmdbuf, "AFL%d", (int)(val.f * 255));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "AFL%d", (int)(val.f * 255));
         break;
 
     case RIG_LEVEL_PREAMP:
-        sprintf(cmdbuf, "RFAMP%d", val.i ? 1 : 0);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "RFAMP%d", val.i ? 1 : 0);
         break;
 
     case RIG_LEVEL_CWPITCH: /* BFO */
-        sprintf(cmdbuf, "BFO%d", val.i);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "BFO%d", val.i);
         break;
 
     case RIG_LEVEL_SQL:
-        sprintf(cmdbuf, "CORL%d", (int)(val.f * 255));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "CORL%d", (int)(val.f * 255));
         break;
 
     case RIG_LEVEL_RF:
-        sprintf(cmdbuf, "G%d", (int)(val.f * 255));
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "G%d", (int)(val.f * 255));
         break;
 
     case RIG_LEVEL_AGC:
@@ -580,7 +575,8 @@ int ra37xx_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         default: return -RIG_EINVAL;
         }
 
-        sprintf(cmdbuf, "AGC%d,%d", val.i == RIG_AGC_USER ? 1 : 0, agc);
+        SNPRINTF(cmdbuf, sizeof(cmdbuf), "AGC%d,%d", val.i == RIG_AGC_USER ? 1 : 0,
+                 agc);
         break;
 
     default:
@@ -636,7 +632,7 @@ int ra37xx_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         }
 
         sscanf(resbuf + 5, "%d", &i);
-        val->i = i ? rig->state.preamp[0] : 0;
+        val->i = i ? STATE(rig)->preamp[0] : 0;
         break;
 
     case RIG_LEVEL_RAWSTR:
@@ -749,7 +745,7 @@ int ra37xx_set_ant(RIG *rig, vfo_t vfo, ant_t ant, value_t option)
         return -RIG_EINVAL;
     }
 
-    sprintf(buf, "ANT%d", i_ant);
+    SNPRINTF(buf, sizeof(buf), "ANT%d", i_ant);
 
     return ra37xx_transaction(rig, buf, NULL, NULL);
 }
@@ -788,7 +784,7 @@ int ra37xx_set_mem(RIG *rig, vfo_t vfo, int ch)
 
     /* NB: does a RIG_OP_TO_VFO!*/
 
-    sprintf(buf, "CHAN%d", ch);
+    SNPRINTF(buf, sizeof(buf), "CHAN%d", ch);
 
     return ra37xx_transaction(rig, buf, NULL, NULL);
 }
@@ -828,7 +824,7 @@ int ra37xx_scan(RIG *rig, vfo_t vfo, scan_t scan, int ch)
         return -RIG_EINVAL;
     }
 
-    sprintf(buf, "SCAN%d,0", scantype);
+    SNPRINTF(buf, sizeof(buf), "SCAN%d,0", scantype);
 
     return ra37xx_transaction(rig, buf, NULL, NULL);
 }
@@ -848,7 +844,7 @@ int ra37xx_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
             return ret;
         }
 
-        sprintf(buf, "STRE%d", ch);
+        SNPRINTF(buf, sizeof(buf), "STRE%d", ch);
         return ra37xx_transaction(rig, buf, NULL, NULL);
 
     case RIG_OP_TO_VFO:
@@ -859,7 +855,7 @@ int ra37xx_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
             return ret;
         }
 
-        sprintf(buf, "CHAN%d", ch);
+        SNPRINTF(buf, sizeof(buf), "CHAN%d", ch);
         return ra37xx_transaction(rig, buf, NULL, NULL);
 
     default:

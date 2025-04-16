@@ -25,7 +25,7 @@
 #define G313_FUNC  RIG_FUNC_NONE
 #define G313_LEVEL (RIG_LEVEL_ATT | RIG_LEVEL_AGC | RIG_LEVEL_RF | RIG_LEVEL_STRENGTH | RIG_LEVEL_RAWSTR)
 
-#define G313_MODES (RIG_MODE_NONE)
+#define G313_MODES (RIG_MODE_USB)
 
 #if defined (_WIN32) || !defined(OTHER_POSIX)
 
@@ -59,8 +59,6 @@ const struct confparams g313_cfg_params[] =
 #define G313_FUNC  RIG_FUNC_NONE
 #define G313_LEVEL (RIG_LEVEL_ATT | RIG_LEVEL_AGC | RIG_LEVEL_RF | RIG_LEVEL_STRENGTH | RIG_LEVEL_RAWSTR)
 
-#define G313_MODES (RIG_MODE_NONE)
-
 static int g313_init(RIG *rig);
 static int g313_cleanup(RIG *rig);
 static int g313_open(RIG *rig);
@@ -72,8 +70,8 @@ static int g313_get_powerstat(RIG *rig, powerstat_t *status);
 static int g313_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
 static int g313_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
 static const char *g313_get_info(RIG *rig);
-int g313_set_conf(RIG *rig, token_t token, const char *val);
-int g313_get_conf(RIG *rig, token_t token, char *val);
+int g313_set_conf(RIG *rig, hamlib_token_t token, const char *val);
+int g313_get_conf(RIG *rig, hamlib_token_t token, char *val);
 
 /* #pragma pack(1)       // set byte packing */
 typedef struct
@@ -159,14 +157,14 @@ struct g313_priv_data
 };
 
 
-const struct rig_caps g313_caps =
+struct rig_caps g313_caps =
 {
     RIG_MODEL(RIG_MODEL_G313),
     .model_name =     "WR-G313",
     .mfg_name =       "Winradio",
     .version =        "20191204.0",
     .copyright =        "LGPL", /* This wrapper, not the G313 DLL */
-    .status =         RIG_STATUS_BETA,
+    .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_PCRECEIVER,
     .port_type =      RIG_PORT_NONE,
     .targetable_vfo =    0,
@@ -225,6 +223,7 @@ const struct rig_caps g313_caps =
     .get_level =     g313_get_level,
 
     .get_info =      g313_get_info,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -233,16 +232,16 @@ int g313_init(RIG *rig)
 {
     struct g313_priv_data *priv;
 
-    rig->state.priv = (struct g313_priv_data *)malloc(sizeof(
-                          struct g313_priv_data));
+    STATE(rig)->priv = (struct g313_priv_data *)calloc(1, sizeof(
+                           struct g313_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         /* whoops! memory shortage! */
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     priv->WaveOutDeviceID = -1;
 
@@ -375,12 +374,12 @@ int g313_findVSC(struct g313_priv_data *priv)
 
 int g313_open(RIG *rig)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int device_num;
     int Count;
     int id;
 
-    device_num = atoi(rig->state.rigport.pathname);
+    device_num = atoi(RIGPORT(rig)->pathname);
 
     Count = priv->waveOutGetNumDevs();
 
@@ -433,7 +432,7 @@ int g313_open(RIG *rig)
 
 int g313_close(RIG *rig)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
 
 
     if (!priv->Opened)
@@ -462,23 +461,23 @@ int g313_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    priv = (struct g313_priv_data *)rig->state.priv;
+    priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     /* Clean up the dll access */
     FreeLibrary(priv->dll);
     FreeLibrary(priv->WinMM);
     FreeLibrary(priv->hWRG313WO);
 
-    free(rig->state.priv);
+    free(STATE(rig)->priv);
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
 
 int g313_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int ret;
 
     ret = priv->G3SetFrequency(priv->hRadio, (DWORD)(freq));
@@ -489,7 +488,7 @@ int g313_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 int g313_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     *freq = (freq_t) priv->G3GetFrequency(priv->hRadio);
 
@@ -498,7 +497,7 @@ int g313_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
 int g313_set_powerstat(RIG *rig, powerstat_t status)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int ret;
 
     ret = priv->SetPower(priv->hRadio, status == RIG_POWER_ON ? TRUE : FALSE);
@@ -509,7 +508,7 @@ int g313_set_powerstat(RIG *rig, powerstat_t status)
 
 int g313_get_powerstat(RIG *rig, powerstat_t *status)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int ret;
 
     ret = priv->GetPower(priv->hRadio);
@@ -520,7 +519,7 @@ int g313_get_powerstat(RIG *rig, powerstat_t *status)
 
 int g313_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int ret, agc;
 
     switch (level)
@@ -569,7 +568,7 @@ int g313_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
 int g313_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int ret;
 
     ret = RIG_OK;
@@ -627,7 +626,7 @@ int g313_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
 static const char *g313_get_info(RIG *rig)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     static RADIO_INFO info;
 
     info.bLength = sizeof(RADIO_INFO);
@@ -641,9 +640,9 @@ static const char *g313_get_info(RIG *rig)
 }
 
 
-int g313_set_conf(RIG *rig, token_t token, const char *val)
+int g313_set_conf(RIG *rig, hamlib_token_t token, const char *val)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
     int id;
 
     switch (token)
@@ -696,14 +695,14 @@ int g313_set_conf(RIG *rig, token_t token, const char *val)
     return RIG_OK;
 }
 
-int g313_get_conf(RIG *rig, token_t token, char *val)
+int g313_get_conf2(RIG *rig, hamlib_token_t token, char *val, int val_len)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    const struct g313_priv_data *priv = (struct g313_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
     case WAVEOUT_SOUNDCARDID:
-        sprintf(val, "%d", priv->WaveOutDeviceID);
+        SNPRINTF(val, val_len, "%d", priv->WaveOutDeviceID);
         break;
 
     default:
@@ -711,6 +710,11 @@ int g313_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int g313_get_conf(RIG *rig, hamlib_token_t token, char *val)
+{
+    return g313_get_conf2(rig, token, val, 128);
 }
 
 #endif /* _WIN32 */

@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -50,6 +46,7 @@ static struct kenwood_priv_caps  r5000_priv_caps  =
 {
     .cmdtrm =  EOM_KEN,
     .if_len =  32,
+    .tone_table_base = 1,
 };
 
 /*
@@ -57,14 +54,14 @@ static struct kenwood_priv_caps  r5000_priv_caps  =
  *
  * TODO: scan, get/set_channel, RIT
  */
-const struct rig_caps r5000_caps =
+struct rig_caps r5000_caps =
 {
     RIG_MODEL(RIG_MODEL_R5000),
     .model_name = "R-5000",
     .mfg_name =  "Kenwood",
-    .version =  IC10_VER ".0",
+    .version =  IC10_VER ".1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -77,7 +74,7 @@ const struct rig_caps r5000_caps =
     .serial_handshake =  RIG_HANDSHAKE_NONE,
     .write_delay =  0,
     .post_write_delay =  2,
-    .timeout =  400,
+    .timeout =  500,
     .retry =  3,
 
     .has_get_func =  R5000_FUNC_ALL,
@@ -86,7 +83,10 @@ const struct rig_caps r5000_caps =
     .has_set_level =  RIG_LEVEL_SET(R5000_LEVEL_ALL),
     .has_get_parm =  R5000_PARM_ALL,
     .has_set_parm =  RIG_PARM_SET(R5000_PARM_ALL),
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_TIME] = {.min = {.i = 0}, .max = {.i = 86399}, .step = {.i = 1}},
+    },
+
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { RIG_DBLST_END, },
@@ -161,6 +161,7 @@ const struct rig_caps r5000_caps =
     .get_info = ic10_get_info,
     .decode_event = ic10_decode_event,
 
+    .hamlib_check_rig_caps = "HAMLIB_CHECK_RIG_CAPS"
 };
 
 /*

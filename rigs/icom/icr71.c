@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
@@ -48,14 +44,14 @@ static struct icom_priv_caps icr71_priv_caps =
     ic737_ts_sc_list    /* none actually */
 };
 
-const struct rig_caps icr71_caps =
+struct rig_caps icr71_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR71),
     .model_name = "IC-R71",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -141,6 +137,7 @@ const struct rig_caps icr71_caps =
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

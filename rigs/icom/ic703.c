@@ -19,16 +19,13 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "icom.h"
 #include "bandplan.h"
 #include "idx_builtin.h"
+#include "tones.h"
 
 #define IC703_ALL_RX_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM)
 
@@ -84,16 +81,16 @@ static const struct icom_priv_caps ic703_priv_caps =
     ic706_ts_sc_list
 };
 
-const struct rig_caps ic703_caps =
+struct rig_caps ic703_caps =
 {
     RIG_MODEL(RIG_MODEL_IC703),
     .model_name = "IC-703",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".2",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_MOBILE,
-    .ptt_type =  RIG_PTT_NONE,
+    .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
     .port_type =  RIG_PORT_SERIAL,
     .serial_rate_min =  300,
@@ -112,9 +109,9 @@ const struct rig_caps ic703_caps =
     .has_set_level =  RIG_LEVEL_SET(IC703_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
     .parm_gran =  {},
     .ctcss_list =  common_ctcss_list,
@@ -202,6 +199,7 @@ const struct rig_caps ic703_caps =
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+//    .get_vfo =  icom_get_vfo,
 
     .decode_event =  icom_decode_event,
     .set_level =  icom_set_level,
@@ -224,6 +222,7 @@ const struct rig_caps ic703_caps =
     .get_split_mode =  icom_get_split_mode,
     .set_split_vfo =  icom_set_split_vfo,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

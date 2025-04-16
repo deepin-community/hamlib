@@ -19,12 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-
 #include <hamlib/rig.h>
 #include "bandplan.h"
 #include "kenwood.h"
@@ -69,7 +63,8 @@ static rmode_t ts940_mode_table[KENWOOD_MODE_TABLE_MAX] =
 static struct kenwood_priv_caps  ts940_priv_caps  =
 {
     .cmdtrm =  EOM_KEN,
-    .mode_table = ts940_mode_table
+    .mode_table = ts940_mode_table,
+    .tone_table_base = 1,
 };
 
 /*
@@ -79,7 +74,7 @@ static struct kenwood_priv_caps  ts940_priv_caps  =
  *
  * TODO: protocol to be check with manual!
  */
-const struct rig_caps ts940_caps =
+struct rig_caps ts940_caps =
 {
     RIG_MODEL(RIG_MODEL_TS940),
     .model_name = "TS-940S",
@@ -117,6 +112,7 @@ const struct rig_caps ts940_caps =
     .vfo_ops =  TS940_VFO_OPS,
     .scan_ops =  TS940_SCAN_OPS,
     .transceive =  RIG_TRN_RIG,
+    // Unknown AGC levels
     .bank_qty =   0,
     .chan_desc_sz =  0,
 
@@ -191,7 +187,7 @@ const struct rig_caps ts940_caps =
     .scan =  kenwood_scan,
     .set_channel = kenwood_set_channel,
     .get_channel = kenwood_get_channel,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

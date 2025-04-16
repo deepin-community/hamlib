@@ -19,12 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-
 #include <hamlib/rig.h>
 #include <bandplan.h>
 #include "kenwood.h"
@@ -50,18 +44,17 @@ static struct kenwood_priv_caps  ts930_priv_caps  =
 /*
  * ts930 rig capabilities.
  * Notice that some rigs share the same functions.
- * Also this struct is READONLY!
  *
  * part of infos comes from .http = //www.kenwood.net/
  */
-const struct rig_caps ts930_caps =
+struct rig_caps ts930_caps =
 {
     RIG_MODEL(RIG_MODEL_TS930),
     .model_name = "TS-930",
     .mfg_name =  "Kenwood",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -74,7 +67,7 @@ const struct rig_caps ts930_caps =
     .serial_handshake =  RIG_HANDSHAKE_NONE,
     .write_delay =  0,
     .post_write_delay =  0,
-    .timeout =  200,
+    .timeout =  500,
     .retry =  10,
 
     .has_get_func =  TS930_FUNC_ALL,
@@ -83,7 +76,13 @@ const struct rig_caps ts930_caps =
     .has_set_level =  RIG_LEVEL_SET(TS930_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
-    .level_gran =  {},                 /* FIXME: granularity */
+    .level_gran =
+    {
+#define NO_LVL_ATT
+#include "level_gran_kenwood.h"
+#undef NO_LVL_ATT
+        [LVL_ATT] = { .min = { .i = 0 }, .max = { .i = 18 }, .step = { .i = 6 } },
+    },
     .parm_gran =  {},
     .preamp =   { RIG_DBLST_END, }, /* FIXME: preamp list */
     .attenuator =   { 6, 12, 18, RIG_DBLST_END, },  /* TBC */
@@ -92,6 +91,7 @@ const struct rig_caps ts930_caps =
     .max_ifshift =  Hz(0),
     .targetable_vfo =  RIG_TARGETABLE_FREQ,
     .transceive =  RIG_TRN_RIG,
+    // AGC levels unknown
     .bank_qty =   0,
     .chan_desc_sz =  0,
 
@@ -172,7 +172,7 @@ const struct rig_caps ts930_caps =
     .set_powerstat =  kenwood_set_powerstat,
     .get_powerstat =  kenwood_get_powerstat,
     .reset =  kenwood_reset,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

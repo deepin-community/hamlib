@@ -19,15 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "idx_builtin.h"
-#include "tentec.h"
 #include "tt550.h"
 
 
@@ -65,7 +60,7 @@
  *
  * TODO:
  */
-const struct rig_caps tt550_caps =
+struct rig_caps tt550_caps =
 {
     RIG_MODEL(RIG_MODEL_TT550),
     .model_name = "TT-550",
@@ -95,7 +90,6 @@ const struct rig_caps tt550_caps =
     .has_get_parm = RIG_PARM_NONE,
     .has_set_parm = RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = {.min = {.i = 0}, .max = {.i = 65535}},
     },
     .parm_gran = {},
@@ -216,6 +210,7 @@ const struct rig_caps tt550_caps =
     .get_rit =  tt550_get_rit,
     .set_xit =  tt550_set_xit,
     .get_xit =  tt550_get_xit,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

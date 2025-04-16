@@ -12,9 +12,7 @@
 
 #include "misc.h"
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #define SERIAL_PORT "/dev/ttyUSB0"
 
@@ -31,8 +29,8 @@ int callback(const struct rig_caps *caps, rig_ptr_t rigp)
         exit(1); /* whoops! something went wrong (mem alloc?) */
     }
 
-    char *port = "/dev/pts/3";
-    strcpy(rig->state.rigport.pathname, port);
+    const char *port = "/dev/pts/3";
+    rig_set_conf(rig, rig_token_lookup(rig, "rig_pathname"), port);
 
     printf("%20s:", caps->model_name);
     fflush(stdout);

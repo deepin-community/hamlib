@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import sys
 # Change this path to match your "make install" path
-sys.path.append('/usr/local/lib/python3.8/site-packages')
+sys.path.append('/usr/local/lib/python3.10/site-packages')
 
 ## Uncomment to run this script from an in-tree build (or adjust to the
 ## build directory) without installing the bindings.
@@ -73,6 +73,8 @@ def StartUp():
                                     Hamlib.rigerror(my_rig.error_status)))
 
     print("AF level:\t\t%0.2f" % my_rig.get_level_f(Hamlib.RIG_LEVEL_AF))
+    print("Power level:\t\t%0.2f" % my_rig.get_level_f(Hamlib.RIG_LEVEL_RFPOWER_METER))
+    print("Power level Watts:\t\t%0.2f" % my_rig.get_level_f(Hamlib.RIG_LEVEL_RFPOWER_METER_WATTS))
     print("strength:\t\t%s" % my_rig.get_level_i(Hamlib.RIG_LEVEL_STRENGTH))
     print("status:\t\t\t%s" % my_rig.error_status)
     print("status(str):\t\t%s" % Hamlib.rigerror(my_rig.error_status))
@@ -121,6 +123,7 @@ def StartUp():
     print('Latitude:\t%4.4f, %4d° %2d\' %2d" %1s\trecoded: %9.4f' \
         % (lat1, deg2, mins2, sec2, ('S' if sw2 else 'N'), lat3))
 
+    my_rig.set_vfo_opt(0);
 
 if __name__ == '__main__':
     StartUp()

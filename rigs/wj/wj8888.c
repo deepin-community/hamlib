@@ -19,11 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "idx_builtin.h"
@@ -54,14 +49,14 @@
  *
  * TODO: BFO
  */
-const struct rig_caps wj8888_caps =
+struct rig_caps wj8888_caps =
 {
     RIG_MODEL(RIG_MODEL_WJ8888),
     .model_name = "WJ-8888",
     .mfg_name =  "Watkins-Johnson",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -87,7 +82,6 @@ const struct rig_caps wj8888_caps =
     .preamp =   { RIG_DBLST_END },
     .attenuator =   { RIG_DBLST_END },
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 0x7f } },
     },
     .max_rit =  Hz(0),
@@ -145,7 +139,7 @@ const struct rig_caps wj8888_caps =
     .get_mode =  wj_get_mode,
     .set_level =  wj_set_level,
     .get_level =  wj_get_level,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

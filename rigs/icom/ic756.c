@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <string.h>  /* String function definitions */
 
 #include <hamlib/rig.h>
@@ -33,9 +29,11 @@
 #include "frame.h"
 #include "misc.h"
 #include "bandplan.h"
+#include "tones.h"
 
 #define IC756_ALL_RX_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM)
 #define IC756_1HZ_TS_MODES IC756_ALL_RX_MODES
+#define IC756_FUNC_SET (RIG_FUNC_DUAL_WATCH)
 
 /*
  * 100W in all modes but AM (40W)
@@ -88,8 +86,6 @@ struct cmdparams ic756pro_cmdparms[] =
          { 247 ,60 } \
     } }
 
-int ic756_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
-
 /*
  *  This function deals with the older type radios with only 2 filter widths
  *  (0 - normal, 1 - narrow)
@@ -135,16 +131,16 @@ static const struct icom_priv_caps ic756_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
 };
 
-const struct rig_caps ic756_caps =
+struct rig_caps ic756_caps =
 {
     RIG_MODEL(RIG_MODEL_IC756),
     .model_name = "IC-756",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".4",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -162,14 +158,14 @@ const struct rig_caps ic756_caps =
     .timeout =  1000,
     .retry =  3,
     .has_get_func =  RIG_FUNC_NONE,
-    .has_set_func =  RIG_FUNC_NONE,
+    .has_set_func =  IC756_FUNC_SET,
     .has_get_level =  RIG_LEVEL_NONE,
     .has_set_level =  RIG_LEVEL_NONE,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
     .parm_gran =  {},
     .ctcss_list =  common_ctcss_list,
@@ -254,13 +250,14 @@ const struct rig_caps ic756_caps =
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
     .decode_event =  icom_decode_event,
     .set_level =  icom_set_level,
     .get_level =  icom_get_level,
-    .set_func =  ic756_set_func,
+    .set_func =  icom_set_func,
     .get_func =  icom_get_func,
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
@@ -276,7 +273,7 @@ const struct rig_caps ic756_caps =
     .get_split_freq_mode =  icom_get_split_freq_mode,
     .set_split_vfo =  icom_set_split_vfo,
     .get_split_vfo =  NULL,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -298,16 +295,16 @@ static const struct icom_priv_caps ic756pro_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -2 },
     },
 };
 
-const struct rig_caps ic756pro_caps =
+struct rig_caps ic756pro_caps =
 {
     RIG_MODEL(RIG_MODEL_IC756PRO),
     .model_name = "IC-756PRO",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".3",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -330,8 +327,13 @@ const struct rig_caps ic756pro_caps =
     .has_set_level =  RIG_LEVEL_SET(IC756PRO_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
+#include "level_gran_icom.h"
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
@@ -416,13 +418,14 @@ const struct rig_caps ic756pro_caps =
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
     .decode_event =  icom_decode_event,
     .set_level =  icom_set_level,
     .get_level =  icom_get_level,
-    .set_func =  ic756_set_func,
+    .set_func =  icom_set_func,
     .get_func =  icom_get_func,
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
@@ -448,6 +451,7 @@ const struct rig_caps ic756pro_caps =
     .set_split_vfo =  icom_set_split_vfo,
     .get_split_vfo =  NULL,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -468,9 +472,10 @@ static const struct icom_priv_caps ic756pro2_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .extcmds = ic756pro_cmdparms,   /* Custom op parameters */
+    .data_mode_supported = 1
 };
 
 /*
@@ -527,24 +532,24 @@ static const struct confparams ic756pro2_ext_parms[] =
 #define S_MEM_RTTY_TWNPK    0x562   /* rtty twin peak filter off/on */
 
 
-static int ic756pro2_set_ext_parm(RIG *rig, token_t token, value_t val);
-static int ic756pro2_get_ext_parm(RIG *rig, token_t token, value_t *val);
+static int ic756pro2_set_ext_parm(RIG *rig, hamlib_token_t token, value_t val);
+static int ic756pro2_get_ext_parm(RIG *rig, hamlib_token_t token, value_t *val);
 
 #define IC756PROII_ALL_RX_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM)
 #define IC756PROII_1HZ_TS_MODES IC756PROII_ALL_RX_MODES
 #define IC756PROII_OTHER_TX_MODES (RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM)
 #define IC756PROII_AM_TX_MODES (RIG_MODE_AM)
 
-#define IC756PROII_LEVEL_ALL (IC756PRO_LEVEL_ALL|RIG_LEVEL_VOXDELAY)
+#define IC756PROII_LEVEL_ALL (IC756PRO_LEVEL_ALL|RIG_LEVEL_VOXDELAY|RIG_LEVEL_AGC_TIME)
 
 #define IC756PROII_PARMS (RIG_PARM_ANN|RIG_PARM_BEEP|RIG_PARM_BACKLIGHT|RIG_PARM_TIME)
 
-const struct rig_caps ic756pro2_caps =
+struct rig_caps ic756pro2_caps =
 {
     RIG_MODEL(RIG_MODEL_IC756PROII),
     .model_name = "IC-756PROII",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".3",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -567,9 +572,13 @@ const struct rig_caps ic756pro2_caps =
     .has_set_level =  RIG_LEVEL_SET(IC756PROII_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
+    .level_gran =
+    {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
+#include "level_gran_icom.h"
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
@@ -651,9 +660,10 @@ const struct rig_caps ic756pro2_caps =
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
-    .set_mode =  icom_set_mode_with_data,
-    .get_mode =  icom_get_mode_with_data,
+    .set_mode =  icom_set_mode,
+    .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
@@ -662,7 +672,7 @@ const struct rig_caps ic756pro2_caps =
     .get_parm =  icom_get_parm,
     .set_level =  icom_set_level,
     .get_level =  icom_get_level,
-    .set_func =  ic756_set_func,
+    .set_func =  icom_set_func,
     .get_func =  icom_get_func,
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
@@ -690,13 +700,14 @@ const struct rig_caps ic756pro2_caps =
 
     .set_ext_parm =  ic756pro2_set_ext_parm,
     .get_ext_parm =  ic756pro2_get_ext_parm,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
-static int ic756pro2_set_ext_parm(RIG *rig, token_t token, value_t val)
+static int ic756pro2_set_ext_parm(RIG *rig, hamlib_token_t token, value_t val)
 {
     unsigned char epbuf[MAXFRAMELEN], ackbuf[MAXFRAMELEN];
     int ack_len, ep_len, val_len;
@@ -774,10 +785,10 @@ static int ic756pro2_set_ext_parm(RIG *rig, token_t token, value_t val)
 }
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-static int ic756pro2_get_ext_parm(RIG *rig, token_t token, value_t *val)
+static int ic756pro2_get_ext_parm(RIG *rig, hamlib_token_t token, value_t *val)
 {
     const struct confparams *cfp;
 
@@ -897,9 +908,10 @@ static const struct icom_priv_caps ic756pro3_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .extcmds = ic756pro_cmdparms,   /* Custom op parameters */
+    .data_mode_supported = 1
 };
 
 
@@ -971,12 +983,12 @@ static const struct icom_priv_caps ic756pro3_priv_caps =
          { 241, 30.0f } \
     } }
 
-const struct rig_caps ic756pro3_caps =
+struct rig_caps ic756pro3_caps =
 {
     RIG_MODEL(RIG_MODEL_IC756PROIII),
     .model_name = "IC-756PROIII",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".1",
+    .version =  BACKEND_VER ".3",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -999,13 +1011,23 @@ const struct rig_caps ic756pro3_caps =
     .has_set_level =  RIG_LEVEL_SET(IC756PROIII_LEVEL_ALL),
     .has_get_parm =  IC756PROII_PARMS,
     .has_set_parm =  RIG_PARM_SET(IC756PROII_PARMS),
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
+    .level_gran =
+    {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
+#include "level_gran_icom.h"
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BEEP] = {.min = {.i = 0}, .max = {.i = 1}, .step = {.i = 1}},
+        [PARM_TIME] = {.min = {.i = 0}, .max = {.i = 86399}, .step = {.i = 1}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
+    },
+
     .extparms =  ic756pro2_ext_parms,
     .ctcss_list =  common_ctcss_list,
     .dcs_list =  NULL,
@@ -1094,9 +1116,10 @@ const struct rig_caps ic756pro3_caps =
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
-    .set_mode =  icom_set_mode_with_data,
-    .get_mode =  icom_get_mode_with_data,
+    .set_mode =  icom_set_mode,
+    .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,
 
@@ -1105,7 +1128,7 @@ const struct rig_caps ic756pro3_caps =
     .get_parm =  icom_get_parm,
     .set_level =  icom_set_level,
     .get_level =  icom_get_level,
-    .set_func =  ic756_set_func,
+    .set_func =  icom_set_func,
     .get_func =  icom_get_func,
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
@@ -1129,38 +1152,5 @@ const struct rig_caps ic756pro3_caps =
 
     .set_ext_parm =  ic756pro2_set_ext_parm,
     .get_ext_parm =  ic756pro2_get_ext_parm,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
-
-int ic756_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
-{
-    unsigned char fctbuf[MAXFRAMELEN], ackbuf[MAXFRAMELEN];
-    int fct_len = 0, acklen, retval;
-    int fct_cn, fct_sc;        /* Command Number, Subcommand */
-
-    switch (func)
-    {
-    case RIG_FUNC_DUAL_WATCH:
-        fct_cn = C_SET_VFO;
-        fct_sc = status ? S_DUAL_ON : S_DUAL_OFF;
-        break;
-
-    default:
-        return icom_set_func(rig, vfo, func, status);
-    }
-
-    retval = icom_transaction(rig, fct_cn, fct_sc, fctbuf, fct_len, ackbuf,
-                              &acklen);
-
-    if (retval != RIG_OK)
-    {
-        return retval;
-    }
-
-    if (acklen != 1)
-    {
-        rig_debug(RIG_DEBUG_ERR, "%s: wrong frame len=%d\n", __func__, acklen);
-        return -RIG_EPROTO;
-    }
-
-    return RIG_OK;
-}

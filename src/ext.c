@@ -34,23 +34,19 @@
  * basic "virtual rig" of Hamlib.  See icom/ic746.c for an example.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 
 #include "token.h"
 
-static int rig_has_ext_token(RIG *rig, token_t token)
+static int rig_has_ext_token(RIG *rig, hamlib_token_t token)
 {
-    int *ext_tokens = rig->caps->ext_tokens;
+    const int *ext_tokens = rig->caps->ext_tokens;
     int i;
 
     if (ext_tokens == NULL)
@@ -280,7 +276,8 @@ const struct confparams *HAMLIB_API rig_ext_lookup(RIG *rig, const char *name)
  *
  * Returns NULL if nothing found
  */
-const struct confparams *HAMLIB_API rig_ext_lookup_tok(RIG *rig, token_t token)
+const struct confparams *HAMLIB_API rig_ext_lookup_tok(RIG *rig,
+        hamlib_token_t token)
 {
     const struct confparams *cfp;
 
@@ -324,7 +321,7 @@ const struct confparams *HAMLIB_API rig_ext_lookup_tok(RIG *rig, token_t token)
  * \param name
  * \brief Simple lookup returning token id associated with name
  */
-token_t HAMLIB_API rig_ext_token_lookup(RIG *rig, const char *name)
+hamlib_token_t HAMLIB_API rig_ext_token_lookup(RIG *rig, const char *name)
 {
     const struct confparams *cfp;
 

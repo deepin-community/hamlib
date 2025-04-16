@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component>
+  <id>net.sourceforge.hamlib</id>
+  <metadata_license>MIT</metadata_license>
+  <name>hamlib</name>
+  <summary>Utilities to support the hamlib radio control library</summary>
+  <description>
+    <p>Most recent amateur radio transceivers allow external control
+    of their functions through a computer interface. Unfortunately,
+    control commands are not always consistent across a manufacturer's
+    product line and each manufacturer's product line differs greatly
+    from its competitors.</p>
+
+    <p>This library addresses that issue by providing a standardised
+    programming interface that applications can talk to and
+    translating that into the appropriate commands required by the
+    radio in use.</p>
+
+    <p>This package provides command-line utilities to test the hamlib
+    library and to control transceivers if you're short of anything
+    more sophisticated: ampctl ampctld rigctl rigctlcom rigctld rigmem
+    rigsmtr rigswr rotctl rotctld</p>
+  </description>
+  <provides>
+    <modalias>usb:v0403p6001d*</modalias>
+    <modalias>usb:v16C0p05DCd*</modalias>
+  </provides>
+</component>

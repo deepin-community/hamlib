@@ -19,16 +19,13 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 #include <serial.h>
+#include "tones.h"
 #include <misc.h>
 #include <iofunc.h>
 #include <num_stdio.h>
@@ -46,7 +43,7 @@
 
 #define DXSR8_PARM_ALL RIG_PARM_NONE
 
-#define DXSR8_VFO RIG_VFO_NONE
+#define DXSR8_VFO RIG_VFO_A
 
 /* Line Feed */
 #define EOM "\r\n"
@@ -78,14 +75,14 @@ int dxsr8_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
  *      https://yo5ptd.wordpress.com/2017/02/12/alinco-dx-sr8/
  * for a partially documented protocol
  */
-const struct rig_caps dxsr8_caps =
+struct rig_caps dxsr8_caps =
 {
     RIG_MODEL(RIG_MODEL_DXSR8),
     .model_name =       "DX-SR8",
     .mfg_name =         "Alinco",
     .version =          BACKEND_VER ".0",
     .copyright =        "LGPL",
-    .status =           RIG_STATUS_BETA,
+    .status =           RIG_STATUS_STABLE,
     .rig_type =         RIG_TYPE_TRANSCEIVER,
     .ptt_type =         RIG_PTT_RIG,
     .dcd_type =         RIG_DCD_RIG,
@@ -216,7 +213,7 @@ const struct rig_caps dxsr8_caps =
     .get_func =         dxsr8_get_func, // AL~RR_AGC, AL~RR_NZB
     .set_level =        dxsr8_set_level, // AL~RW_RFG00, AL~RW_PWR00
     .get_level =        dxsr8_get_level, // AL~RR_RFG, AL~RR_PWR
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*
@@ -226,7 +223,7 @@ const struct rig_caps dxsr8_caps =
 
 /*
  * dxsr8_transaction
- * We assume that rig!=NULL, rig->state!= NULL, data!=NULL, data_len!=NULL
+ * We assume that rig!=NULL, RIGPORT(rig)!= NULL, data!=NULL, data_len!=NULL
  * Otherwise, you'll get a nice seg fault. You've been warned!
  * TODO: error case handling
  */
@@ -238,7 +235,7 @@ int dxsr8_transaction(RIG *rig,
 {
 
     int retval;
-    struct rig_state *rs;
+    hamlib_port_t *rp = RIGPORT(rig);
     char replybuf[BUFSZ + 1];
     int reply_len;
 
@@ -249,11 +246,9 @@ int dxsr8_transaction(RIG *rig,
         return -RIG_EINTERNAL;
     }
 
-    rs = &rig->state;
+    rig_flush(rp);
 
-    rig_flush(&rs->rigport);
-
-    retval = write_block(&rs->rigport, cmd, cmd_len);
+    retval = write_block(rp, (unsigned char *) cmd, cmd_len);
 
     if (retval != RIG_OK)
     {
@@ -264,7 +259,8 @@ int dxsr8_transaction(RIG *rig,
      * Transceiver sends an echo of cmd followed by a CR/LF
      * TODO: check whether cmd and echobuf match (optional)
      */
-    retval = read_string(&rs->rigport, replybuf, BUFSZ, LF, strlen(LF));
+    retval = read_string(rp, (unsigned char *) replybuf, BUFSZ,
+                         LF, strlen(LF), 0, 1);
 
     if (retval < 0)
     {
@@ -272,7 +268,8 @@ int dxsr8_transaction(RIG *rig,
     }
 
 
-    retval = read_string(&rs->rigport, replybuf, BUFSZ, LF, strlen(LF));
+    retval = read_string(rp, (unsigned char *) replybuf, BUFSZ,
+                         LF, strlen(LF), 0, 1);
 
     if (retval < 0)
     {
@@ -338,7 +335,6 @@ int dxsr8_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
 
     char cmd[BUFSZ];
-    int cmd_len;
 
     /* max 10 digits */
     if (freq >= GHz(10))
@@ -346,9 +342,8 @@ int dxsr8_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EINVAL;
     }
 
-    // cppcheck-suppress *
-    cmd_len = sprintf(cmd, AL "~RW_RXF%08"PRIll EOM, (int64_t)freq);
-    return dxsr8_transaction(rig, cmd, cmd_len, NULL, NULL);
+    SNPRINTF(cmd, sizeof(cmd), AL "~RW_RXF%08"PRIll EOM, (int64_t)freq);
+    return dxsr8_transaction(rig, cmd, strlen(cmd), NULL, NULL);
 }
 
 /*
@@ -359,7 +354,7 @@ int dxsr8_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
     int retval, data_len;
 
-    char cmd[] = AL "~RR_RXF" EOM;
+    const char cmd[] = AL "~RR_RXF" EOM;
     char freqbuf[BUFSZ];
 
     retval = dxsr8_transaction(rig, cmd, strlen(cmd), freqbuf, &data_len);
@@ -370,7 +365,7 @@ int dxsr8_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     }
 
     /* extract RX freq */
-    retval = num_sscanf(freqbuf, "%"SCNfreq, freq);
+    num_sscanf(freqbuf, "%"SCNfreq, freq);
 
     return RIG_OK;
 }
@@ -382,7 +377,7 @@ int dxsr8_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 int dxsr8_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     char mdbuf[BUFSZ];
-    int mdbuf_len, wide_filter, retval;
+    int wide_filter, retval;
     int amode;
 
     switch (mode)
@@ -406,8 +401,8 @@ int dxsr8_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_EINVAL;
     }
 
-    mdbuf_len = sprintf(mdbuf, AL "~RW_RFM%02d" EOM, amode);
-    retval = dxsr8_transaction(rig, mdbuf, mdbuf_len, NULL, NULL);
+    SNPRINTF(mdbuf, sizeof(mdbuf), AL "~RW_RFM%02d" EOM, amode);
+    retval = dxsr8_transaction(rig, mdbuf, strlen(mdbuf), NULL, NULL);
 
     if (retval != RIG_OK)
     {
@@ -426,8 +421,8 @@ int dxsr8_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         wide_filter = 0; // AL~RW_NAR00 Set wide bandwidth
     }
 
-    mdbuf_len = sprintf(mdbuf, AL "~RW_NAR%02d" EOM, wide_filter);
-    retval = dxsr8_transaction(rig, mdbuf, mdbuf_len, NULL, NULL);
+    SNPRINTF(mdbuf, sizeof(mdbuf), AL "~RW_NAR%02d" EOM, wide_filter);
+    retval = dxsr8_transaction(rig, mdbuf, strlen(mdbuf), NULL, NULL);
 
     return retval;
 }
@@ -471,8 +466,14 @@ int dxsr8_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
         return -RIG_EINVAL;
     }
 
-    filter = 0; // avoid compiler warings of being possibly uninitialized
+    filter = 0; // avoid compiler warnings of being possibly uninitialized
     retval = dxsr8_read_num(rig, AL "~RR_NAR" EOM, &filter);
+
+    if (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: dxsr8_read_num:%s\n", __func__, rigerror(retval));
+        return retval;
+    }
 
     if (filter == 0)
     {
@@ -493,20 +494,19 @@ int dxsr8_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 int dxsr8_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
 {
 
-    int cmd_len;
     char cmd[BUFSZ];
 
     switch (func)
     {
     case RIG_FUNC_FAGC:
-        cmd_len = sprintf(cmd, AL "~RW_AGC%02d" EOM, status ? 0 : 1);
+        SNPRINTF(cmd, sizeof(cmd), AL "~RW_AGC%02d" EOM, status ? 0 : 1);
 
-        return dxsr8_transaction(rig, cmd, cmd_len, NULL, NULL);
+        return dxsr8_transaction(rig, cmd, strlen(cmd), NULL, NULL);
 
     case RIG_FUNC_NB:
-        cmd_len = sprintf(cmd, AL "~RW_NZB%d" EOM, status ? 1 : 0);
+        SNPRINTF(cmd, sizeof(cmd), AL "~RW_NZB%d" EOM, status ? 1 : 0);
 
-        return dxsr8_transaction(rig, cmd, cmd_len, NULL, NULL);
+        return dxsr8_transaction(rig, cmd, strlen(cmd), NULL, NULL);
 
 
     default:
@@ -571,7 +571,7 @@ int dxsr8_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
  */
 int dxsr8_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
-    int cmd_len, lvl;
+    int lvl;
     char cmd[BUFSZ];
 
     switch (level)
@@ -590,8 +590,8 @@ int dxsr8_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        cmd_len = sprintf(cmd, AL "~RW_RFG%02d" EOM, lvl);
-        return dxsr8_transaction(rig, cmd, cmd_len, NULL, NULL);
+        SNPRINTF(cmd, sizeof(cmd), AL "~RW_RFG%02d" EOM, lvl);
+        return dxsr8_transaction(rig, cmd, strlen(cmd), NULL, NULL);
 
     case RIG_LEVEL_ATT:
         switch (val.i)
@@ -609,8 +609,8 @@ int dxsr8_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             return -RIG_EINVAL;
         }
 
-        cmd_len = sprintf(cmd, AL "~RW_RFG%02d" EOM, lvl);
-        return dxsr8_transaction(rig, cmd, cmd_len, NULL, NULL);
+        SNPRINTF(cmd, sizeof(cmd), AL "~RW_RFG%02d" EOM, lvl);
+        return dxsr8_transaction(rig, cmd, strlen(cmd), NULL, NULL);
 
     case RIG_LEVEL_RFPOWER:
 
@@ -627,8 +627,8 @@ int dxsr8_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             lvl = 0; // AL~RW_PWR00 - High power
         }
 
-        cmd_len = sprintf(cmd, AL "~RW_PWR%02d" EOM, lvl);
-        return dxsr8_transaction(rig, cmd, cmd_len, NULL, NULL);
+        SNPRINTF(cmd, sizeof(cmd), AL "~RW_PWR%02d" EOM, lvl);
+        return dxsr8_transaction(rig, cmd, strlen(cmd), NULL, NULL);
 
     default:
         rig_debug(RIG_DEBUG_ERR, "Unsupported set_level %s\n", rig_strlevel(level));
@@ -767,8 +767,7 @@ int dxsr8_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 {
 
     char cmd[BUFSZ];
-    int cmd_len;
 
-    cmd_len = sprintf(cmd, AL "~RW_PTT%02d" EOM, ptt);
-    return dxsr8_transaction(rig, cmd, cmd_len, NULL, NULL);
+    SNPRINTF(cmd, sizeof(cmd), AL "~RW_PTT%02d" EOM, ptt);
+    return dxsr8_transaction(rig, cmd, strlen(cmd), NULL, NULL);
 }

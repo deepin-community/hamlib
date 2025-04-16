@@ -51,21 +51,11 @@
  *  For the above command, rcv_len should be 6.
 */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
-#include "misc.h"
-#include "cal.h"
-#include "register.h"
 
 #include "tentec.h"
 #include "tentec2.h"
@@ -88,7 +78,7 @@
 
 /*
  * tentec_set_freq
- * assumes rig!=NULL, rig->state.priv!=NULL
+ * assumes rig!=NULL, STATE(rig)->priv!=NULL
  * assumes priv->mode in AM,CW,LSB or USB.
  */
 int tentec2_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
@@ -585,11 +575,11 @@ int tentec2_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
     if (ttfilter < 16)
     {
-        *width = (ttfilter + 4) * 50;
+        *width = ((long)ttfilter + 4L) * 50L;
     }
     else
     {
-        *width = (ttfilter - 6) * 100;
+        *width = ((long)ttfilter - 6L) * 100L;
     }
 
     return RIG_OK;

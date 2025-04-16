@@ -20,10 +20,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
@@ -55,14 +51,14 @@ static struct icom_priv_caps icr10_priv_caps =
     r8500_ts_sc_list  /* wrong, but don't have set_ts anyway */
 };
 
-const struct rig_caps icr10_caps =
+struct rig_caps icr10_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR10),
     .model_name = "IC-R10",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_RECEIVER | RIG_FLAG_HANDHELD,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -83,9 +79,9 @@ const struct rig_caps icr10_caps =
     .has_set_level = RIG_LEVEL_NONE,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
     .parm_gran =  {},
     .ctcss_list =  NULL,
@@ -152,6 +148,7 @@ const struct rig_caps icr10_caps =
     .get_level =  icom_get_level,
     .get_dcd =  icom_get_dcd,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 

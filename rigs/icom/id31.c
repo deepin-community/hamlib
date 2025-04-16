@@ -20,15 +20,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-
 #include "hamlib/rig.h"
 #include "idx_builtin.h"
 #include "icom.h"
+#include "tones.h"
 
 /*
  * Specs and protocol details comes from the chapter 11 of ID-31A_E_CD_ENG_1.pdf
@@ -80,14 +75,14 @@ static struct icom_priv_caps id31_priv_caps =
     1,      /* no XCHG */
 };
 
-const struct rig_caps id31_caps =
+struct rig_caps id31_caps =
 {
     RIG_MODEL(RIG_MODEL_ID31),
     .model_name = "ID-31",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_HANDHELD,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -109,7 +104,6 @@ const struct rig_caps id31_caps =
     .has_get_parm =  ID31_PARM_ALL,
     .has_set_parm =  ID31_PARM_ALL,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .extparms = icom_ext_parms,
@@ -154,8 +148,10 @@ const struct rig_caps id31_caps =
 
     .tuning_steps =     {
         // Rem: no support for changing tuning step
+        {RIG_MODE_ALL, 1},
         RIG_TS_END,
     },
+
     /* mode/filter list, remember: order matters! */
     .filters =  {
         {RIG_MODE_FM, kHz(12)},
@@ -172,7 +168,7 @@ const struct rig_caps id31_caps =
     .rig_init =   icom_init,
     .rig_cleanup =   icom_cleanup,
     .rig_open =  icom_rig_open,
-    .rig_close =  icom_rig_open,
+    .rig_close =  icom_rig_close,
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
@@ -180,7 +176,7 @@ const struct rig_caps id31_caps =
     .get_mode =  icom_get_mode,
 
     .set_powerstat = icom_set_powerstat,
-    .get_powerstat = icom_get_powerstat,
+//    .get_powerstat = icom_get_powerstat, // not capable
     .decode_event =  icom_decode_event,
 
     .set_func =  icom_set_func,
@@ -207,4 +203,5 @@ const struct rig_caps id31_caps =
     .get_ctcss_sql =  icom_get_ctcss_sql,
     .set_dcs_sql =  icom_set_dcs_sql,
     .get_dcs_sql =  icom_get_dcs_sql,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

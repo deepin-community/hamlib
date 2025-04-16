@@ -19,15 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "kachina.h"
-
+#include <tones.h>
 
 #define K505DSP_ALL_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_SSB|RIG_MODE_FM)
 #define K505DSP_OTHER_TX_MODES (RIG_MODE_CW|RIG_MODE_SSB|RIG_MODE_FM)
@@ -57,16 +53,16 @@
  * TODO:
  *  - so many ...
  */
-const struct rig_caps k505dsp_caps =
+struct rig_caps k505dsp_caps =
 {
     RIG_MODEL(RIG_MODEL_505DSP),
     .model_name = "505DSP",
     .mfg_name =  "Kachina",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_COMPUTER,
-    .ptt_type =  RIG_PTT_NONE,
+    .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
     .port_type =  RIG_PORT_SERIAL,
     .serial_rate_min =  9600,
@@ -155,9 +151,10 @@ const struct rig_caps k505dsp_caps =
 
     .set_freq =  kachina_set_freq,
     .set_mode =  kachina_set_mode,
+    .set_ptt = kachina_set_ptt,
 
     .get_level =  kachina_get_level,
-
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 /*

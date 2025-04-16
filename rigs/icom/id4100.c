@@ -20,15 +20,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-
 #include "hamlib/rig.h"
 #include "idx_builtin.h"
 #include "icom.h"
+#include "tones.h"
 
 /*
  * Specs and protocol details comes from the chapter 10 of ID-4100A_E_ENG_PU_0.pdf
@@ -84,14 +79,14 @@ static struct icom_priv_caps id4100_priv_caps =
     1,      /* no XCHG */
 };
 
-const struct rig_caps id4100_caps =
+struct rig_caps id4100_caps =
 {
     RIG_MODEL(RIG_MODEL_ID4100),
     .model_name = "ID-4100",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_MOBILE,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -113,7 +108,6 @@ const struct rig_caps id4100_caps =
     .has_get_parm =  ID4100_PARM_ALL,
     .has_set_parm =  ID4100_PARM_ALL,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .extparms = icom_ext_parms,
@@ -162,8 +156,10 @@ const struct rig_caps id4100_caps =
 
     .tuning_steps =     {
         // Rem: no support for changing tuning step
+        {RIG_MODE_ALL, 1},
         RIG_TS_END,
     },
+
     /* mode/filter list, remember: order matters! */
     .filters =  {
         {RIG_MODE_FM | RIG_MODE_AM, kHz(12)},
@@ -180,7 +176,7 @@ const struct rig_caps id4100_caps =
     .rig_init =   icom_init,
     .rig_cleanup =   icom_cleanup,
     .rig_open =  icom_rig_open,
-    .rig_close =  icom_rig_open,
+    .rig_close =  icom_rig_close,
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
@@ -188,7 +184,7 @@ const struct rig_caps id4100_caps =
     .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
 
-    .set_powerstat = icom_set_powerstat,
+    //.set_powerstat = icom_set_powerstat, // ID-4100 does cannot query power
     .get_powerstat = icom_get_powerstat,
     .decode_event =  icom_decode_event,
 
@@ -217,4 +213,5 @@ const struct rig_caps id4100_caps =
     .get_ctcss_sql =  icom_get_ctcss_sql,
     .set_dcs_sql =  icom_set_dcs_sql,
     .get_dcs_sql =  icom_get_dcs_sql,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

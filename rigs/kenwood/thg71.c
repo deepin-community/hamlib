@@ -19,14 +19,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -85,14 +80,14 @@ static int thg71_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
  *
  * http://www.iw5edi.com/ham-radio/files/TH-G71_Serial_Protocol.pdf
  */
-const struct rig_caps thg71_caps =
+struct rig_caps thg71_caps =
 {
     RIG_MODEL(RIG_MODEL_THG71),
     .model_name = "TH-G71",
     .mfg_name =  "Kenwood",
     .version =  TH_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_HANDHELD,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -111,11 +106,9 @@ const struct rig_caps thg71_caps =
     .has_set_func =  THG71_FUNC_ALL,
     .has_get_level =  THG71_LEVEL_ALL,
     .has_set_level =  RIG_LEVEL_SET(THG71_LEVEL_ALL),
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_RFPOWER] = { .min = { .i = 3 }, .max = { .i = 0 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
     .parm_gran =  {},
     .ctcss_list =  kenwood38_ctcss_list,
@@ -206,6 +199,7 @@ const struct rig_caps thg71_caps =
     .set_ptt = th_set_ptt,
     .get_dcd = th_get_dcd,
     .decode_event =  thg71_decode_event,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -411,11 +405,11 @@ int thg71_set_vfo(RIG *rig, vfo_t vfo)
     {
     case RIG_VFO_A:
     case RIG_VFO_VFO:
-        sprintf(vfobuf, "VMC 0,0");
+        SNPRINTF(vfobuf, sizeof(vfobuf), "VMC 0,0");
         break;
 
     case RIG_VFO_MEM:
-        sprintf(vfobuf, "VMC 0,2");
+        SNPRINTF(vfobuf, sizeof(vfobuf), "VMC 0,2");
         break;
 
     default:
@@ -503,6 +497,7 @@ int thg71_open(RIG *rig)
     char ackbuf[ACKBUF_LEN];
     int retval, i;
     const freq_range_t frend = RIG_FRNG_END;
+    struct rig_state *rs = STATE(rig);
 
     /* this will check the model id */
     retval = kenwood_open(rig);
@@ -552,7 +547,7 @@ int thg71_open(RIG *rig)
         frng.high_power = -1;
         frng.low_power = -1;
         frng.label = "";
-        rig->state.rx_range_list[i] = frng;
+        rs->rx_range_list[i] = frng;
 
         if (frng.startf > MHz(200))
         {
@@ -564,12 +559,12 @@ int thg71_open(RIG *rig)
         }
 
         frng.low_power = mW(50);
-        rig->state.tx_range_list[i] = frng;
+        rs->tx_range_list[i] = frng;
     }
 
-    rig->state.rx_range_list[i] = frend;
-    rig->state.tx_range_list[i] = frend;
-    rig->state.vfo_list = RIG_VFO_A | RIG_VFO_MEM ;
+    rs->rx_range_list[i] = frend;
+    rs->tx_range_list[i] = frend;
+    rs->vfo_list = RIG_VFO_A | RIG_VFO_MEM ;
 
     return RIG_OK;
 }

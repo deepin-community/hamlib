@@ -31,7 +31,6 @@
 #include <hamlib/rig.h>
 #include "ar7030p.h"
 #include "serial.h"
-#include "idx_builtin.h"
 
 static enum PAGE_e curPage = NONE; /* Current memory page */
 static unsigned int curAddr = 65535; /* Current page address */
@@ -57,7 +56,7 @@ int NOP(RIG *rig, unsigned char x)
 
     assert(NULL != rig);
 
-    rc = write_block(&rig->state.rigport, (char *) &op, 1);
+    rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
     if (0 != rc)
     {
@@ -79,7 +78,7 @@ int SRH(RIG *rig, unsigned char x)
 
     assert(NULL != rig);
 
-    rc = write_block(&rig->state.rigport, (char *) &op, 1);
+    rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
     if (0 != rc)
     {
@@ -109,7 +108,7 @@ int PGE(RIG *rig, enum PAGE_e page)
     case EEPROM2:
     case EEPROM3:
     case ROM:
-        rc = write_block(&rig->state.rigport, (char *) &op, 1);
+        rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
         if (0 != rc)
         {
@@ -142,7 +141,7 @@ int ADR(RIG *rig, unsigned char x)
 
     assert(NULL != rig);
 
-    rc = write_block(&rig->state.rigport, (char *) &op, 1);
+    rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
     if (0 != rc)
     {
@@ -164,7 +163,7 @@ int ADH(RIG *rig, unsigned char x)
 
     assert(NULL != rig);
 
-    rc = write_block(&rig->state.rigport, (char *) &op, 1);
+    rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
     if (0 != rc)
     {
@@ -188,7 +187,7 @@ int WRD(RIG *rig, unsigned char out)
 
     assert(NULL != rig);
 
-    rc = write_block(&rig->state.rigport, (char *) &op, 1);
+    rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
     if (0 != rc)
     {
@@ -211,7 +210,7 @@ int MSK(RIG *rig, unsigned char mask)
 
     assert(NULL != rig);
 
-    rc = write_block(&rig->state.rigport, (char *) &op, 1);
+    rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
     if (0 != rc)
     {
@@ -249,7 +248,7 @@ int EXE(RIG *rig, enum ROUTINE_e routine)
     case DISP_BUFF:
     case READ_SIGNAL:
     case READ_BTNS:
-        rc = write_block(&rig->state.rigport, (char *) &op, 1);
+        rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
         if (0 != rc)
         {
@@ -281,7 +280,7 @@ int RDD(RIG *rig, unsigned char len)
 
     assert(NULL != rig);
 
-    rc = write_block(&rig->state.rigport, (char *) &op, 1);
+    rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
     if (0 != rc)
     {
@@ -289,7 +288,7 @@ int RDD(RIG *rig, unsigned char len)
     }
     else
     {
-        rc = read_block(&rig->state.rigport, (char *) &inChr, len);
+        rc = read_block(RIGPORT(rig), (char *) &inChr, len);
 
         if (1 != rc)
         {
@@ -322,7 +321,7 @@ int LOC(RIG *rig, enum LOCK_LVL_e level)
     case LOCK_1:
     case LOCK_2:
     case LOCK_3:
-        rc = write_block(&rig->state.rigport, (char *) &op, 1);
+        rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
         if (0 != rc)
         {
@@ -367,7 +366,7 @@ int BUT(RIG *rig, enum BUTTON_e button)
     case BTN_STAR:
     case BTN_MENU:
     case BTN_POWER:
-        rc = write_block(&rig->state.rigport, (char *) &op, 1);
+        rc = write_block(RIGPORT(rig), (char *) &op, 1);
 
         if (0 != rc)
         {
@@ -404,7 +403,7 @@ int execRoutine(RIG *rig, enum ROUTINE_e rtn)
 
     assert(NULL != rig);
 
-    if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+    if (0 == write_block(RIGPORT(rig), &v, 1))
     {
         rc = RIG_OK;
 
@@ -429,6 +428,7 @@ int execRoutine(RIG *rig, enum ROUTINE_e rtn)
 static int setAddr(RIG *rig, enum PAGE_e page, unsigned int addr)
 {
     int rc = RIG_OK;
+    hamlib_port_t *rp = RIGPORT(rig);
     unsigned char v;
 
     assert(NULL != rig);
@@ -441,7 +441,7 @@ static int setAddr(RIG *rig, enum PAGE_e page, unsigned int addr)
             {
                 v = PGE(page);
 
-                if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+                if (0 == write_block(rp, &v, 1))
                 {
                     curPage = page;
                     rc = RIG_OK;
@@ -458,7 +458,7 @@ static int setAddr(RIG *rig, enum PAGE_e page, unsigned int addr)
             {
                 v = SRH((0x0f0 & addr) >> 4);
 
-                rc = write_block(&rig->state.rigport, (char *) &v, 1);
+                rc = write_block(rp, &v, 1);
 
                 if (rc != RIG_OK)
                 {
@@ -467,13 +467,13 @@ static int setAddr(RIG *rig, enum PAGE_e page, unsigned int addr)
 
                 v = ADR((0x00f & addr));
 
-                if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+                if (0 == write_block(rp, &v, 1))
                 {
                     if (0xff < addr)
                     {
                         v = ADH((0xf00 & addr) >> 8);
 
-                        if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+                        if (0 == write_block(rp, &v, 1))
                         {
                             curAddr = addr;
                             rc = RIG_OK;
@@ -526,6 +526,7 @@ static int setAddr(RIG *rig, enum PAGE_e page, unsigned int addr)
 int writeByte(RIG *rig, enum PAGE_e page, unsigned int addr, unsigned char x)
 {
     int rc;
+    hamlib_port_t *rp = RIGPORT(rig);
     unsigned char hi = SRH((x & 0xf0) >> 4);
     unsigned char lo = WRD(x & 0x0f);
 
@@ -537,9 +538,9 @@ int writeByte(RIG *rig, enum PAGE_e page, unsigned int addr, unsigned char x)
     {
         rc = -RIG_EIO;
 
-        if (0 == write_block(&rig->state.rigport, (char *) &hi, 1))
+        if (0 == write_block(rp, &hi, 1))
         {
-            if (0 == write_block(&rig->state.rigport, (char *) &lo, 1))
+            if (0 == write_block(rp, &lo, 1))
             {
                 rc = RIG_OK;
                 curAddr++;
@@ -668,6 +669,7 @@ int writeInt(RIG *rig, enum PAGE_e page, unsigned int addr, unsigned int x)
 int readByte(RIG *rig, enum PAGE_e page, unsigned int addr, unsigned char *x)
 {
     int rc = RIG_OK;
+    hamlib_port_t *rp = RIGPORT(rig);
     unsigned char v = RDD(1);   // Read command
 
     assert(NULL != rig);
@@ -679,9 +681,9 @@ int readByte(RIG *rig, enum PAGE_e page, unsigned int addr, unsigned char *x)
     {
         rc = -RIG_EIO;
 
-        if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+        if (0 == write_block(rp, &v, 1))
         {
-            if (1 == read_block(&rig->state.rigport, (char *) x, 1))
+            if (1 == read_block(rp, x, 1))
             {
                 curAddr++;
                 rc = RIG_OK;
@@ -842,7 +844,7 @@ int readSignal(RIG *rig, unsigned char *x)
 
     if (RIG_OK == rc)
     {
-        if (1 == read_block(&rig->state.rigport, (char *) x, 1))
+        if (1 == read_block(RIGPORT(rig), x, 1))
         {
             rc = RIG_OK;
 
@@ -868,7 +870,7 @@ int flushBuffer(RIG *rig)
 
     assert(NULL != rig);
 
-    if (0 == write_block(&rig->state.rigport, &v, 1))
+    if (0 == write_block(RIGPORT(rig), &v, 1))
     {
         rc = RIG_OK;
     }
@@ -897,7 +899,7 @@ int lockRx(RIG *rig, enum LOCK_LVL_e level)
         {
             v = LOC(level);
 
-            if (0 == write_block(&rig->state.rigport, (char *) &v, 1))
+            if (0 == write_block(RIGPORT(rig), &v, 1))
             {
                 rc = RIG_OK;
 
@@ -947,39 +949,6 @@ int bcd2Int(const unsigned char bcd)
     return (rc);
 }
 
-#ifdef XXREMOVEDXX
-// this function is not referenced anywhere
-/*
- * \brief Convert int into 2 digit BCD number
- *
- * \param int Integer value (0-99)
- *
- * \return 2 digit BCD equivalent (0-99), 0xff on failure
- */
-unsigned char int2BCD(const unsigned int val)
-{
-    unsigned char rc = (unsigned char) 0xff;
-    unsigned char tens = (unsigned char)(val / 10);
-    unsigned char ones = (unsigned char)(val % 10);
-
-    if ((unsigned char) 10 > tens)
-    {
-        rc = (tens << 4);
-
-        if ((unsigned char) 10 > ones)
-        {
-            rc = rc | ones;
-        }
-        else
-        {
-            rc = (unsigned char) 0xff;
-        }
-    }
-
-    return (rc);
-}
-#endif
-
 /*
  * \brief Convert raw AGC value to calibrated level in dBm
  *
@@ -1018,27 +987,29 @@ int getCalLevel(RIG *rig, unsigned char rawAgc, int *dbm)
     int raw = (int) rawAgc;
     int step;
     unsigned char v;
+    struct rig_state *rs;
 
     assert(NULL != rig);
     assert(NULL != dbm);
+    rs = STATE(rig);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: raw AGC %03d\n", __func__, rawAgc);
 
-    for (i = 0; i < rig->state.str_cal.size; i++)
+    for (i = 0; i < rs->str_cal.size; i++)
     {
-        *dbm = rig->state.str_cal.table[ i ].val;
+        *dbm = rs->str_cal.table[ i ].val;
 
         rig_debug(RIG_DEBUG_VERBOSE, "%s: got cal table[ %d ] dBm value %d\n", __func__,
                   i, *dbm);
 
         /* if the remaining difference in the raw value is negative */
-        if (0 > (raw - rig->state.str_cal.table[ i ].raw))
+        if (0 > (raw - rs->str_cal.table[ i ].raw))
         {
             /* calculate step size */
             if (0 < i)
             {
-                step = rig->state.str_cal.table[ i ].val -
-                       rig->state.str_cal.table[ i - 1 ].val;
+                step = rs->str_cal.table[ i ].val -
+                       rs->str_cal.table[ i - 1 ].val;
             }
             else
             {
@@ -1049,7 +1020,7 @@ int getCalLevel(RIG *rig, unsigned char rawAgc, int *dbm)
 
             /* interpolate the final value */
             *dbm -= step; /* HACK - table seems to be off by one index */
-            *dbm += (int)(((double) raw / (double) rig->state.str_cal.table[ i ].raw) *
+            *dbm += (int)(((double) raw / (double) rs->str_cal.table[ i ].raw) *
                           (double) step);
 
             rig_debug(RIG_DEBUG_VERBOSE, "%s: interpolated dBm value %d\n", __func__, *dbm);
@@ -1060,7 +1031,7 @@ int getCalLevel(RIG *rig, unsigned char rawAgc, int *dbm)
         else
         {
             /* calculate the remaining raw value */
-            raw = raw - rig->state.str_cal.table[ i ].raw;
+            raw = raw - rs->str_cal.table[ i ].raw;
 
             rig_debug(RIG_DEBUG_VERBOSE, "%s: residual raw value %d\n", __func__, raw);
         }

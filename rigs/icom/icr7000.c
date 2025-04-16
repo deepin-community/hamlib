@@ -19,20 +19,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
-#include "serial.h"
-#include "misc.h"
 #include "idx_builtin.h"
 
 #include "icom.h"
-#include "icom_defs.h"
-#include "frame.h"
 
 
 #define ICR7000_MODES (RIG_MODE_AM|RIG_MODE_SSB|RIG_MODE_FM|RIG_MODE_WFM)
@@ -59,14 +51,14 @@ static struct icom_priv_caps icr7000_priv_caps =
 /*
  * ICR7000 rigs capabilities.
  */
-const struct rig_caps icr7000_caps =
+struct rig_caps icr7000_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR7000),
     .model_name = "IC-R7000",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -89,7 +81,14 @@ const struct rig_caps icr7000_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran =  {},
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BANDSELECT] = {.step = {.s = "BANDUNUSED,BAND160M,BAND80M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}},
+        [PARM_BEEP] = {.min = {.i = 0}, .max = {.i = 1}, .step = {.i = 1}},
+        [PARM_TIME] = {.min = {.i = 0}, .max = {.i = 86399}, .step = {.i = 1}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
+    },
+
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { RIG_DBLST_END, },
@@ -161,6 +160,7 @@ const struct rig_caps icr7000_caps =
     .decode_event =  icom_decode_event,
     .set_mem =  icom_set_mem,
     .vfo_op =  icom_vfo_op,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -174,14 +174,14 @@ static struct icom_priv_caps icr7100_priv_caps =
 /*
  * ICR7100A rig capabilities.
  */
-const struct rig_caps icr7100_caps =
+struct rig_caps icr7100_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR7100),
     .model_name = "IC-R7100",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_RECEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -204,7 +204,6 @@ const struct rig_caps icr7100_caps =
     .has_get_parm =  ICR7100_PARMS,
     .has_set_parm =  RIG_PARM_SET(ICR7100_PARMS),
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  {},

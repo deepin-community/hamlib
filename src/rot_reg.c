@@ -27,14 +27,11 @@
  * doc todo: Let's explain what's going on here!
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <sys/types.h>
 
@@ -89,6 +86,15 @@ DEFINE_INITROT_BACKEND(radant);
 #if HAVE_LIBINDI
 DEFINE_INITROT_BACKEND(indi);
 #endif
+#if defined(ANDROID) || defined(__ANDROID__)
+DEFINE_INITROT_BACKEND(androidsensor);
+#endif
+DEFINE_INITROT_BACKEND(grbltrk);
+DEFINE_INITROT_BACKEND(flir);
+DEFINE_INITROT_BACKEND(apex);
+DEFINE_INITROT_BACKEND(saebrtrack);
+DEFINE_INITROT_BACKEND(skywatcher);
+
 //! @endcond
 
 /**
@@ -133,6 +139,14 @@ static struct
 #if HAVE_LIBINDI
     { ROT_INDI, ROT_BACKEND_INDI, ROT_FUNCNAMA(indi) },
 #endif
+#if defined(ANDROID) || defined(__ANDROID__)
+    { ROT_ANDROIDSENSOR, ROT_BACKEND_ANDROIDSENSOR, ROT_FUNCNAMA(androidsensor) },
+#endif
+    { ROT_GRBLTRK, ROT_BACKEND_GRBLTRK, ROT_FUNCNAMA(grbltrk) },
+    { ROT_FLIR, ROT_BACKEND_FLIR, ROT_FUNCNAMA(flir) },
+    { ROT_APEX, ROT_BACKEND_APEX, ROT_FUNCNAMA(apex) },
+    { ROT_SAEBRTRACK, ROT_BACKEND_SAEBRTRACK, ROT_FUNCNAMA(saebrtrack)},
+    { ROT_SKYWATCHER, ROT_BACKEND_SKYWATCHER, ROT_FUNCNAMA(skywatcher)},
     { 0, NULL }, /* end */
 };
 
@@ -199,7 +213,7 @@ int HAMLIB_API rot_register(const struct rot_caps *caps)
 
 #endif
 
-    p = (struct rot_list *)malloc(sizeof(struct rot_list));
+    p = (struct rot_list *)calloc(1, sizeof(struct rot_list));
 
     if (!p)
     {

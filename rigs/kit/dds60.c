@@ -19,15 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <stdio.h>
 #include "hamlib/rig.h"
 
-#include "kit.h"
 #include "parallel.h"
 #include "token.h"
 
@@ -85,8 +80,8 @@ static int dds60_init(RIG *rig);
 static int dds60_cleanup(RIG *rig);
 static int dds60_open(RIG *rig);
 static int dds60_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
-static int dds60_set_conf(RIG *rig, token_t token, const char *val);
-static int dds60_get_conf(RIG *rig, token_t token, char *val);
+static int dds60_set_conf(RIG *rig, hamlib_token_t token, const char *val);
+static int dds60_get_conf(RIG *rig, hamlib_token_t token, char *val);
 
 /*
  * The DDS-60 kit exists with a AD9851 chip (60 MHz),
@@ -98,14 +93,14 @@ static int dds60_get_conf(RIG *rig, token_t token, char *val);
  * The receiver is controlled via the parallel port (D0,D1,D2).
  */
 
-const struct rig_caps dds60_caps =
+struct rig_caps dds60_caps =
 {
     RIG_MODEL(RIG_MODEL_DDS60),
     .model_name = "DDS-60",
     .mfg_name =  "AmQRP",
     .version =  "20200112.0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TUNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -165,6 +160,7 @@ const struct rig_caps dds60_caps =
     .get_conf =  dds60_get_conf,
 
     .set_freq =  dds60_set_freq,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 
@@ -172,16 +168,16 @@ int dds60_init(RIG *rig)
 {
     struct dds60_priv_data *priv;
 
-    rig->state.priv = (struct dds60_priv_data *)malloc(sizeof(
-                          struct dds60_priv_data));
+    STATE(rig)->priv = (struct dds60_priv_data *)calloc(1, sizeof(
+                           struct dds60_priv_data));
 
-    if (!rig->state.priv)
+    if (!STATE(rig)->priv)
     {
         /* whoops! memory shortage! */
         return -RIG_ENOMEM;
     }
 
-    priv = rig->state.priv;
+    priv = STATE(rig)->priv;
 
     priv->osc_freq = OSCFREQ;
     priv->if_mix_freq = IFMIXFREQ;
@@ -198,26 +194,26 @@ int dds60_cleanup(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    if (rig->state.priv)
+    if (STATE(rig)->priv)
     {
-        free(rig->state.priv);
+        free(STATE(rig)->priv);
     }
 
-    rig->state.priv = NULL;
+    STATE(rig)->priv = NULL;
 
     return RIG_OK;
 }
 
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
-int dds60_set_conf(RIG *rig, token_t token, const char *val)
+int dds60_set_conf(RIG *rig, hamlib_token_t token, const char *val)
 {
     struct dds60_priv_data *priv;
     float phase;
 
-    priv = (struct dds60_priv_data *)rig->state.priv;
+    priv = (struct dds60_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
@@ -247,31 +243,31 @@ int dds60_set_conf(RIG *rig, token_t token, const char *val)
 
 /*
  * assumes rig!=NULL,
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-int dds60_get_conf(RIG *rig, token_t token, char *val)
+int dds60_get_conf2(RIG *rig, hamlib_token_t token, char *val, int val_len)
 {
     struct dds60_priv_data *priv;
 
-    priv = (struct dds60_priv_data *)rig->state.priv;
+    priv = (struct dds60_priv_data *)STATE(rig)->priv;
 
     switch (token)
     {
     case TOK_OSCFREQ:
-        sprintf(val, "%"PRIfreq, priv->osc_freq);
+        SNPRINTF(val, val_len, "%"PRIfreq, priv->osc_freq);
         break;
 
     case TOK_IFMIXFREQ:
-        sprintf(val, "%"PRIfreq, priv->if_mix_freq);
+        SNPRINTF(val, val_len, "%"PRIfreq, priv->if_mix_freq);
         break;
 
     case TOK_MULTIPLIER:
-        sprintf(val, "%d", priv->multiplier);
+        SNPRINTF(val, val_len, "%d", priv->multiplier);
         break;
 
     case TOK_PHASE_MOD:
-        sprintf(val, "%f", priv->phase_step * PHASE_INCR);
+        SNPRINTF(val, val_len, "%f", priv->phase_step * PHASE_INCR);
         break;
 
     default:
@@ -279,6 +275,11 @@ int dds60_get_conf(RIG *rig, token_t token, char *val)
     }
 
     return RIG_OK;
+}
+
+int dds60_get_conf(RIG *rig, hamlib_token_t token, char *val)
+{
+    return dds60_get_conf2(rig, token, val, 128);
 }
 
 
@@ -347,10 +348,10 @@ int dds60_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     unsigned long frg;
     unsigned char control;
     struct dds60_priv_data *priv;
-    hamlib_port_t *port = &rig->state.rigport;
+    hamlib_port_t *port = RIGPORT(rig);
     freq_t osc_ref;
 
-    priv = (struct dds60_priv_data *)rig->state.priv;
+    priv = (struct dds60_priv_data *)STATE(rig)->priv;
 
     if (priv->multiplier)
     {
@@ -365,7 +366,7 @@ int dds60_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     frg = (unsigned long)(((double)freq + priv->if_mix_freq) /
                           osc_ref * 4294967296.0 + 0.5);
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s: word %lu, X6 multipler %d, phase %.2f\n",
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: word %lu, X6 multiplier %d, phase %.2f\n",
               __func__, frg, priv->multiplier, priv->phase_step * PHASE_INCR);
 
     control = priv->multiplier ? 0x01 : 0x00;
@@ -378,7 +379,7 @@ int dds60_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 int dds60_open(RIG *rig)
 {
-    hamlib_port_t *port = &rig->state.rigport;
+    hamlib_port_t *port = RIGPORT(rig);
 
     /* lock the parallel port */
     par_lock(port);

@@ -24,21 +24,14 @@
  * 25Mar09: Initial release
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
 
 #include <hamlib/rig.h>
-#include "token.h"
 #include "idx_builtin.h"
 
 #include "icom.h"
 #include "icom_defs.h"
 #include "frame.h"
-#include "misc.h"
 #include "bandplan.h"
 
 
@@ -121,18 +114,25 @@ static const struct icom_priv_caps IC7200_priv_caps =
         { .level = RIG_AGC_OFF, .icom_level = 0 },
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_SLOW, .icom_level = 2 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
+    .x25x26_always = 0,
+    .x25x26_possibly = 0,
+    .x1cx03_always = 0,
+    .x1cx03_possibly = 0,
+    .x1ax03_supported = 1,
+    .mode_with_filter = 1,
+    .data_mode_supported = 1
 };
 
-const struct rig_caps ic7200_caps =
+struct rig_caps ic7200_caps =
 {
     RIG_MODEL(RIG_MODEL_IC7200),
     .model_name = "IC-7200",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".2",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -153,14 +153,25 @@ const struct rig_caps ic7200_caps =
     .has_set_level =  RIG_LEVEL_SET(IC7200_LEVELS),
     .has_get_parm =  IC7200_PARMS,
     .has_set_parm =  RIG_PARM_SET(IC7200_PARMS),
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
+    .level_gran =
+    {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
+#include "level_gran_icom.h"
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
-    .parm_gran =  {},
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BANDSELECT] = {.step = {.s = "BANDUNUSED,BAND160M,BAND80M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}},
+        [PARM_BEEP] = {.min = {.i = 0}, .max = {.i = 1}, .step = {.i = 1}},
+        [PARM_TIME] = {.min = {.i = 0}, .max = {.i = 86399}, .step = {.i = 1}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
+        [PARM_APO] = { .min = { .i = 1 }, .max = { .i = 1439} },
+    },
+
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { 10, RIG_DBLST_END, }, /* FIXME: TBC it's a guess */
@@ -244,9 +255,10 @@ const struct rig_caps ic7200_caps =
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
-    .set_mode =  icom_set_mode_with_data,
-    .get_mode =  icom_get_mode_with_data,
+    .set_mode =  icom_set_mode,
+    .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_ant =  NULL,  /*automatically set by rig depending band */
     .get_ant =  NULL,
 
@@ -280,6 +292,7 @@ const struct rig_caps ic7200_caps =
     .set_split_vfo =  icom_set_split_vfo,
     .get_split_vfo =  NULL,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
 int ic7200_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)

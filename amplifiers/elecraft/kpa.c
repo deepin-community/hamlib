@@ -66,15 +66,15 @@ int kpa_init(AMP *amp)
         return -RIG_EINVAL;
     }
 
-    amp->state.priv = (struct kpa_priv_data *)
-                      malloc(sizeof(struct kpa_priv_data));
+    AMPSTATE(amp)->priv = (struct kpa_priv_data *)
+                          calloc(1, sizeof(struct kpa_priv_data));
 
-    if (!amp->state.priv)
+    if (!AMPSTATE(amp)->priv)
     {
         return -RIG_ENOMEM;
     }
 
-    amp->state.ampport.type.rig = RIG_PORT_SERIAL;
+    AMPPORT(amp)->type.rig = RIG_PORT_SERIAL;
 
     return RIG_OK;
 }
@@ -83,30 +83,25 @@ int kpa_close(AMP *amp)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    if (amp->state.priv) { free(amp->state.priv); }
+    if (AMPSTATE(amp)->priv) { free(AMPSTATE(amp)->priv); }
 
-    amp->state.priv = NULL;
+    AMPSTATE(amp)->priv = NULL;
 
     return RIG_OK;
 }
 
 int kpa_flushbuffer(AMP *amp)
 {
-    struct amp_state *rs;
-
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    rs = &amp->state;
-
-    return rig_flush(&rs->ampport);
+    return rig_flush(AMPPORT(amp));
 }
 
 int kpa_transaction(AMP *amp, const char *cmd, char *response, int response_len)
 {
-    struct amp_state *rs;
+    hamlib_port_t *ampp = AMPPORT(amp);
     int err;
     int len = 0;
-    char responsebuf[KPABUFSZ];
     int loop;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called, cmd=%s\n", __func__, cmd);
@@ -115,33 +110,33 @@ int kpa_transaction(AMP *amp, const char *cmd, char *response, int response_len)
 
     kpa_flushbuffer(amp);
 
-    rs = &amp->state;
-
     loop = 3;
 
     do   // wake up the amp by sending ; until we receive ;
     {
         char c = ';';
         rig_debug(RIG_DEBUG_VERBOSE, "%s waiting for ;\n", __func__);
-        err = write_block(&rs->ampport, &c, 1);
+        err = write_block(ampp, (unsigned char *) &c, 1);
 
         if (err != RIG_OK) { return err; }
 
-        len = read_string(&rs->ampport, responsebuf, KPABUFSZ, ";", 1);
+        len = read_string(ampp, (unsigned char *) response, response_len, ";",
+                          1, 0, 1);
 
         if (len < 0) { return len; }
     }
-    while (--loop > 0 && (len != 1 || responsebuf[0] != ';'));
+    while (--loop > 0 && (len != 1 || response[0] != ';'));
 
     // Now send our command
-    err = write_block(&rs->ampport, cmd, strlen(cmd));
+    err = write_block(ampp, (unsigned char *) cmd, strlen(cmd));
 
     if (err != RIG_OK) { return err; }
 
     if (response) // if response expected get it
     {
-        responsebuf[0] = 0;
-        len = read_string(&rs->ampport, responsebuf, KPABUFSZ, ";", 1);
+        response[0] = 0;
+        len = read_string(ampp, (unsigned char *) response, response_len, ";",
+                          1, 0, 1);
 
         if (len < 0)
         {
@@ -151,21 +146,24 @@ int kpa_transaction(AMP *amp, const char *cmd, char *response, int response_len)
         }
 
         rig_debug(RIG_DEBUG_VERBOSE, "%s called, response='%s'\n", __func__,
-                  responsebuf);
+                  response);
     }
     else   // if no response expected try to get one
     {
+        char responsebuf[KPABUFSZ];
+        responsebuf[0] = 0;
         loop = 3;
 
         do
         {
             char c = ';';
             rig_debug(RIG_DEBUG_VERBOSE, "%s waiting for ;\n", __func__);
-            err = write_block(&rs->ampport, &c, 1);
+            err = write_block(ampp, (unsigned char *) &c, 1);
 
             if (err != RIG_OK) { return err; }
 
-            len = read_string(&rs->ampport, responsebuf, KPABUFSZ, ";", 1);
+            len = read_string(ampp, (unsigned char *) responsebuf, KPABUFSZ, ";", 1,
+                              0, 1);
 
             if (len < 0) { return len; }
         }
@@ -179,6 +177,7 @@ int kpa_transaction(AMP *amp, const char *cmd, char *response, int response_len)
  * Get Info
  * returns the model name string
  */
+// cppcheck-suppress *
 const char *kpa_get_info(AMP *amp)
 {
     const struct amp_caps *rc;
@@ -222,7 +221,7 @@ int kpa_get_freq(AMP *amp, freq_t *freq)
 
 int kpa_set_freq(AMP *amp, freq_t freq)
 {
-    char responsebuf[KPABUFSZ];
+    char responsebuf[KPABUFSZ] = "\0";
     int retval;
     unsigned long tfreq;
     int nargs;
@@ -232,7 +231,7 @@ int kpa_set_freq(AMP *amp, freq_t freq)
 
     if (!amp) { return -RIG_EINVAL; }
 
-    sprintf(cmd, "^FR%05ld;", (long)freq / 1000);
+    SNPRINTF(cmd, sizeof(cmd), "^FR%05ld;", (long)freq / 1000);
     retval = kpa_transaction(amp, cmd, NULL, 0);
 
     if (retval != RIG_OK) { return retval; }
@@ -272,8 +271,7 @@ int kpa_get_level(AMP *amp, setting_t level, value_t *val)
     int pwrinput;
     float float_value = 0;
     int int_value = 0, int_value2 = 0;
-    struct amp_state *rs = &amp->state;
-    struct kpa_priv_data *priv = amp->state.priv;
+    struct kpa_priv_data *priv = AMPSTATE(amp)->priv;
 
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -368,7 +366,9 @@ int kpa_get_level(AMP *amp, setting_t level, value_t *val)
         //
         do
         {
-            retval = read_string(&rs->ampport, responsebuf, sizeof(responsebuf), ";", 1);
+            retval = read_string(AMPPORT(amp), (unsigned char *) responsebuf,
+                                 sizeof(responsebuf), ";", 1, 0,
+                                 1);
 
             if (retval != RIG_OK) { return retval; }
 
@@ -484,7 +484,8 @@ int kpa_get_level(AMP *amp, setting_t level, value_t *val)
         }
 
         rig_debug(RIG_DEBUG_ERR, "%s unknown fault from %s\n", __func__, responsebuf);
-        sprintf(priv->tmpbuf, "Unknown fault code=0x%02x", fault);
+        SNPRINTF(priv->tmpbuf, sizeof(priv->tmpbuf), "Unknown fault code=0x%02x",
+                 fault);
         val->s = priv->tmpbuf;
         return RIG_OK;
 
@@ -505,7 +506,7 @@ int kpa_get_powerstat(AMP *amp, powerstat_t *status)
     int retval;
     int operate;
     int ampon;
-    int nargs = sscanf(responsebuf, "^ON%d", &ampon);
+    int nargs;
 
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -517,6 +518,8 @@ int kpa_get_powerstat(AMP *amp, powerstat_t *status)
     retval = kpa_transaction(amp, "^ON;", responsebuf, sizeof(responsebuf));
 
     if (retval != RIG_OK) { return retval; }
+
+    nargs = sscanf(responsebuf, "^ON%d", &ampon);
 
     if (nargs != 1)
     {

@@ -25,26 +25,21 @@
  *
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "hamlib/rig.h"
 #include "bandplan.h"
 #include "newcat.h"
+#include "yaesu.h"
 #include "ft450.h"
-#include "idx_builtin.h"
 
 /*
  * FT-450 rig capabilities
  */
-const struct rig_caps ft450_caps =
+struct rig_caps ft450_caps =
 {
     RIG_MODEL(RIG_MODEL_FT450),
     .model_name =         "FT-450",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".0",
+    .version =            NEWCAT_VER ".4",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -65,15 +60,28 @@ const struct rig_caps ft450_caps =
     .has_set_func =       FT450_FUNCS,
     .has_get_level =      FT450_LEVELS,
     .has_set_level =      RIG_LEVEL_SET(FT450_LEVELS),
-    .has_get_parm =       RIG_PARM_NONE,
-    .has_set_parm =       RIG_PARM_NONE,
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .has_get_parm =       RIG_PARM_BANDSELECT,
+    .has_set_parm =       RIG_PARM_BANDSELECT,
+    .level_gran =
+    {
+#define NO_LVL_CWPITCH
+#define NO_LVL_NOTCHF
+#define NO_LVL_VOXGAIN
+#define NO_LVL_NR
+#include "level_gran_yaesu.h"
+#undef NO_LVL_CWPITCH
+#undef NO_LVL_NOTCHF
+#undef NO_LVL_VOXGAIN
+#undef NO_LVL_NR
         [LVL_CWPITCH] = { .min = { .i = 400 }, .max = { .i = 800 }, .step = { .i = 100 } },
-        [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
         [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 4000 }, .step = { .i = 10 } },
+        [LVL_VOXGAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 255.0f } },
+        [LVL_NR] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f / 11.0f } },
     },
+    .parm_gran =  {
+        [PARM_BANDSELECT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.s = "BAND160M,BAND80M,BANDUNUSED,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}}
+    },
+
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           NULL,
     .preamp =             { 10, RIG_DBLST_END, }, /* TBC: Not specified in manual */
@@ -81,7 +89,10 @@ const struct rig_caps ft450_caps =
     .max_rit =            Hz(9999),
     .max_xit =            Hz(0),
     .max_ifshift =        Hz(1000),
+    .agc_level_count =    4,
+    .agc_levels =         { RIG_AGC_OFF, RIG_AGC_FAST, RIG_AGC_SLOW, RIG_AGC_AUTO },
     .vfo_ops =            FT450_VFO_OPS,
+    .scan_ops =           RIG_SCAN_VFO,
     .targetable_vfo =     RIG_TARGETABLE_FREQ,
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 450 has an Auto Info command */
     .bank_qty =           0,
@@ -91,6 +102,7 @@ const struct rig_caps ft450_caps =
     .chan_list =          {
         {   1, 500, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP },
         { 501, 504, RIG_MTYPE_EDGE, NEWCAT_MEM_CAP },    /* two by two */
+        {   1,   1, RIG_MTYPE_MORSE },
         RIG_CHAN_END,
     },
 
@@ -162,7 +174,7 @@ const struct rig_caps ft450_caps =
 
     .cfgparams =          newcat_cfg_params,
     .set_conf =           newcat_set_conf,
-    .get_conf =           newcat_get_conf,
+    .get_conf2 =          newcat_get_conf2,
     .set_freq =           newcat_set_freq,
     .get_freq =           newcat_get_freq,
     .set_mode =           newcat_set_mode,
@@ -201,5 +213,11 @@ const struct rig_caps ft450_caps =
     .get_trn =            newcat_get_trn,
     .set_channel =        newcat_set_channel,
     .get_channel =        newcat_get_channel,
-
+    .send_morse =         newcat_send_morse,
+    .wait_morse =         rig_wait_morse,
+    .scan =               newcat_scan,
+    .morse_qsize =        40,
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
+
+struct rig_caps ft450d_caps;

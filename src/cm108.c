@@ -32,19 +32,14 @@
  * CM108 Audio chips found on many USB audio interfaces have controllable
  * General Purpose Input/Output pins.
  */
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/rig.h>
+#include <hamlib/config.h>
 
-#include <stdlib.h>
-#include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
 #include <fcntl.h>   /* File control definitions */
 #include <errno.h>   /* Error number definitions */
-#include <sys/time.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
@@ -71,9 +66,96 @@
 #  include <linux/hidraw.h>
 #endif
 
-#include <hamlib/rig.h>
 #include "cm108.h"
 
+#include <stdio.h>
+
+const char *get_usb_device_class_string(int device_class)
+{
+    switch (device_class)
+    {
+    case 0x00:
+        return "Device Unspecified (Defined at Interface level)";
+
+    case 0x01:
+        return "Audio";
+
+    case 0x02:
+        return "Communications and CDC Control";
+
+    case 0x03:
+        return "Human Interface Device (HID)";
+
+    case 0x05:
+        return "Physical Interface Device";
+
+    case 0x06:
+        return "Image (Scanner, Camera)";
+
+    case 0x07:
+        return "Printer";
+
+    case 0x08:
+        return "Mass Storage";
+
+    case 0x09:
+        return "Hub";
+
+    case 0x0A:
+        return "CDC Data";
+
+    case 0x0B:
+        return "Smart Card";
+
+    case 0x0D:
+        return "Content Security";
+
+    case 0x0E:
+        return "Video";
+
+    case 0x0F:
+        return "Personal Healthcare";
+
+    case 0x10:
+        return "Audio/Video Devices";
+
+    case 0x11:
+        return "Billboard Device Class";
+
+    case 0x12:
+        return "USB Type-C Bridge Class";
+
+    case 0x13:
+        return "Bulk Display";
+
+    case 0x14:
+        return "MCTCP over USB";
+
+    case 0x3C:
+        return "I3C";
+
+    case 0x58:
+        return "Xbox";
+
+    case 0xDC:
+        return "Diagnostic Device";
+
+    case 0xE0:
+        return "Wireless Controller";
+
+    case 0xEF:
+        return "Miscellaneous";
+
+    case 0xFE:
+        return "Application Specific";
+
+    case 0xFF:
+        return "Vendor Specific";
+
+    default:
+        return "Unknown Device Class";
+    }
+}
 
 /**
  * \brief Open CM108 HID port (/dev/hidraw<i>X</i>).
@@ -120,12 +202,13 @@ int cm108_open(hamlib_port_t *port)
 
     if (!ioctl(fd, HIDIOCGRAWINFO, &hiddevinfo)
             && ((hiddevinfo.vendor == 0x0d8c
-                 // CM108/108B/109/119/119A
+                 // CM108/108B/109/119/119A/119B
                  && ((hiddevinfo.product >= 0x0008
                       && hiddevinfo.product <= 0x000f)
                      || hiddevinfo.product == 0x0012
                      || hiddevinfo.product == 0x013a
-                     || hiddevinfo.product == 0x013c))
+                     || hiddevinfo.product == 0x013c
+                     || hiddevinfo.product == 0x0013))
                 // SSS1621/23
                 || (hiddevinfo.vendor == 0x0c76
                     && (hiddevinfo.product == 0x1605
@@ -200,7 +283,7 @@ int cm108_ptt_set(hamlib_port_t *p, ptt_t pttx)
 
     case RIG_PTT_CM108:
     {
-        ssize_t nw;
+        ssize_t bytes;
         char out_rep[] =
         {
             0x00, // report number
@@ -232,9 +315,9 @@ int cm108_ptt_set(hamlib_port_t *p, ptt_t pttx)
         }
 
         // Send the HID packet
-        nw = write(p->fd, out_rep, sizeof(out_rep));
+        bytes = write(p->fd, out_rep, sizeof(out_rep));
 
-        if (nw < 0)
+        if (bytes < 0)
         {
             return -RIG_EIO;
         }
@@ -302,28 +385,118 @@ int cm108_dcd_get(hamlib_port_t *p, dcd_t *dcdx)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    // On the CM108 and compatible chips the squelch line on the radio is
-    // wired to Volume Down input pin.  The state of this pin is reported
-    // in HID messages from the CM108 device, but I am not sure how
-    // to query this state on demand.
+    return RIG_OK;
+}
+#endif
 
-    switch (p->type.dcd)
-    {
-    case RIG_DCD_CM108:
-    {
-        return -RIG_ENIMPL;
-    }
+int cm108_set_bit(hamlib_port_t *p, enum GPIO gpio, int bit)
+{
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    default:
-        rig_debug(RIG_DEBUG_ERR,
-                  "%s: unsupported DCD type %d\n",
-                  __func__,
-                  p->type.dcd);
-        return -RIG_ENAVAIL;
+    ssize_t bytes;
+    char out_rep[] =
+    {
+        0x00, // report number
+        // HID output report
+        0x00,
+        bit ? (1 << (gpio - 1)) : 0, // set GPIO
+        1 << (gpio - 1), // Data direction register (1=output)
+          0x00
+    };
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: out_rep = 0x%02x 0x%02x\n", __func__,
+              out_rep[2], out_rep[3]);
+
+    // Build a packet for CM108 HID to turn GPIO bit on or off.
+    // Packet is 4 bytes, preceded by a 'report number' byte
+    // 0x00 report number
+    // Write data packet (from CM108 documentation)
+    // byte 0: 00xx xxxx     Write GPIO
+    // byte 1: xxxx dcba     GPIO3-0 output values (1=high)
+    // byte 2: xxxx dcba     GPIO3-0 data-direction register (1=output)
+    // byte 3: xxxx xxxx     SPDIF
+
+    // Send the HID packet
+    bytes = write(p->fd, out_rep, sizeof(out_rep));
+
+    if (bytes < 0)
+    {
+        return -RIG_EIO;
     }
 
     return RIG_OK;
 }
-#endif
+
+int cm108_get_bit(hamlib_port_t *p, enum GPIO gpio, int *bit)
+{
+    ssize_t bytes;
+    char reply[4];
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    char in_rep[] =
+    {
+        0x00, // report number
+        0x01, // HID input report
+        0x00,
+        0x00
+    };
+
+    // Send the HID packet
+    bytes = write(p->fd, in_rep, sizeof(in_rep));
+
+    if (bytes < 0)
+    {
+        return -RIG_EIO;
+    }
+
+    bytes = read(p->fd, reply, sizeof(reply));
+
+    if (bytes <= 0)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: read error: %s\n", __func__, strerror(errno));
+        return -RIG_EPROTO;
+    }
+
+    int mask = 1 << (gpio - 1);
+    *bit = (reply[1] & mask) != 0;
+    rig_debug(RIG_DEBUG_VERBOSE,
+              "%s: mask=0x%02x, reply=0x%02x 0x%02x 0x%02x 0x%02x, bit=%d\n", __func__, mask,
+              reply[0], reply[1], reply[2], reply[3], *bit);
+    return RIG_OK;
+}
+
+int rig_cm108_get_bit(hamlib_port_t *p, enum GPIO gpio, int *bit)
+{
+    if (gpio < 1 || gpio > 4)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: gpio must be 1,2,3,4 for cm108\n", __func__);
+        return -RIG_EINVAL;
+    }
+
+    cm108_get_bit(p, gpio, bit);
+    rig_debug(RIG_DEBUG_TRACE, "%s: gpio=%d bit=%d\n", __func__, gpio, *bit);
+    return RIG_OK;
+}
+
+
+int rig_cm108_set_bit(hamlib_port_t *p, enum GPIO gpio, int bit)
+{
+    if (gpio < 1 || gpio > 4)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: gpio must be 1,2,3,4 for cm108\n", __func__);
+        return -RIG_EINVAL;
+    }
+
+    int retval = cm108_set_bit(p, gpio, bit);
+
+    if (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: cm108_set_bit: %s\n", __func__, strerror(retval));
+        return retval;
+    }
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: simulated gpio=%d bit=%d\n", __func__, gpio,
+              bit);
+    return RIG_OK;
+}
+
 
 /** @} */

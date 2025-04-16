@@ -2,16 +2,16 @@ get_conf:		path = "/dev/Rig", retry = 50
 freq:			14266000
 get_mode:		FM
 width:			15000
-get_vfo:		Main
+get_vfo:		VFOA
 Backend copyright:	LGPL
 Model:			Dummy
 Manufacturer:		Hamlib
-Backend version:	20210705.0
+Backend version:	xxx.x
 get_info:		Nothing much (dummy)
 VOX delay:		0
 VOX delay:		5
-get_channel status:	0 = Command completed successfully
-VFO:			VFOA, 14266000
+get_channel status:	0 = rig_ext_lookup called
+VFO:			MainA, 14266000
 Attenuators:		10 20 30 0 0 0 0 0
 
 Sending Morse, '73'

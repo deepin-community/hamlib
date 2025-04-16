@@ -19,21 +19,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
-#include <errno.h>
 
 #include "hamlib/amplifier.h"
 #include "iofunc.h"
-#include "misc.h"
-
-#include "amp_dummy.h"
 
 #define CMD_MAX 32
 #define BUF_MAX 64
@@ -44,15 +34,17 @@
 static int netampctl_transaction(AMP *amp, char *cmd, int len, char *buf)
 {
     int ret;
+    hamlib_port_t *ampp = AMPPORT(amp);
 
-    ret = write_block(&amp->state.ampport, cmd, len);
+    ret = write_block(ampp, (unsigned char *) cmd, len);
 
     if (ret != RIG_OK)
     {
         return ret;
     }
 
-    ret = read_string(&amp->state.ampport, buf, BUF_MAX, "\n", sizeof("\n"));
+    ret = read_string(ampp, (unsigned char *) buf, BUF_MAX, "\n",
+                      sizeof("\n"), 0, 1);
 
     if (ret < 0)
     {
@@ -69,8 +61,9 @@ static int netampctl_transaction(AMP *amp, char *cmd, int len, char *buf)
 
 static int netampctl_open(AMP *amp)
 {
-    int ret, len;
-    //struct amp_state *rs = &amp->state;
+    int ret;
+    //struct amp_state *rs = AMPSTATE(amp);
+    hamlib_port_t *ampp = AMPPORT(amp);
     int pamp_ver;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
@@ -78,9 +71,9 @@ static int netampctl_open(AMP *amp)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
 
-    len = sprintf(cmd, "\\dump_state\n");
+    SNPRINTF(cmd, sizeof(cmd), "\\dump_state\n");
 
-    ret = netampctl_transaction(amp, cmd, len, buf);
+    ret = netampctl_transaction(amp, cmd, strlen(cmd), buf);
 
     if (ret <= 0)
     {
@@ -95,7 +88,9 @@ static int netampctl_open(AMP *amp)
         return -RIG_EPROTO;
     }
 
-    ret = read_string(&amp->state.ampport, buf, BUF_MAX, "\n", sizeof("\n"));
+    ret = read_string(ampp, (unsigned char *) buf, BUF_MAX, "\n",
+                      sizeof("\n"), 0, 1);
+
 
     if (ret <= 0)
     {
@@ -104,7 +99,8 @@ static int netampctl_open(AMP *amp)
 
     do
     {
-        ret = read_string(&amp->state.ampport, buf, BUF_MAX, "\n", sizeof("\n"));
+        ret = read_string(ampp, (unsigned char *) buf, BUF_MAX, "\n",
+                          sizeof("\n"), 0, 1);
 
         if (ret > 0)
         {
@@ -127,7 +123,7 @@ static int netampctl_close(AMP *amp)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     /* clean signoff, no read back */
-    write_block(&amp->state.ampport, "q\n", 2);
+    write_block(AMPPORT(amp), (unsigned char *) "q\n", 2);
 
     return RIG_OK;
 }
@@ -148,15 +144,15 @@ static int netampctl_get_freq(AMP *amp, freq_t *freq)
 #if 0
 static int netampctl_reset(AMP *amp, amp_reset_t reset)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "R %d\n", reset);
+    SNPRINTF(cmd, sizeof(cmd), "R %d\n", reset);
 
-    ret = netampctl_transaction(amp, cmd, len, buf);
+    ret = netampctl_transaction(amp, cmd, strlen(cmd), buf);
 
     if (ret > 0)
     {
@@ -171,15 +167,15 @@ static int netampctl_reset(AMP *amp, amp_reset_t reset)
 
 static const char *netampctl_get_info(AMP *amp)
 {
-    int ret, len;
+    int ret;
     char cmd[CMD_MAX];
     static char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    len = sprintf(cmd, "_\n");
+    SNPRINTF(cmd, sizeof(cmd), "_\n");
 
-    ret = netampctl_transaction(amp, cmd, len, buf);
+    ret = netampctl_transaction(amp, cmd, strlen(cmd), buf);
 
     if (ret < 0)
     {

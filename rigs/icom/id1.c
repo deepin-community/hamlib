@@ -19,15 +19,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdlib.h>
-
 #include "hamlib/rig.h"
 #include "idx_builtin.h"
 #include "icom.h"
+#include "tones.h"
 
 #define ID1_MODES (RIG_MODE_FM /* |RIG_MODE_DIGVOICE|RIG_MODE_DIGDATA*/ )
 
@@ -72,14 +67,14 @@ static struct icom_priv_caps id1_priv_caps =
     id1_ts_sc_list
 };
 
-const struct rig_caps id1_caps =
+struct rig_caps id1_caps =
 {
     RIG_MODEL(RIG_MODEL_ICID1),
     .model_name = "IC ID-1",
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_MOBILE,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -100,9 +95,9 @@ const struct rig_caps id1_caps =
     .has_set_level =  RIG_LEVEL_SET(ID1_LEVEL_ALL),
     .has_get_parm =  ID1_PARM_ALL,
     .has_set_parm =  ID1_PARM_ALL,
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
     .parm_gran =  {},
     .ctcss_list =  common_ctcss_list,
@@ -146,13 +141,13 @@ const struct rig_caps id1_caps =
 
     .tuning_steps =     {
         {ID1_MODES, kHz(5)},
+        {ID1_MODES, kHz(6.25)},
         {ID1_MODES, kHz(10)},
-        {ID1_MODES, 12500},
+        {ID1_MODES, kHz(12.5)},
         {ID1_MODES, kHz(20)},
         {ID1_MODES, kHz(25)},
         {ID1_MODES, kHz(25)},
         {ID1_MODES, kHz(100)},
-        {ID1_MODES, kHz(6.25)},
         RIG_TS_END,
     },
     /* mode/filter list, remember: order matters! */
@@ -174,7 +169,7 @@ const struct rig_caps id1_caps =
     .rig_init =   icom_init,
     .rig_cleanup =   icom_cleanup,
     .rig_open =  icom_rig_open,
-    .rig_close =  icom_rig_open,
+    .rig_close =  icom_rig_close,
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
@@ -198,5 +193,6 @@ const struct rig_caps id1_caps =
     .set_rptr_offs =  icom_set_rptr_offs,
     .get_rptr_offs =  icom_get_rptr_offs,
 
+    .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

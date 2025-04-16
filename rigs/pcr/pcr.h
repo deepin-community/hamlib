@@ -104,7 +104,7 @@ int pcr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
 
 int pcr_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status);
 int pcr_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
-int pcr_set_ext_level(RIG *rig, vfo_t vfo, token_t token, value_t val);
+int pcr_set_ext_level(RIG *rig, vfo_t vfo, hamlib_token_t token, value_t val);
 
 int pcr_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone);
 int pcr_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone);
@@ -121,9 +121,9 @@ int pcr_get_dcd(RIG * rig, vfo_t vfo, dcd_t *dcd);
 // int pcr_get_param(RIG *rig, setting_t parm, value_t *val);
 // int pcr_set_param(RIG *rig, setting_t parm, value_t *val);
 
-extern const struct rig_caps pcr1000_caps;
-extern const struct rig_caps pcr100_caps;
-extern const struct rig_caps pcr1500_caps;
-extern const struct rig_caps pcr2500_caps;
+extern struct rig_caps pcr1000_caps;
+extern struct rig_caps pcr100_caps;
+extern struct rig_caps pcr1500_caps;
+extern struct rig_caps pcr2500_caps;
 
 #endif /* _PCR_H */
