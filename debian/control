@@ -32,9 +32,7 @@ Vcs-Browser: https://salsa.debian.org/debian-hamradio-team/hamlib
 Vcs-Git: https://salsa.debian.org/debian-hamradio-team/hamlib.git
 Rules-Requires-Root: no
 
-Package: libhamlib4t64
-Provides: ${t64:Provides}
-Replaces: libhamlib4
+Package: libhamlib4
 Architecture: any
 Section: libs
 Multi-Arch: same
@@ -43,8 +41,7 @@ Pre-Depends:
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
-Breaks:libhamlib4 (<< ${source:Version}), 
- wsjtx (<< 2.4.0~),
+Breaks:wsjtx (<< 2.4.0~),
  libhamlib-utils (<< 4.1),
 Description: Run-time library to control radio transceivers and receivers
  Most recent amateur radio transceivers allow external control of their
@@ -59,10 +56,7 @@ Description: Run-time library to control radio transceivers and receivers
  This package provides the C run-time form of the library. If you wish to
  develop software using this library you need the 'libhamlib-dev' package.
 
-Package: libhamlib++4t64
-Provides: ${t64:Provides}
-Replaces: libhamlib++4
-Breaks: libhamlib++4 (<< ${source:Version})
+Package: libhamlib++4
 Architecture: any
 Section: libs
 Multi-Arch: same
@@ -90,7 +84,7 @@ Section: libdevel
 Multi-Arch: same
 Depends:
  libc6-dev,
- libhamlib4t64 (= ${binary:Version}),
+ libhamlib4 (= ${binary:Version}),
  libusb-1.0-0-dev [linux-any hurd-any],
  ${misc:Depends},
 Description: Development library to control radio transceivers and receivers
@@ -113,9 +107,9 @@ Section: libdevel
 Multi-Arch: same
 Depends:
  libc6-dev,
- libhamlib++4t64 (= ${binary:Version}),
+ libhamlib++4 (= ${binary:Version}),
  libhamlib-dev (= ${binary:Version}),
- libhamlib4t64 (= ${binary:Version}),
+ libhamlib4 (= ${binary:Version}),
  ${misc:Depends},
 Description: Development C++ library to control radio transceivers and receivers
  Most recent amateur radio transceivers allow external control of their
@@ -198,7 +192,7 @@ Multi-Arch: no
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
- libhamlib4t64 (= ${binary:Version}),
+ libhamlib4 (= ${binary:Version}),
 Description: Utilities to support the hamlib radio control library
  Most recent amateur radio transceivers allow external control of their
  functions through a computer interface. Unfortunately, control commands are
