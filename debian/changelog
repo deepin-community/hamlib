@@ -1,3 +1,9 @@
+hamlib (4.6.2-1.1) unstable; urgency=medium
+
+  * Strip t64
+
+ -- Cryolitia <cryolitia@deepin.org>  Tue, 24 Jun 2025 13:47:50 +0800
+
 hamlib (4.6.2-1) unstable; urgency=medium
 
   * New upstream version 4.6.2.

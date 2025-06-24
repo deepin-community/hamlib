@@ -1,4 +1,4 @@
-libhamlib.so.4 libhamlib4t64 #MINVER#
+libhamlib.so.4 libhamlib4 #MINVER#
  AESStringCrypt@Base 4.5
  AESStringDecrypt@Base 4.5
  CRC16Check@Base 4.6.1
