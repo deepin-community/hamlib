@@ -340,7 +340,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        retcode = amp_set_conf(my_amp, amp_token_lookup(my_amp, mytoken), myvalue);
+        retcode = amp_set_conf(my_amp, lookup, myvalue);
 
         if (retcode != RIG_OK)
         {
@@ -725,7 +725,7 @@ void usage()
            "Daemon serving COMMANDs to a connected amplifier.\n\n");
 
     printf(
-        "  -m, --model=ID                select amplifier model number. See model list\n"
+        "  -m, --model=ID                select amplifier model number. See model list (-l)\n"
         "  -r, --amp-file=DEVICE         set device of the amplifier to operate on\n"
         "  -s, --serial-speed=BAUD       set serial speed of the serial port\n"
         "  -t, --port=NUM                set TCP listening port, default %s\n"
@@ -734,7 +734,7 @@ void usage()
         "  -L, --show-conf               list all config parameters\n"
         "  -l, --list                    list all model numbers and exit\n"
         "  -u, --dump-caps               dump capabilities and exit\n"
-        "  -v, --verbose                 set verbose mode, cumulative\n"
+        "  -v, --verbose                 set verbose mode, cumulative (-v to -vvvvv)\n"
         "  -Z, --debug-time-stamps       enable time stamps for debug messages\n"
         "  -h, --help                    display this help and exit\n"
         "  -V, --version                 output version information and exit\n\n",

@@ -357,6 +357,8 @@ LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 LT_SYS_LIBRARY_PATH = @LT_SYS_LIBRARY_PATH@
 LUA = @LUA@
+LUAJIT_SHORT_VERSION = @LUAJIT_SHORT_VERSION@
+LUAJIT_VERSION = @LUAJIT_VERSION@
 LUA_EXEC_PREFIX = @LUA_EXEC_PREFIX@
 LUA_INCLUDE = @LUA_INCLUDE@
 LUA_LIB = @LUA_LIB@
@@ -1092,7 +1094,10 @@ uninstall-am: uninstall-Hamliblua_laLTLIBRARIES \
 .PRECIOUS: Makefile
 
 
-@ENABLE_PERL_TRUE@hamlibperl_wrap.c: hamlib.swg $(SWIGDEP) ignore.swg rig.swg
+$(top_builddir)/src/libhamlib.la:
+	$(MAKE) -C $(top_builddir)/src/ libhamlib.la
+
+@ENABLE_PERL_TRUE@hamlibperl_wrap.c: $(SWIGDEP)
 @ENABLE_PERL_TRUE@	$(AM_V_GEN)$(SWIG) -perl5 -shadow $(AM_CPPFLAGS) -I$(top_srcdir)/bindings \
 @ENABLE_PERL_TRUE@		-o $@ $$(test -f hamlib.swg || echo '$(srcdir)/')hamlib.swg
 
@@ -1137,12 +1142,13 @@ uninstall-am: uninstall-Hamliblua_laLTLIBRARIES \
 
 @ENABLE_PYTHON_TRUE@Hamlib.py: hamlibpy_wrap.c
 
-@ENABLE_PYTHON_TRUE@hamlibpy_wrap.c: hamlib.swg $(SWGDEP)
+@ENABLE_PYTHON_TRUE@hamlibpy_wrap.c: $(SWGDEP)
 @ENABLE_PYTHON_TRUE@	$(AM_V_GEN)$(SWIG) -python $(AM_CPPFLAGS) $(PYTHON_CPPFLAGS) -I$(top_srcdir)/bindings \
 @ENABLE_PYTHON_TRUE@		-o $@ $$(test -f hamlib.swg || echo '$(srcdir)/')hamlib.swg
 
 @ENABLE_PYTHON_TRUE@install-py:
 @ENABLE_PYTHON_TRUE@clean-py:
+@ENABLE_PYTHON_TRUE@	$(AM_V_at)rm -rf $(builddir)/__pycache__
 @ENABLE_PYTHON_TRUE@distclean-py:
 @ENABLE_PYTHON_TRUE@uninstall-py:
 
@@ -1151,7 +1157,7 @@ uninstall-am: uninstall-Hamliblua_laLTLIBRARIES \
 @ENABLE_TCL_TRUE@pkgIndex.tcl: Makefile
 @ENABLE_TCL_TRUE@	$(AM_V_at)echo 'package ifneeded hamlib $(PKG_VER) [list load [file join $$dir $(DLL)] Hamlib]' > pkgIndex.tcl
 
-@ENABLE_TCL_TRUE@hamlibtcl_wrap.c: hamlib.swg $(SWGDEP)
+@ENABLE_TCL_TRUE@hamlibtcl_wrap.c: $(SWGDEP)
 @ENABLE_TCL_TRUE@	$(AM_V_GEN)$(SWIG) -tcl -pkgversion $(PKG_VER) $(AM_CPPFLAGS) \
 @ENABLE_TCL_TRUE@		-I$(top_srcdir)/bindings \
 @ENABLE_TCL_TRUE@		-o $@ $$(test -f hamlib.swg || echo '$(srcdir)/')hamlib.swg
@@ -1180,7 +1186,7 @@ uninstall-am: uninstall-Hamliblua_laLTLIBRARIES \
 
 @ENABLE_LUA_TRUE@Hamlib.lua: hamliblua_wrap.c
 
-@ENABLE_LUA_TRUE@hamliblua_wrap.c: hamlib.swg $(SWGDEP)
+@ENABLE_LUA_TRUE@hamliblua_wrap.c: $(SWGDEP)
 @ENABLE_LUA_TRUE@	$(AM_V_GEN)$(SWIG) -lua $(AM_CPPFLAGS) -I$(top_srcdir)/bindings \
 @ENABLE_LUA_TRUE@		-o $@ $$(test -f hamlib.swg || echo '$(srcdir)/')hamlib.swg
 

@@ -88,7 +88,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-check_PROGRAMS = testcpp$(EXEEXT)
+@ENABLE_CXX_TRUE@check_PROGRAMS = testcpp$(EXEEXT)
 subdir = c++
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
@@ -146,8 +146,11 @@ am__uninstall_files_from_dir = { \
   }
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libhamlib___la_DEPENDENCIES = $(top_builddir)/src/libhamlib.la
-am_libhamlib___la_OBJECTS = rigclass.lo rotclass.lo ampclass.lo
+@ENABLE_CXX_TRUE@libhamlib___la_DEPENDENCIES =  \
+@ENABLE_CXX_TRUE@	$(top_builddir)/src/libhamlib.la
+am__libhamlib___la_SOURCES_DIST = rigclass.cc rotclass.cc ampclass.cc
+@ENABLE_CXX_TRUE@am_libhamlib___la_OBJECTS = rigclass.lo rotclass.lo \
+@ENABLE_CXX_TRUE@	ampclass.lo
 libhamlib___la_OBJECTS = $(am_libhamlib___la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -157,7 +160,9 @@ libhamlib___la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CXX \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CXXLD) \
 	$(AM_CXXFLAGS) $(CXXFLAGS) $(libhamlib___la_LDFLAGS) \
 	$(LDFLAGS) -o $@
-am_testcpp_OBJECTS = testcpp.$(OBJEXT)
+@ENABLE_CXX_TRUE@am_libhamlib___la_rpath = -rpath $(libdir)
+am__testcpp_SOURCES_DIST = testcpp.cc
+@ENABLE_CXX_TRUE@am_testcpp_OBJECTS = testcpp.$(OBJEXT)
 testcpp_OBJECTS = $(am_testcpp_OBJECTS)
 am__DEPENDENCIES_1 =
 AM_V_P = $(am__v_P_@AM_V@)
@@ -198,7 +203,8 @@ am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
 SOURCES = $(libhamlib___la_SOURCES) $(testcpp_SOURCES)
-DIST_SOURCES = $(libhamlib___la_SOURCES) $(testcpp_SOURCES)
+DIST_SOURCES = $(am__libhamlib___la_SOURCES_DIST) \
+	$(am__testcpp_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -415,7 +421,7 @@ AMP_BACKEND_LIST = @AMP_BACKEND_LIST@
 AMTAR = @AMTAR@
 AM_CFLAGS = @AM_CFLAGS@
 AM_CPPFLAGS = @AM_CPPFLAGS@
-AM_CXXFLAGS = $(CXXFLAGS)
+AM_CXXFLAGS = @AM_CXXFLAGS@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AM_LDFLAGS = @AM_LDFLAGS@
 AR = @AR@
@@ -479,6 +485,8 @@ LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 LT_SYS_LIBRARY_PATH = @LT_SYS_LIBRARY_PATH@
 LUA = @LUA@
+LUAJIT_SHORT_VERSION = @LUAJIT_SHORT_VERSION@
+LUAJIT_VERSION = @LUAJIT_VERSION@
 LUA_EXEC_PREFIX = @LUA_EXEC_PREFIX@
 LUA_INCLUDE = @LUA_INCLUDE@
 LUA_LIB = @LUA_LIB@
@@ -616,16 +624,14 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-lib_LTLIBRARIES = libhamlib++.la
-libhamlib___la_SOURCES = rigclass.cc rotclass.cc ampclass.cc
-libhamlib___la_LDFLAGS = -no-undefined -version-info $(ABI_VERSION):$(ABI_REVISION):$(ABI_AGE) $(LDFLAGS)
-libhamlib___la_LIBADD = $(top_builddir)/src/libhamlib.la
-testcpp_SOURCES = testcpp.cc
-testcpp_LDADD = libhamlib++.la $(top_builddir)/src/libhamlib.la $(top_builddir)/lib/libmisc.la $(DL_LIBS)
-testcpp_DEPENDENCIES = libhamlib++.la
-check_SCRIPTS = testcpp.sh
-TESTS = $(check_SCRIPTS)
-CLEANFILES = testcpp.sh
+@ENABLE_CXX_TRUE@lib_LTLIBRARIES = libhamlib++.la
+@ENABLE_CXX_TRUE@libhamlib___la_SOURCES = rigclass.cc rotclass.cc ampclass.cc
+@ENABLE_CXX_TRUE@libhamlib___la_LDFLAGS = -no-undefined -version-info $(ABI_VERSION):$(ABI_REVISION):$(ABI_AGE) $(LDFLAGS)
+@ENABLE_CXX_TRUE@libhamlib___la_LIBADD = $(top_builddir)/src/libhamlib.la
+@ENABLE_CXX_TRUE@testcpp_SOURCES = testcpp.cc
+@ENABLE_CXX_TRUE@testcpp_LDADD = libhamlib++.la $(top_builddir)/src/libhamlib.la $(top_builddir)/lib/libmisc.la $(DL_LIBS)
+@ENABLE_CXX_TRUE@testcpp_DEPENDENCIES = libhamlib++.la
+@ENABLE_CXX_TRUE@TESTS = $(check_PROGRAMS)
 all: all-am
 
 .SUFFIXES:
@@ -705,7 +711,7 @@ clean-libLTLIBRARIES:
 	}
 
 libhamlib++.la: $(libhamlib___la_OBJECTS) $(libhamlib___la_DEPENDENCIES) $(EXTRA_libhamlib___la_DEPENDENCIES) 
-	$(AM_V_CXXLD)$(libhamlib___la_LINK) -rpath $(libdir) $(libhamlib___la_OBJECTS) $(libhamlib___la_LIBADD) $(LIBS)
+	$(AM_V_CXXLD)$(libhamlib___la_LINK) $(am_libhamlib___la_rpath) $(libhamlib___la_OBJECTS) $(libhamlib___la_LIBADD) $(LIBS)
 
 testcpp$(EXEEXT): $(testcpp_OBJECTS) $(testcpp_DEPENDENCIES) $(EXTRA_testcpp_DEPENDENCIES) 
 	@rm -f testcpp$(EXEEXT)
@@ -930,7 +936,7 @@ $(TEST_SUITE_LOG): $(TEST_LOGS)
 	fi;								\
 	$$success || exit 1
 
-check-TESTS: $(check_PROGRAMS) $(check_SCRIPTS)
+check-TESTS: $(check_PROGRAMS)
 	@list='$(RECHECK_LOGS)';           test -z "$$list" || rm -f $$list
 	@list='$(RECHECK_LOGS:.log=.trs)'; test -z "$$list" || rm -f $$list
 	@test -z "$(TEST_SUITE_LOG)" || rm -f $(TEST_SUITE_LOG)
@@ -940,7 +946,7 @@ check-TESTS: $(check_PROGRAMS) $(check_SCRIPTS)
 	log_list=`echo $$log_list`; trs_list=`echo $$trs_list`; \
 	$(MAKE) $(AM_MAKEFLAGS) $(TEST_SUITE_LOG) TEST_LOGS="$$log_list"; \
 	exit $$?;
-recheck: all $(check_PROGRAMS) $(check_SCRIPTS)
+recheck: all $(check_PROGRAMS)
 	@test -z "$(TEST_SUITE_LOG)" || rm -f $(TEST_SUITE_LOG)
 	@set +e; $(am__set_TESTS_bases); \
 	bases=`for i in $$bases; do echo $$i; done \
@@ -951,9 +957,9 @@ recheck: all $(check_PROGRAMS) $(check_SCRIPTS)
 	        am__force_recheck=am--force-recheck \
 	        TEST_LOGS="$$log_list"; \
 	exit $$?
-testcpp.sh.log: testcpp.sh
-	@p='testcpp.sh'; \
-	b='testcpp.sh'; \
+testcpp.log: testcpp$(EXEEXT)
+	@p='testcpp$(EXEEXT)'; \
+	b='testcpp'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
@@ -1007,7 +1013,7 @@ distdir-am: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS) $(check_SCRIPTS)
+	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-am
 all-am: Makefile $(LTLIBRARIES)
@@ -1040,7 +1046,6 @@ mostlyclean-generic:
 	-test -z "$(TEST_SUITE_LOG)" || rm -f $(TEST_SUITE_LOG)
 
 clean-generic:
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -1147,9 +1152,8 @@ uninstall-am: uninstall-libLTLIBRARIES
 .PRECIOUS: Makefile
 
 
-testcpp.sh:
-	echo 'LD_LIBRARY_PATH=$(top_builddir)/c++/.libs:$(top_builddir)/dummy/.libs ./testcpp' > testcpp.sh
-	chmod +x ./testcpp.sh
+@ENABLE_CXX_TRUE@$(top_builddir)/src/libhamlib.la:
+@ENABLE_CXX_TRUE@	$(MAKE) -C $(top_builddir)/src/ libhamlib.la
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

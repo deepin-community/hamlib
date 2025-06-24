@@ -97,8 +97,8 @@ override_dh_install:
 	rm -fv debian/tmp/usr/lib/lua/*/Hamliblua.a
 	rm -fv debian/tmp/usr/lib/lua/*/Hamliblua.so
 	rm -fv debian/tmp/usr/lib/python*/site-packages/_Hamlib.a
-	rm -fv debian/tmp/usr/lib/*/liblua*-hamlib.a
-	rm -fv debian/tmp/usr/lib/*/liblua*-hamlib.la
+	rm -fv debian/tmp/usr/lib/*/*.a
+	rm -fv debian/tmp/usr/lib/*/*.la
 	rm -fv debian/tmp/usr/lib/*/liblua*-hamlib.so
 	rm -fv debian/tmp/usr/lib/*/pkgconfig/lua*-hamlib.pc
 	rm -fv debian/tmp/usr/lib/*/tcl*/Hamlib/hamlibtcl.a

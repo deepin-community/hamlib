@@ -114,7 +114,8 @@ check_PROGRAMS = simelecraft$(EXEEXT) simicgeneric$(EXEEXT) \
 	simelecraftk4$(EXEEXT) simmicom$(EXEEXT) simflex$(EXEEXT) \
 	simft710$(EXEEXT) simic2730$(EXEEXT) simorion$(EXEEXT) \
 	simpmr171$(EXEEXT) simic7700$(EXEEXT) simft990$(EXEEXT) \
-	simpstrotator$(EXEEXT)
+	simpstrotator$(EXEEXT) simeasycomm$(EXEEXT) \
+	simicr8600$(EXEEXT)
 subdir = simulators
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/macros/ax_append_flag.m4 \
@@ -155,6 +156,11 @@ AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+simeasycomm_SOURCES = simeasycomm.c
+simeasycomm_OBJECTS = simeasycomm.$(OBJEXT)
+simeasycomm_LDADD = $(LDADD)
+simeasycomm_DEPENDENCIES = $(top_builddir)/src/libhamlib.la \
+	$(top_builddir)/lib/libmisc.la $(am__DEPENDENCIES_1)
 am_simelecraft_OBJECTS = simelecraft-simelecraft.$(OBJEXT)
 simelecraft_OBJECTS = $(am_simelecraft_OBJECTS)
 am__DEPENDENCIES_2 = $(top_builddir)/src/libhamlib.la \
@@ -319,6 +325,11 @@ simicgeneric_OBJECTS = simicgeneric.$(OBJEXT)
 simicgeneric_LDADD = $(LDADD)
 simicgeneric_DEPENDENCIES = $(top_builddir)/src/libhamlib.la \
 	$(top_builddir)/lib/libmisc.la $(am__DEPENDENCIES_1)
+simicr8600_SOURCES = simicr8600.c
+simicr8600_OBJECTS = simicr8600.$(OBJEXT)
+simicr8600_LDADD = $(LDADD)
+simicr8600_DEPENDENCIES = $(top_builddir)/src/libhamlib.la \
+	$(top_builddir)/lib/libmisc.la $(am__DEPENDENCIES_1)
 am_simid5100_OBJECTS = simid5100-simid5100.$(OBJEXT)
 simid5100_OBJECTS = $(am_simid5100_OBJECTS)
 simid5100_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
@@ -456,6 +467,7 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include/hamlib
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/simatd578.Po \
+	./$(DEPDIR)/simeasycomm.Po \
 	./$(DEPDIR)/simelecraft-simelecraft.Po \
 	./$(DEPDIR)/simelecraftk4.Po ./$(DEPDIR)/simflex.Po \
 	./$(DEPDIR)/simft1000.Po ./$(DEPDIR)/simft450.Po \
@@ -472,18 +484,19 @@ am__depfiles_remade = ./$(DEPDIR)/simatd578.Po \
 	./$(DEPDIR)/simic7700.Po ./$(DEPDIR)/simic7851.Po \
 	./$(DEPDIR)/simic905.Po ./$(DEPDIR)/simic910.Po \
 	./$(DEPDIR)/simic9100.Po ./$(DEPDIR)/simic9700.Po \
-	./$(DEPDIR)/simicgeneric.Po ./$(DEPDIR)/simid5100-simid5100.Po \
-	./$(DEPDIR)/simjupiter.Po ./$(DEPDIR)/simkenwood-simkenwood.Po \
-	./$(DEPDIR)/simmicom.Po ./$(DEPDIR)/simorion.Po \
-	./$(DEPDIR)/simpmr171.Po ./$(DEPDIR)/simpowersdr.Po \
-	./$(DEPDIR)/simpstrotator.Po ./$(DEPDIR)/simqrplabs.Po \
-	./$(DEPDIR)/simrotorez.Po ./$(DEPDIR)/simspid.Po \
-	./$(DEPDIR)/simtmd700.Po ./$(DEPDIR)/simtmd710.Po \
-	./$(DEPDIR)/simtrusdx.Po ./$(DEPDIR)/simts450.Po \
-	./$(DEPDIR)/simts590.Po ./$(DEPDIR)/simts890.Po \
-	./$(DEPDIR)/simts950.Po ./$(DEPDIR)/simts990.Po \
-	./$(DEPDIR)/simxiegug90.Po ./$(DEPDIR)/simxiegux108g.Po \
-	./$(DEPDIR)/simxiegux6100.Po ./$(DEPDIR)/simyaesu-simyaesu.Po
+	./$(DEPDIR)/simicgeneric.Po ./$(DEPDIR)/simicr8600.Po \
+	./$(DEPDIR)/simid5100-simid5100.Po ./$(DEPDIR)/simjupiter.Po \
+	./$(DEPDIR)/simkenwood-simkenwood.Po ./$(DEPDIR)/simmicom.Po \
+	./$(DEPDIR)/simorion.Po ./$(DEPDIR)/simpmr171.Po \
+	./$(DEPDIR)/simpowersdr.Po ./$(DEPDIR)/simpstrotator.Po \
+	./$(DEPDIR)/simqrplabs.Po ./$(DEPDIR)/simrotorez.Po \
+	./$(DEPDIR)/simspid.Po ./$(DEPDIR)/simtmd700.Po \
+	./$(DEPDIR)/simtmd710.Po ./$(DEPDIR)/simtrusdx.Po \
+	./$(DEPDIR)/simts450.Po ./$(DEPDIR)/simts590.Po \
+	./$(DEPDIR)/simts890.Po ./$(DEPDIR)/simts950.Po \
+	./$(DEPDIR)/simts990.Po ./$(DEPDIR)/simxiegug90.Po \
+	./$(DEPDIR)/simxiegux108g.Po ./$(DEPDIR)/simxiegux6100.Po \
+	./$(DEPDIR)/simyaesu-simyaesu.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -503,32 +516,34 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = simatd578.c $(simelecraft_SOURCES) simelecraftk4.c simflex.c \
-	simft1000.c simft450.c simft710.c simft736.c simft817.c \
-	simft818.c simft847.c simft990.c simft991.c simftdx101.c \
-	simftdx1200.c simftdx3000.c simftdx5000.c simic2730.c \
-	simic275.c simic7000.c simic705.c simic7100.c simic7200.c \
-	simic7300.c simic7600.c simic7610.c simic7700.c simic7851.c \
-	simic905.c simic910.c simic9100.c simic9700.c simicgeneric.c \
-	$(simid5100_SOURCES) simjupiter.c $(simkenwood_SOURCES) \
-	simmicom.c simorion.c simpmr171.c simpowersdr.c \
-	simpstrotator.c simqrplabs.c simrotorez.c simspid.c \
-	simtmd700.c simtmd710.c simtrusdx.c simts450.c simts590.c \
-	simts890.c simts950.c simts990.c simxiegug90.c simxiegux108g.c \
-	simxiegux6100.c $(simyaesu_SOURCES)
-DIST_SOURCES = simatd578.c $(simelecraft_SOURCES) simelecraftk4.c \
-	simflex.c simft1000.c simft450.c simft710.c simft736.c \
-	simft817.c simft818.c simft847.c simft990.c simft991.c \
-	simftdx101.c simftdx1200.c simftdx3000.c simftdx5000.c \
-	simic2730.c simic275.c simic7000.c simic705.c simic7100.c \
-	simic7200.c simic7300.c simic7600.c simic7610.c simic7700.c \
-	simic7851.c simic905.c simic910.c simic9100.c simic9700.c \
-	simicgeneric.c $(simid5100_SOURCES) simjupiter.c \
-	$(simkenwood_SOURCES) simmicom.c simorion.c simpmr171.c \
-	simpowersdr.c simpstrotator.c simqrplabs.c simrotorez.c \
-	simspid.c simtmd700.c simtmd710.c simtrusdx.c simts450.c \
-	simts590.c simts890.c simts950.c simts990.c simxiegug90.c \
-	simxiegux108g.c simxiegux6100.c $(simyaesu_SOURCES)
+SOURCES = simatd578.c simeasycomm.c $(simelecraft_SOURCES) \
+	simelecraftk4.c simflex.c simft1000.c simft450.c simft710.c \
+	simft736.c simft817.c simft818.c simft847.c simft990.c \
+	simft991.c simftdx101.c simftdx1200.c simftdx3000.c \
+	simftdx5000.c simic2730.c simic275.c simic7000.c simic705.c \
+	simic7100.c simic7200.c simic7300.c simic7600.c simic7610.c \
+	simic7700.c simic7851.c simic905.c simic910.c simic9100.c \
+	simic9700.c simicgeneric.c simicr8600.c $(simid5100_SOURCES) \
+	simjupiter.c $(simkenwood_SOURCES) simmicom.c simorion.c \
+	simpmr171.c simpowersdr.c simpstrotator.c simqrplabs.c \
+	simrotorez.c simspid.c simtmd700.c simtmd710.c simtrusdx.c \
+	simts450.c simts590.c simts890.c simts950.c simts990.c \
+	simxiegug90.c simxiegux108g.c simxiegux6100.c \
+	$(simyaesu_SOURCES)
+DIST_SOURCES = simatd578.c simeasycomm.c $(simelecraft_SOURCES) \
+	simelecraftk4.c simflex.c simft1000.c simft450.c simft710.c \
+	simft736.c simft817.c simft818.c simft847.c simft990.c \
+	simft991.c simftdx101.c simftdx1200.c simftdx3000.c \
+	simftdx5000.c simic2730.c simic275.c simic7000.c simic705.c \
+	simic7100.c simic7200.c simic7300.c simic7600.c simic7610.c \
+	simic7700.c simic7851.c simic905.c simic910.c simic9100.c \
+	simic9700.c simicgeneric.c simicr8600.c $(simid5100_SOURCES) \
+	simjupiter.c $(simkenwood_SOURCES) simmicom.c simorion.c \
+	simpmr171.c simpowersdr.c simpstrotator.c simqrplabs.c \
+	simrotorez.c simspid.c simtmd700.c simtmd710.c simtrusdx.c \
+	simts450.c simts590.c simts890.c simts950.c simts990.c \
+	simxiegug90.c simxiegux108g.c simxiegux6100.c \
+	$(simyaesu_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -630,6 +645,8 @@ LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 LT_SYS_LIBRARY_PATH = @LT_SYS_LIBRARY_PATH@
 LUA = @LUA@
+LUAJIT_SHORT_VERSION = @LUAJIT_SHORT_VERSION@
+LUAJIT_VERSION = @LUAJIT_VERSION@
 LUA_EXEC_PREFIX = @LUA_EXEC_PREFIX@
 LUA_INCLUDE = @LUA_INCLUDE@
 LUA_LIB = @LUA_LIB@
@@ -793,11 +810,6 @@ simkenwood_LDFLAGS = $(WINEXELDFLAGS)
 simyaesu_LDFLAGS = $(WINEXELDFLAGS)
 simid5100_LDFLAGS = $(WINEXELDFLAGS)
 EXTRA_DIST = 
-
-# Support 'make check' target for simple tests
-#check_SCRIPTS = 
-
-#TESTS = $(check_SCRIPTS)
 CLEANFILES = simelelecraft simicgeneric simkenwood simyaesu
 all: all-am
 
@@ -894,6 +906,10 @@ clean-checkPROGRAMS:
 simatd578$(EXEEXT): $(simatd578_OBJECTS) $(simatd578_DEPENDENCIES) $(EXTRA_simatd578_DEPENDENCIES) 
 	@rm -f simatd578$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(simatd578_OBJECTS) $(simatd578_LDADD) $(LIBS)
+
+simeasycomm$(EXEEXT): $(simeasycomm_OBJECTS) $(simeasycomm_DEPENDENCIES) $(EXTRA_simeasycomm_DEPENDENCIES) 
+	@rm -f simeasycomm$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(simeasycomm_OBJECTS) $(simeasycomm_LDADD) $(LIBS)
 
 simelecraft$(EXEEXT): $(simelecraft_OBJECTS) $(simelecraft_DEPENDENCIES) $(EXTRA_simelecraft_DEPENDENCIES) 
 	@rm -f simelecraft$(EXEEXT)
@@ -1023,6 +1039,10 @@ simicgeneric$(EXEEXT): $(simicgeneric_OBJECTS) $(simicgeneric_DEPENDENCIES) $(EX
 	@rm -f simicgeneric$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(simicgeneric_OBJECTS) $(simicgeneric_LDADD) $(LIBS)
 
+simicr8600$(EXEEXT): $(simicr8600_OBJECTS) $(simicr8600_DEPENDENCIES) $(EXTRA_simicr8600_DEPENDENCIES) 
+	@rm -f simicr8600$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(simicr8600_OBJECTS) $(simicr8600_LDADD) $(LIBS)
+
 simid5100$(EXEEXT): $(simid5100_OBJECTS) $(simid5100_DEPENDENCIES) $(EXTRA_simid5100_DEPENDENCIES) 
 	@rm -f simid5100$(EXEEXT)
 	$(AM_V_CCLD)$(simid5100_LINK) $(simid5100_OBJECTS) $(simid5100_LDADD) $(LIBS)
@@ -1122,6 +1142,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simatd578.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simeasycomm.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simelecraft-simelecraft.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simelecraftk4.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simflex.Po@am__quote@ # am--include-marker
@@ -1154,6 +1175,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simic9100.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simic9700.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simicgeneric.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simicr8600.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simid5100-simid5100.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simjupiter.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simkenwood-simkenwood.Po@am__quote@ # am--include-marker
@@ -1402,6 +1424,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-am
 		-rm -f ./$(DEPDIR)/simatd578.Po
+	-rm -f ./$(DEPDIR)/simeasycomm.Po
 	-rm -f ./$(DEPDIR)/simelecraft-simelecraft.Po
 	-rm -f ./$(DEPDIR)/simelecraftk4.Po
 	-rm -f ./$(DEPDIR)/simflex.Po
@@ -1434,6 +1457,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/simic9100.Po
 	-rm -f ./$(DEPDIR)/simic9700.Po
 	-rm -f ./$(DEPDIR)/simicgeneric.Po
+	-rm -f ./$(DEPDIR)/simicr8600.Po
 	-rm -f ./$(DEPDIR)/simid5100-simid5100.Po
 	-rm -f ./$(DEPDIR)/simjupiter.Po
 	-rm -f ./$(DEPDIR)/simkenwood-simkenwood.Po
@@ -1503,6 +1527,7 @@ installcheck-am:
 
 maintainer-clean: maintainer-clean-am
 		-rm -f ./$(DEPDIR)/simatd578.Po
+	-rm -f ./$(DEPDIR)/simeasycomm.Po
 	-rm -f ./$(DEPDIR)/simelecraft-simelecraft.Po
 	-rm -f ./$(DEPDIR)/simelecraftk4.Po
 	-rm -f ./$(DEPDIR)/simflex.Po
@@ -1535,6 +1560,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/simic9100.Po
 	-rm -f ./$(DEPDIR)/simic9700.Po
 	-rm -f ./$(DEPDIR)/simicgeneric.Po
+	-rm -f ./$(DEPDIR)/simicr8600.Po
 	-rm -f ./$(DEPDIR)/simid5100-simid5100.Po
 	-rm -f ./$(DEPDIR)/simjupiter.Po
 	-rm -f ./$(DEPDIR)/simkenwood-simkenwood.Po
@@ -1595,6 +1621,14 @@ uninstall-am: uninstall-binPROGRAMS
 
 .PRECIOUS: Makefile
 
+
+# Support 'make check' target for simple tests
+#check_SCRIPTS = 
+
+#TESTS = $(check_SCRIPTS)
+
+$(top_builddir)/src/libhamlib.la:
+	$(MAKE) -C $(top_builddir)/src/ libhamlib.la
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

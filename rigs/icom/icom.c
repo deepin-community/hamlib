@@ -772,8 +772,6 @@ int icom_init(RIG *rig)
     // Reset 0x25/0x26 command detection for the rigs that may support it
     icom_set_x25x26_ability(rig, -1);
 
-    rig_debug(RIG_DEBUG_TRACE, "%s: done\n", __func__);
-
     RETURNFUNC(RIG_OK);
 }
 
@@ -1760,7 +1758,7 @@ int icom_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
     if (vfo == RIG_VFO_MEM && (priv->civ_731_mode || RIG_IS_IC706))
     {
-        // Memory channels have always 5-byte frequqncy
+        // Memory channels have always 5-byte frequency
         rig_debug(RIG_DEBUG_TRACE, "%s: VFO=MEM so turning off civ_731\n", __func__);
         civ_731_mode_save = 1;
         priv->civ_731_mode = 0;
@@ -2441,6 +2439,22 @@ static int icom_set_mode_x26(RIG *rig, vfo_t vfo, rmode_t mode,
         if (width > 10000) { buf[2] = 1; }
         else if (width > 7000) { buf[2] = 2; }
         else if (width > 3) { buf[2] = 3; }
+        // Set "normal" bandwidth explicitly here
+        // when width is zero or even less
+        // (namely RIG_PASSBAND_NORMAL or RIG_PASSBAND_NOCHANGE)
+        else if (width < 1) { buf[2] = 1; }
+
+        if (width == RIG_PASSBAND_NOCHANGE)
+        {
+            buf_len = 1;
+        }
+    }
+    else if (mode == RIG_MODE_WFM)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: wfm_width=%d\n", __func__, (int)width);
+        // For IC-705, there's only one filter mode for WFM
+        // So set always to 1
+        buf[2] = 1;
 
         if (width == RIG_PASSBAND_NOCHANGE)
         {
@@ -2623,8 +2637,8 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
             if (datamode[0] == 0) { datamode[1] = 0; } // the only good combo possible according to manual
 
             // we need to let FM mode widths through here with datamode[1] set to FM width
-            if ((priv_caps->fm_filters[0] != 0) && (mode == RIG_MODE_FM
-                                                    || mode == RIG_MODE_WFM))
+            // (This is not applicable to WFM)
+            if ((priv_caps->fm_filters[0] != 0) && (mode == RIG_MODE_FM))
             {
                 // assumed fm_filters is ascending sequence -- see ic7300.c for example
                 if (width >= 1 && width <= 3) { datamode[1] = width; }
@@ -2650,6 +2664,13 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
             else
             {
                 if (datamode[0] == 0) { datamode[1] = 0; }
+
+                // For IC-705, this is the only valid values for WFM
+                if (RIG_IS_IC705 && (mode == RIG_MODE_WFM))
+                {
+                    datamode[0] = 0;
+                    datamode[1] = 1;    
+                }
 
                 retval = icom_set_mode_x26(rig, vfo, mode, mode_icom, datamode[0], datamode[1],
                                            width);
@@ -2814,8 +2835,8 @@ static int icom_get_mode_without_data(RIG *rig, vfo_t vfo, rmode_t *mode,
                       mode_len == 2 ? modebuf[2] : -1, mode, width);
     }
 
-    if ((RIG_IS_IC7300 || RIG_IS_IC9700) && (*mode == RIG_MODE_FM
-            || *mode == RIG_MODE_PKTFM))
+    if ((RIG_IS_IC7300 || RIG_IS_IC9700 || RIG_IS_IC705) && (*mode == RIG_MODE_FM
+            || *mode == RIG_MODE_PKTFM || *mode == RIG_MODE_WFM))
     {
         // we already have width from icom2rig_mode
         RETURNFUNC2(RIG_OK);
@@ -2847,7 +2868,7 @@ static int icom_get_mode_without_data(RIG *rig, vfo_t vfo, rmode_t *mode,
 
     if (vfo == rs->current_vfo)
     {
-        if (!((RIG_IS_IC7300 || RIG_IS_IC9700) && (*mode == RIG_MODE_FM
+        if (!((RIG_IS_IC7300 || RIG_IS_IC9700 || RIG_IS_IC705) && (*mode == RIG_MODE_FM
                 || *mode == RIG_MODE_PKTFM))) // can't do this in FM mode
         {
             filter_width = icom_get_dsp_flt(rig, *mode);
@@ -2870,12 +2891,17 @@ static int icom_get_mode_without_data(RIG *rig, vfo_t vfo, rmode_t *mode,
     {
         *width = 12000; // some default to 12000
 
-        if (RIG_IS_IC7300 || RIG_IS_IC9700)
+        if (RIG_IS_IC7300 || RIG_IS_IC9700 || RIG_IS_IC705)
         {
             if (priv_data->filter == 1) { *width = 15000; }
             else if (priv_data->filter == 2) { *width = 10000; }
             else if (priv_data->filter == 3) { *width = 7000; }
         }
+    }
+    else if (*mode == RIG_MODE_WFM)
+    {
+        // IC-705 only valid value
+        if (RIG_IS_IC705) { *width = 200000; }
     }
 
     RETURNFUNC2(RIG_OK);
@@ -8091,7 +8117,7 @@ int icom_set_powerstat(RIG *rig, powerstat_t status)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called status=%d\n", __func__,
               (int) status);
 
-    // elimininate retries to speed this up
+    // eliminate retries to speed this up
     // especially important when rig is not turned on
     retry_save = rp->retry;
     timeout_retry_save = rp->timeout_retry;
@@ -9173,12 +9199,12 @@ int icom_process_async_frame(RIG *rig, size_t frame_length,
      * the rest is data
      * and don't forget one byte at the end for the EOM
      */
-    if (frame[2] != 0x00 || frame[2] == 0x01)
+    if (frame[2] != BCASTID && frame[2] != CTRLID)
     {
         // just ignoring 0x01 for now
         // fe fe 01 94 1c 03 00 80 07 07 00 fd
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: 3rd byte not 0x00 or is 0x01...not async\n",
-                  __func__);
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: Unknown/invalid destination - %#x\n",
+                  __func__, frame[2]);
         RETURNFUNC(RIG_OK);
     }
 

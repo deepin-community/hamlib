@@ -149,7 +149,7 @@ int ic9700_set_vfo(RIG *rig, vfo_t vfo);
  */
 #define IC705_PARMS (RIG_PARM_ANN|RIG_PARM_BACKLIGHT|RIG_PARM_SCREENSAVER|RIG_PARM_TIME|RIG_PARM_BEEP|RIG_PARM_KEYERTYPE|RIG_PARM_AFIF|RIG_PARM_AFIF_WLAN)
 #define IC705_ALL_TX_MODES (RIG_MODE_FM|RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_DSTAR)
-#define IC705_ALL_RX_MODES (RIG_MODE_FM|RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_PKTLSB|RIG_MODE_PKTUSB|RIG_MODE_PKTFM|RIG_MODE_PKTAM|RIG_MODE_DSTAR)
+#define IC705_ALL_RX_MODES (RIG_MODE_FM|RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_PKTLSB|RIG_MODE_PKTUSB|RIG_MODE_PKTFM|RIG_MODE_PKTAM|RIG_MODE_DSTAR|RIG_MODE_WFM)
 #define IC705_OTHER_TX_MODES (RIG_MODE_FM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_DSTAR)
 #define IC705_LEVELS (RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_AGC|RIG_LEVEL_COMP|RIG_LEVEL_BKINDL|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_SQL|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_VOXDELAY|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_NB|RIG_LEVEL_SPECTRUM_MODE|RIG_LEVEL_SPECTRUM_SPAN|RIG_LEVEL_SPECTRUM_SPEED|RIG_LEVEL_SPECTRUM_REF|RIG_LEVEL_SPECTRUM_AVG|RIG_LEVEL_SPECTRUM_EDGE_LOW|RIG_LEVEL_SPECTRUM_EDGE_HIGH)
 
@@ -168,6 +168,38 @@ int ic9700_set_vfo(RIG *rig, vfo_t vfo);
          { 183, 7.50f }, \
          { 213, 10.0f }, \
          { 255, 12.0f } \
+    } }
+
+// flrig-2.0.05.93     
+#define IC705_COMP_METER_CAL { 12, \
+    { \
+         { 0, 0.0f }, \
+         { 11, 0.0f }, \
+         { 34, 3.0f }, \
+         { 58, 6.0f }, \
+         { 81, 9.0f }, \
+         { 104, 12.0f }, \
+         { 128, 15.0f }, \
+         { 151, 18.0f }, \
+         { 174, 21.0f }, \
+         { 197, 24.0f }, \
+         { 221, 27.0f }, \
+         { 244, 30.0f } \
+    } }
+
+// flrig-2.0.05.93     
+#define IC705_VD_METER_CAL { 2, \
+    { \
+         { 0, 0.0f }, \
+         { 241, 16.0f } \
+    } }
+
+
+// flrig-2.0.05.93     
+#define IC705_ID_METER_CAL { 2, \
+    { \
+         { 0, 0.0f }, \
+         { 241, 4.0f } \
     } }
 
 /*
@@ -605,7 +637,8 @@ static const struct icom_priv_caps IC705_priv_caps =
     .x1cx03_possibly = 1,
     .x1ax03_supported = 1,
     .mode_with_filter = 1,
-    .data_mode_supported = 1
+    .data_mode_supported = 1,
+    .fm_filters = { 7000, 10000, 15000 }
 };
 
 static const struct icom_priv_caps IC905_priv_caps =
@@ -1466,6 +1499,7 @@ struct rig_caps ic705_caps =
         {RIG_MODE_FM | RIG_MODE_PKTFM, kHz(10)},
         {RIG_MODE_FM | RIG_MODE_PKTFM, kHz(7)},
         {RIG_MODE_FM | RIG_MODE_PKTFM, kHz(15)},
+        {RIG_MODE_WFM, kHz(200)},
         RIG_FLT_END,
     },
 
@@ -1473,9 +1507,9 @@ struct rig_caps ic705_caps =
     .swr_cal = IC7300_SWR_CAL,
     .alc_cal = IC7300_ALC_CAL,
     .rfpower_meter_cal = IC705_RFPOWER_METER_CAL,
-    .comp_meter_cal = IC7300_COMP_METER_CAL,
-    .vd_meter_cal = IC7300_VD_METER_CAL,
-    .id_meter_cal = IC7300_ID_METER_CAL,
+    .comp_meter_cal = IC705_COMP_METER_CAL,
+    .vd_meter_cal = IC705_VD_METER_CAL,
+    .id_meter_cal = IC705_ID_METER_CAL,
 
     .spectrum_scopes = {
         {

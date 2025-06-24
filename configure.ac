@@ -14,7 +14,7 @@ dnl Please do not use '-' in the version number, as package managers will fail,
 dnl however, the use of '~' should be fine as apt (others?) will treat
 dnl it as an earlier version than the actual release.  TNX KA6MAL
 dnl PACKAGE_NAME + " " + PACKAGE_VERSION must not exceed 20 chars!
-AC_INIT([Hamlib],[4.6.2],[hamlib-developer@lists.sourceforge.net],[hamlib],[http://www.hamlib.org])
+AC_INIT([Hamlib],[4.6.3],[hamlib-developer@lists.sourceforge.net],[hamlib],[http://www.hamlib.org])
 #AC_INIT([PRODUCT_NAME], [Hamlib])
 #AC_DEFINE([Hamlib], [PRODUCT_VERSION_RESOURCE])
 
@@ -43,23 +43,23 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 ## ------------------------------ ##
 ## Hamlib specific configuration. ##
 ## ------------------------------ ##
-AC_ARG_ENABLE([shared],
-              [AS_HELP_STRING([--enable-shared],
-                              [Enable shared libraries @<:@default=yes@:>@])],
-              [enable_shared=$enableval],
-              [enable_shared=yes])
-AC_ARG_ENABLE([static],
-              [AS_HELP_STRING([--enable-static],
-                              [Enable static libraries @<:@default=check@:>@])],
-              [enable_static=$enableval],
-              [enable_static=check])
-
-AS_IF([test "x$enable_static" = "xyes"], [
-    enable_shared=no
-])
-AS_IF([test "x$enable_static" = "xyes" && test "x$enable_shared" = "xyes"], [
-    AC_MSG_ERROR([Both --enable-static and --enable-shared cannot be enabled at the same time.])
-])
+dnl AC_ARG_ENABLE([shared],
+dnl               [AS_HELP_STRING([--enable-shared],
+dnl                               [Enable shared libraries @<:@default=yes@:>@])],
+dnl               [enable_shared=$enableval],
+dnl               [enable_shared=yes])
+dnl AC_ARG_ENABLE([static],
+dnl               [AS_HELP_STRING([--enable-static],
+dnl                               [Enable static libraries @<:@default=check@:>@])],
+dnl               [enable_static=$enableval],
+dnl               [enable_static=check])
+dnl
+dnl AS_IF([test "x$enable_static" = "xyes"], [
+dnl     enable_shared=no
+dnl ])
+dnl AS_IF([test "x$enable_static" = "xyes" && test "x$enable_shared" = "xyes"], [
+dnl     AC_MSG_ERROR([Both --enable-static and --enable-shared cannot be enabled at the same time.])
+dnl ])
 
 dnl New backends must be listed here!  Also the new Makefile path must be
 dnl added to AC_CONFIG_FILES near the end of this file.  See README.developer
@@ -76,7 +76,7 @@ dnl See README.release on setting these values
 # Set them here to keep c++/Makefile and src/Makefile in sync.
 ABI_VERSION=4
 ABI_REVISION=6
-ABI_PATCH=2
+ABI_PATCH=3
 ABI_AGE=0
 
 AC_DEFINE_UNQUOTED([ABI_VERSION], [$ABI_VERSION], [Frontend ABI version])
@@ -347,7 +347,7 @@ AC_MSG_CHECKING([whether to build USB dependent backends])
 AC_ARG_WITH([libusb],
     [AS_HELP_STRING([--without-libusb],
 	[disable USB dependent backends @<:@default=yes@:>@])],
-	[cf_with_libusb=no],
+	[cf_with_libusb=$with_libusb],
 	[cf_with_libusb=yes]
     )
 
@@ -381,7 +381,7 @@ AC_MSG_CHECKING([whether to use readline in rigctl/rotctl])
 AC_ARG_WITH([readline],
     [AS_HELP_STRING([--without-readline],
 	[disable readline in rigctl/rotctl @<:@default=yes@:>@])],
-	[cf_with_readline_support=no],
+	[cf_with_readline_support=$with_readline],
 	[cf_with_readline_support=yes]
     )
 
@@ -403,7 +403,7 @@ AC_MSG_CHECKING([whether to use INDI in rigctl/rotctl])
     AC_ARG_WITH([indi],
         [AS_HELP_STRING([--without-indi],
     	[disable INDI in rigctl/rotctl @<:@default=yes@:>@])],
-    	[cf_with_indi_support=yes],
+    	[cf_with_indi_support=$with_indi],
     	[cf_with_indi_support=no]
     )
 #])
@@ -445,11 +445,9 @@ AC_MSG_CHECKING([whether to build HTML rig feature matrix])
 AC_ARG_ENABLE([html-matrix],
     [AS_HELP_STRING([--disable-html-matrix],
 	[do not generate HTML rig feature matrix (requires libgd-dev) @<:@default=check@:>@])],
-	[cf_enable_html_matrix=no],
+	[cf_enable_html_matrix=$enable_html_matrix],
 	[cf_enable_html_matrix=check]
     )
-
-AC_MSG_RESULT([$cf_enable_html_matrix])
 
 AS_IF([test x"$cf_enable_html_matrix" != "xno"],
     [AC_CHECK_HEADERS([gd.h],
@@ -462,6 +460,7 @@ AS_IF([test x"$cf_enable_html_matrix" != "xno"],
 	)
     ])
 
+AC_MSG_RESULT([$cf_enable_html_matrix])
 AM_CONDITIONAL([HTML_MATRIX], [test x"${cf_enable_html_matrix}" = "xyes"])
 
 
@@ -560,6 +559,7 @@ AC_MSG_RESULT([$cf_with_cxx_binding])
 AS_IF([test x"${cf_with_cxx_binding}" = "xyes"],
       [BINDINGS="${BINDINGS} c++"])
 
+AM_CONDITIONAL([ENABLE_CXX], [test x"${cf_with_cxx_binding}" = "xyes"])
 
 dnl Check if perl-binding is wanted, default is to not build it
 
@@ -637,14 +637,14 @@ AS_IF([test x"${build_tcl}" = "xyes"],[
             AC_MSG_WARN([Unable to find Tcl pkgconfig])
             SC_PATH_TCLCONFIG
             SC_LOAD_TCLCONFIG
-        ])
 
-    tcl_save_CPPFLAGS=$CPPFLAGS
-    CPPFLAGS="$CPPFLAGS $TCL_INCLUDE_SPEC"
-    AC_CHECK_HEADERS([tcl.h],
-	[],
-	[AC_MSG_ERROR([Unable to find Tcl headers])])
-    CPPFLAGS=$tcl_save_CPPFLAGS
+            tcl_save_CPPFLAGS=$CPPFLAGS
+            CPPFLAGS="$CPPFLAGS $TCL_INCLUDE_SPEC"
+            AC_CHECK_HEADERS([tcl.h],
+            [],
+            [AC_MSG_ERROR([Unable to find Tcl headers])])
+            CPPFLAGS=$tcl_save_CPPFLAGS
+        ])
 
     BINDING_LIST="${BINDING_LIST} tcl"
     BINDING_ALL="${BINDING_ALL} all-tcl"
@@ -667,6 +667,10 @@ AC_SUBST([TCL_CFLAGS])
 
 
 dnl Check for lua availability, so we can enable HamlibLua
+
+dnl Newer ax_lua.m4 macro, at least Serial 47, requires LUAJIT be present.
+AM_CONDITIONAL([LUAJIT], [false])
+
 # Lua bindings
 AC_MSG_CHECKING([whether to build lua binding])
 AC_ARG_WITH([lua-binding],
@@ -729,8 +733,11 @@ AC_MSG_CHECKING([whether to build winradio backend])
 AC_ARG_ENABLE([winradio],
 	      [AS_HELP_STRING([--disable-winradio],
 			      [do not build winradio backend @<:@default=yes@:>@])],
-	      [cf_with_winradio="no"],
-	      [cf_with_winradio="yes" AC_DEFINE([HAVE_WINRADIO],[1],[Define if winradio backend is built])])
+	      [cf_with_winradio="${enable_winradio}"],
+	      [cf_with_winradio="yes" ])
+AS_IF([test x"${cf_with_winradio}" = "xyes"],
+      [AC_DEFINE([HAVE_WINRADIO],[1],[Define if winradio backend is built])]
+)
 AC_MSG_RESULT([$cf_with_winradio])
 
 dnl Parallel port device disable
@@ -738,8 +745,11 @@ AC_MSG_CHECKING([whether to build parallel port devices])
 AC_ARG_ENABLE([parallel],
 	      [AS_HELP_STRING([--disable-parallel],
 			      [do not build parallel devices @<:@default=yes@:>@])],
-	      [cf_with_parallel="no"],
-	      [cf_with_parallel="yes" AC_DEFINE([HAVE_PARALLEL],[1],[Define if parallel devices are to be built])])
+	      [cf_with_parallel="${enable_parallel}"],
+	      [cf_with_parallel="yes"])
+AS_IF([test x"${cf_with_parallel}" = "xyes"],
+      [AC_DEFINE([HAVE_PARALLEL],[1],[Define if parallel devices are to be built])]
+)
 AC_MSG_RESULT([$cf_with_parallel])
 
 DL_LIBS=""
@@ -811,10 +821,6 @@ echo Build_OS is $build_os
 ## -------------------------------- ##
 
 dnl otherwise parallel 'make -jn' will fail
-
-## ---------------------------------- ##
-## Prepare rig backend dependencies ##
-## ---------------------------------- ##
 
 for be in ${RIG_BACKEND_LIST} ; do
 	RIGDIR=$(echo $be | awk -F "/" '{print $2}')

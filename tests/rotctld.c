@@ -363,7 +363,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        retcode = rot_set_conf(my_rot, rot_token_lookup(my_rot, mytoken), myvalue);
+        retcode = rot_set_conf(my_rot, lookup, myvalue);
 
         if (retcode != RIG_OK)
         {
@@ -768,19 +768,19 @@ void usage()
            "Daemon serving COMMANDs to a connected antenna rotator.\n\n");
 
     printf(
-        "  -m, --model=ID                select rotator model number. See model list\n"
+        "  -m, --model=ID                select rotator model number. See model list (-l)\n"
         "  -r, --rot-file=DEVICE         set device of the rotator to operate on\n"
         "  -R, --rot-file2=DEVICE        set device of the 2nd rotator controller to operate on\n"
         "  -s, --serial-speed=BAUD       set serial speed of the serial port\n"
         "  -t, --port=NUM                set TCP listening port, default %s\n"
         "  -T, --listen-addr=IPADDR      set listening IP address, default ANY\n"
-        "  -C, --set-conf=PARM=VAL       set config parameters\n"
-        "  -o, --set-azoffset==VAL       set offset for azimuth\n"
-        "  -O, --set-eloffset==VAL       set offset for elevation\n"
+        "  -C, --set-conf=PARM=VAL[,...] set config parameters\n"
+        "  -o, --set-azoffset=VAL        set offset for azimuth\n"
+        "  -O, --set-eloffset=VAL        set offset for elevation\n"
         "  -L, --show-conf               list all config parameters\n"
         "  -l, --list                    list all model numbers and exit\n"
         "  -u, --dump-caps               dump capabilities and exit\n"
-        "  -v, --verbose                 set verbose mode, cumulative\n"
+        "  -v, --verbose                 set verbose mode, cumulative (-v to -vvvvv)\n"
         "  -Z, --debug-time-stamps       enable time stamps for debug messages\n"
         "  -h, --help                    display this help and exit\n"
         "  -V, --version                 output version information and exit\n\n",

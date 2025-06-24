@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        retcode = amp_set_conf(my_amp, amp_token_lookup(my_amp, mytoken), myvalue);
+        retcode = amp_set_conf(my_amp, lookup, myvalue);
 
         if (retcode != RIG_OK)
         {
@@ -475,7 +475,7 @@ void usage()
            "Send COMMANDs to a connected amplifier.\n\n");
 
     printf(
-        "  -m, --model=ID                select amplifier model number. See model list\n"
+        "  -m, --model=ID                select amplifier model number. See model list (-l)\n"
         "  -r, --amp-file=DEVICE         set device of the amplifier to operate on\n"
         "  -s, --serial-speed=BAUD       set serial speed of the serial port\n"
         "  -t, --send-cmd-term=CHAR      set send_cmd command termination char\n"
@@ -487,10 +487,12 @@ void usage()
         "  -i, --read-history            read prior interactive session history\n"
         "  -I, --save-history            save current interactive session history\n"
 #endif
-        "  -v, --verbose                 set verbose mode, cumulative\n"
+        "  -v, --verbose                 set verbose mode, cumulative (-v to -vvvvv)\n"
         "  -Z, --debug-time-stamps       enable time stamps for debug messages\n"
         "  -h, --help                    display this help and exit\n"
-        "  -V, --version                 output version information and exit\n\n"
+        "  -V, --version                 output version information and exit\n"
+        "  -                             read commands from standard input\n"
+        "\n"
     );
 
     usage_amp(stdout);

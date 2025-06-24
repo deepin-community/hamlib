@@ -390,15 +390,21 @@ libhamlib.so.4 libhamlib4t64 #MINVER#
  cm108_ptt_set@Base 0
  cm108_set_bit@Base 4.6.1
  cnctrk_rot_caps@Base 0
+ codan_2110_caps@Base 4.6.3
  codan_cleanup@Base 4.5
  codan_close@Base 4.5
+ codan_envoy_caps@Base 4.6.3
  codan_get_freq@Base 4.5
  codan_get_mode@Base 4.5
+ codan_get_ptt_2110@Base 4.6.3
  codan_init@Base 4.5
+ codan_ngt_caps@Base 4.6.3
  codan_open@Base 4.5
  codan_set_freq@Base 4.5
+ codan_set_freq_ngt@Base 4.6.3
  codan_set_mode@Base 4.5
  codan_set_ptt@Base 4.5
+ codan_set_ptt_ngs@Base 4.6.3
  codan_transaction@Base 4.5
  common_ctcss_list@Base 0
  common_dcs_list@Base 0
@@ -621,7 +627,6 @@ libhamlib.so.4 libhamlib4t64 #MINVER#
  elektor507_ftdi_write_data@Base 0
  elektor507_get_conf2@Base 4.5
  elektor507_libusb_setup@Base 0
- envoy_caps@Base 4.5
  erc_rot_caps@Base 0
  errmsg@Base 4.1
  esmc_caps@Base 0
@@ -1601,7 +1606,6 @@ libhamlib.so.4 libhamlib4t64 #MINVER#
  newcat_set_xit@Base 0
  newcat_vfo_op@Base 0
  nexstar_rot_caps@Base 0
- ngs_caps@Base 4.5
  no_restore_ai@Base 0
  nrd525_caps@Base 0
  nrd535_caps@Base 0
@@ -1810,7 +1814,6 @@ libhamlib.so.4 libhamlib4t64 #MINVER#
  read_icom_frame_direct@Base 4.5
  read_string@Base 0
  read_string_direct@Base 4.5
- remove_nonprint@Base 4.6.1
  resetFIFO@Base 4.6.1
  rft_set_freq@Base 0
  rft_transaction@Base 0

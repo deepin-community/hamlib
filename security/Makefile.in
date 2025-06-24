@@ -266,6 +266,8 @@ LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 LT_SYS_LIBRARY_PATH = @LT_SYS_LIBRARY_PATH@
 LUA = @LUA@
+LUAJIT_SHORT_VERSION = @LUAJIT_SHORT_VERSION@
+LUAJIT_VERSION = @LUAJIT_VERSION@
 LUA_EXEC_PREFIX = @LUA_EXEC_PREFIX@
 LUA_INCLUDE = @LUA_INCLUDE@
 LUA_LIB = @LUA_LIB@
@@ -407,7 +409,6 @@ ACLOCAL_AMFLAGS = -I.
 EXTRA_DIST = sctest.c
 noinst_LTLIBRARIES = libsecurity.la
 libsecurity_la_SOURCES = aes.c AESStringCrypt.c password.c security.c sha256.c md5.c aes.h AESStringCrypt.h password.h security.h sha256.h md5.h
-LDADD = $(top_builddir)/src/libhamlib.la
 all: all-am
 
 .SUFFIXES:

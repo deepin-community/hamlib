@@ -579,12 +579,12 @@ static int pmr171_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
               vfob);
 
     // Now grab the ptt status
-    cachep->ptt = reply[6] == 1;
+    cachep->ptt = (reply[6] == 1);
     // And the mode
     cachep->modeMainA = guohe2rmode(reply[7], pmr171_modes);
     cachep->modeMainB = guohe2rmode(reply[8], pmr171_modes);
 
-    if (vfo == RIG_VFO_B) { *freq = cachep->freqMainA; }
+    if (vfo == RIG_VFO_A) { *freq = cachep->freqMainA; }
     else { *freq = cachep->freqMainB; }
 
     return RIG_OK;
@@ -1140,7 +1140,7 @@ static int pmr171_set_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t shift)
     /* Note: this doesn't have effect unless FT817 is in FM mode
        although the command is accepted in any mode.
     */
-    rig_debug(RIG_DEBUG_VERBOSE, "pmr171: set repeter shift = %i\n", shift);
+    rig_debug(RIG_DEBUG_VERBOSE, "pmr171: set repeater shift = %i\n", shift);
 
     switch (shift)
     {
@@ -1163,7 +1163,7 @@ static int pmr171_set_rptr_offs(RIG *rig, vfo_t vfo, shortfreq_t offs)
 {
     unsigned char data[YAESU_CMD_LENGTH - 1];
 
-    rig_debug(RIG_DEBUG_VERBOSE, "pmr171: set repeter offs = %li\n", offs);
+    rig_debug(RIG_DEBUG_VERBOSE, "pmr171: set repeater offs = %li\n", offs);
 
     /* fill in the offset freq */
     to_bcd_be(data, offs / 10, 8);
